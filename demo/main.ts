@@ -1,2 +1,2 @@
-import{createApp}from'vue';import BusinessTablePlugin from'../src';import App from'./App.vue'
+import{createApp}from'vue';import BusinessTablePlugin from'../src';const App=(await (new URLSearchParams(location.search).get('example')==='config'?import('./ConfigExample.vue'):import('./App.vue'))).default
 try{const app=createApp(App);app.config.errorHandler=e=>{console.error('[BusinessTable]',e);document.body.dataset.startupError=String(e)};app.use(BusinessTablePlugin);app.mount('#app')}catch(e){console.error('[BusinessTable startup]',e);document.getElementById('app')!.innerHTML=`<pre>BusinessTable Demo 启动失败\n${String(e)}</pre>`}

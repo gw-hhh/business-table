@@ -1,0 +1,90 @@
+# P0 配置入口与列设置闭环实施计划
+
+> 执行：superpowers:executing-plans；配置解析和 Registry 两个独立模块委派并行 TDD，其余由主代理接入并做整批独立审查。用户明确要求直接实施，本批仅本地开发与验收，不推送。
+
+**Goal:** 建立真实可用的配置入口，严格执行 Feature Gate、局部容灾和列能力约束，保持既有数据查询回归。
+
+**Architecture:** 配置纯函数、功能生命周期、Registry、UI 分文件。ConfiguredBusinessTable 消费新 resolver；原 BusinessTable 保留旧 props，最简 columns/data 改为 Core-only。显式 title/views/actions 是旧 API 的代码声明；Demo 显式开启 Search/Toolbar/ColumnSettings。配置 Runtime 不冒充完整 Headless Data Runtime。
+
+**Tech Stack:** 保持 Vue 3 / TS6 / VXE4.21 / Vite8 / Zod / pnpm10.17.1；不改依赖版本约束。
+
+**Spec:** BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md；LEGACY-MIGRATION.md 第8节。
+
+## 约束与裁定
+
+- 从通过完整门禁的 main `d06979f428cf52bd401a1e41589c190272474a56` 创建 `feature/config-runtime`。
+- 本地main实测22个Vitest和4个Playwright全通过。前置PR2→development、PR3→main已在本次“验收后推送”要求到达前合入；之后禁止新远端写入。
+- 外壳/版本校验先行，但 Feature 详情校验必须 Gate 后；on-interaction 详情和工厂均延迟至激活。
+- 新 Definition 未声明 configurable 默认关闭该能力；旧平面 ColumnConfig 保留原可配置行为。无权列不进入 resolved columns。
+- 新 Preference 使用自有 kind + schemaVersion3；v1兼容当前Vue TableConfig，v2为显式中间协议。旧报价schema2/3不冒充本协议。
+- 原 Persistence<TableConfig> 不接收schema3；Configured入口输出preferenceChange Delta，宿主负责新偏好适配。
+- 本批不宣称完整Search/View Headless、任意Layout或其余高级Feature已完成。
+
+## Task 1：Schema、迁移、能力约束
+
+Files：src/config/columns.ts、schema.ts、types.ts；tests/config.spec.ts。
+
+Interfaces：`guardColumnPatch(column, patch, report?)`、`parsePreference(input, tableKey, report?)`、`resolveConfiguration({definition,remoteOverride,preference,viewColumns}, report?)`、`createPreferenceDelta(tableKey,baseColumns,config,pageSize?)`。
+
+- [x] 写损坏JSON、v1→v2→v3、来源/版本错误、字段局部回退、重复ID、非法pageSize的RED测试。
+- [x] 写固定列不能被Remote/Preference/View隐藏、改顺序或解冻，width约束，合法字段保留与输入不变的RED测试。
+- [x] 实现safeParse与逐字段Guard，禁止Object.assign式任意覆盖；迁移不带Runtime/handler。
+- [x] GREEN后与现有core合用Guard，保留legacy默认开放语义。
+
+```ts
+expect(resolveConfiguration({definition, preference: badPreference}).columns[0])
+  .toMatchObject({id:'Id',visible:true,fixed:'left',width:100})
+```
+
+## Task 2：Gate、延迟生命周期与Registry
+
+Files：src/config/features.ts、src/runtime/feature.ts、registry.ts；tests/features.spec.ts、registry.spec.ts。
+
+- [x] RED：真值表、关闭时throwing详情getter不触发；remote不能修改mode/loadStrategy或扩大allowed items。
+- [x] RED：on-interaction工厂/详情/loader点击前0、点击后1；重复激活复用、加载期间关闭/卸载不提交；失败返回unavailable诊断。
+- [x] RED：重复注册不覆盖、未知ID跳过、renderer回退文本；Allowed ∩ Registered ∩ Visible真实解析到Action handler。
+- [x] 实现后GREEN；Gate watcher属于Core协调，Feature自有state/effect只在开启且满足加载策略后创建。
+
+```ts
+const feature = createFeatureController({local:false, remote:{enabled:true,get details(){throw Error('read')}},create:()=>({value:{}})})
+expect(await feature.activate('on-interaction')).toBeUndefined()
+```
+
+## Task 3：真实组件接入
+
+Files：BusinessTable.vue、ConfiguredBusinessTable.vue、components/ColumnSettings.vue、components/TableSearch.vue、components/ViewSwitcher.vue、components/RowActions.vue、core.ts、index.ts、demo；组件/E2E测试。
+
+- [x] RED：columns/data最简入口没有高级DOM，不读views/actions详情；显式feature保留现有操作。
+- [x] RED：Configured入口使用Guard，固定ID的checked/active+disabled可见，宽度允许修改；坏Preference仍显示数据。
+- [x] RED：列设置首次点击才import面板与读详情；default/custom/headless行为可观察，custom复用受Guard的修改Context。
+- [x] 修复View覆盖个人配置的问题：View列布局单独一层；切换/清除View恢复Preference。
+- [x] 现有Provider22项回归保持；Demo显式配置保留现有功能。
+
+## Task 4：验收
+
+- [x] 完整 frozen install + portability/SFC + vue-tsc + Vitest/mount + declarations/library/Demo + Playwright；四类浏览器错误0。
+- [x] 独立代码审查，必要修复RED→GREEN；检查旧包145文件完整及无src引用。
+- [x] 更新迁移矩阵、使用说明、兼容变化、测试证据；提供本地可访问预览与差异供用户验收。
+- [x] 本地提交；不推送，不创建新PR，不合远端分支，等待用户验收。
+
+## Review Focus
+
+1. Gate关闭但对象getter/store/module仍被读取或执行：Task2 throwing getter与工厂计数。
+2. Remote/Preference/View扩大能力或通过特殊ID覆盖：Task1固定列与未知ID回归。
+3. 延迟加载完成后已卸载/关闭：Task2 deferred模块回归。
+4. Schema局部错误导致整表空白：Task1局部字段、Task3真实组件数据可见。
+5. 最简入口默认行为改变造成Demo或旧Provider回归：Task3显式Feature迁移与原22用例。
+
+## 执行记录与裁定
+
+- Task 1/2/3 已按RED→GREEN执行。新配置31例、功能生命周期15例、Registry9例、真实功能组件7例、Configured入口9例均已运行；原有22例保留。
+- 使用同一独立克隆并行开发互不重叠的模块；计划中的独立整批审查已执行，未重写查询生命周期。
+- 裁定：新Definition默认不开放列可配置能力；旧平面ColumnConfig未声明configurable仍开放原能力。这样保留旧调用行为；调用方需要强约束时须显式迁移Definition。
+- 裁定：旧Persistence继续schema1，新Configured入口只输出schema3差量。旧报价schema2/3拒绝冒充同源协议；迁移旧偏好需适配器。
+- 裁定：最简入口采用Master要求的Core-only；原title/views/actions显式声明兼容，原Search/Toolbar/ColumnSettings调用需补features开关。README与Demo已同步。
+- 裁定：保留UMD单文件兼容产物；实际网络分块使用ESM入口。UMD宿主不能假定具有独立模块请求。
+- 裁定：本批只提供列设置可用上下文与基础FeatureHost，不声称完整Data/Search/View Headless或高级Layout已完成。
+- 独立审查7项均复现并修复：动态动作范围、异步分页配置、失效上下文、on-visible切换、数字精度默认值、renderer异常、动作predicate异常；新增回归包含慢模块加载中权限变化。
+- 冻结allowedValues按钮反馈虽被审查标为P3，本批按用户明确的disabled状态要求一并修复，按钮和写入共用Guard。
+- 视觉检查补充：滑块20px网格压缩、窄屏按钮65px逐字折行，浏览器用例RED后修复。新Configured入口对未声明renderer的列保留既有valueMap样式，另加RED→GREEN回归。
+- 不推送、不建新PR、不合远端；保留本地feature等待用户验收。这是用户最新交付安排，不再额外提出集成菜单。

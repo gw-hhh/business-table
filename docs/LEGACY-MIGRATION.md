@@ -2,7 +2,7 @@
 
 核查日期：2026-09-21。依据完整源码、样式、截图和本次实际运行结果，不能用功能名称或旧测试通过数代替 Vue 实现状态。
 
-## 1. 基线与证据
+## 1. 最初基线与证据（历史）
 
 - Vue 1.0.0：`main@1f62254b72078f47f0aa53b713be521fad3168f9`。
 - `development@42f0a029f6f3111c2dd96d9da5fb70712457060b` 仅多出项目上下文、原迁移矩阵和 reference 说明三份文档，生产代码一致。
@@ -26,21 +26,21 @@
 
 ## 2. 状态与架构边界
 
-矩阵以迁移前 Vue 1.0.0 为基准：**已实现**限于对应行为；**部分实现**仅模型/子集；**未实现/缺失**没有完整路径；**需要重构**存在错误或违反目标架构。批次结果写在文末，不把单个子项修复标成整类完成。
+矩阵保留迁移前 Vue 1.0.0 的源码证据，并在已实施条目写明对应批次进度：**已实现**限于对应行为；**部分实现**仅模型/子集；**未实现/缺失**没有完整路径；**需要重构**存在错误或违反目标架构。**当前 main、本地 feature 和最新视觉迁移状态见第9节**；第2–4节保留初始差异与完整能力清单，第7–8节保留历史执行记录，已被后续实现覆盖的状态以第9节为准。原始 Vue 行号用于定位初始差异，不作为当前文件行号。不把单个子项修复标成整类完成。
 
-旧版回答功能/外观/交互，新版使用 Vue 3、TS 6、VXE Adapter、自有稳定配置协议实现。正式 src 禁止 import/reference 旧代码；旧目录不参与声明、library、Demo build。报价字段、整数分金额、状态编码、业务表单、写入和权限留在 Demo/宿主。配置层级为组件默认→项目默认→用户配置→View→ResolvedConfig；column/action/tool 的 id 稳定，不用标题或下标。数据、配置、视图和界面偏好分开存储；旧 schema 2/3 必须经显式转换，不能直接当作 Vue schema 1。
+旧版回答功能/外观/交互，新版使用 Vue 3、TS 6、VXE Adapter、自有稳定配置协议实现。正式 src 禁止 import/reference 旧代码；旧目录不参与声明、library、Demo build。报价字段、整数分金额、状态编码、业务表单、写入和权限留在 Demo/宿主。按 Master 规范，配置层级为Local Definition→可选Remote Override→Feature Gate→Capability Guard→Preference Delta→View Delta→Registry/Resolver；后台负责角色/项目/用户优先级；column/action/tool 的 id 稳定，不用标题或下标。数据、配置、视图和界面偏好分开存储；旧报价 schema2/3 必须经显式转换，不能直接当作 Vue 自有 Preference；当前 Vue schema1通过自有kind的v2迁移至v3。
 
 ### P0：协议、数据生命周期与发布基础
 
 | 旧版能力 / UI / 交互 | 当前 Vue 状态 | 差异 | 新架构实现方式 | 测试要求 | 优先级 |
 |---|---|---|---|---|---|
-| 同步本地查询；正式目标增加 Provider（旧 core/repository） | 部分：Local/Provider/Query | 无取消/序列保护，旧响应和旧finally覆盖新状态 | AbortController+序号；仅最新请求提交rows/total/error/loading；卸载/切换源取消；独立查询快照 | 乱序成功/失败、忽略signal、加载保持、切换源、卸载、输入不突变 | P0 |
-| 越界分页收敛、空数据第一页、改页尺寸回首页（旧 core.paginate/app） | 需要重构：直接slice | 数据减少或pageSize变化出现第3/1页；watch与查询双发 | Local过滤排序后clamp；Remote依据total补查有效页；统一调度 | 末页删除、空数据、页尺寸变化、搜索/排序/View回首页、远程total缩小 | P0 |
-| 稳定key与白名单 | 部分：column.id/action.id，无tool | 不校验空/重复ID，旧报价白名单不可照搬 | TableDefinition及注册表校验；id与标题独立 | 重排/重命名不串配置，重复ID拒绝，任意业务字段可用 | P0 |
-| 偏好/视图分离；schema2/3升级 | 部分：固定schema1 | Zod未使用，JSON直接信任；View混进用户配置 | parse→migrate→validate→resolve；View独立覆盖层 | 坏JSON/版本/tableKey、分层优先级、View切换恢复、输入不突变 | P0 |
-| 存储失败保留状态、并发版本冲突（旧 repository） | 部分：LocalStorage/HTTP | save无expectedVersion，409泛化；UI先变且保存失败未处理 | 版本化PersistenceAdapter；409类型化错误；失败保留草稿，不静默覆盖 | 配额/读写失败、409、重试、旧适配器兼容、服务端原子版本比较 | P0 |
+| 同步本地查询；正式目标增加 Provider（旧 core/repository） | 已实现：第一批完成Local/Provider生命周期 | 取消、序号、独立快照与旧响应隔离已覆盖；高级Provider适配仍按需求扩展 | AbortController+序号；仅最新请求提交rows/total/error/loading；卸载/切换源取消；独立查询快照 | 乱序成功/失败、忽略signal、加载保持、切换源、卸载、输入不突变 | P0 |
+| 越界分页收敛、空数据第一页、改页尺寸回首页（旧 core.paginate/app） | 已实现：第一批分页收敛；本批配置异步pageSize同步 | Local/Remote越界修正与查询去重已覆盖 | Local过滤排序后clamp；Remote依据total补查有效页；统一调度 | 末页删除、空数据、页尺寸变化、搜索/排序/View回首页、远程total缩小 | P0 |
+| 稳定key与白名单 | 部分：本批列ID与Registry重复检查已完成 | tool等Registry类型槽已定义，完整Toolbar Runtime仍待实现；不照搬旧报价白名单 | TableDefinition及注册表校验；id与标题独立 | 重排/重命名不串配置，重复ID拒绝，任意业务字段可用 | P0 |
+| 偏好/视图分离；schema2/3升级 | 已实现本批基础：Zod局部校验、自有v1→v2→v3、Preference/View分层 | View CRUD/版本冲突仍未实现，旧报价协议需另行适配 | parse→migrate→validate→resolve；View独立覆盖层 | 坏JSON/版本/tableKey、分层优先级、View切换恢复、输入不突变 | P0 |
+| 存储失败保留状态、并发版本冲突（旧 repository） | 部分：读写异常已诊断并隔离，Core继续 | 当前为乐观本地状态；expectedVersion、409分类及确认/回滚草稿仍待实现 | 版本化PersistenceAdapter；409类型化错误；失败保留草稿，不静默覆盖 | 配额/读写失败、409、重试、旧适配器兼容、服务端原子版本比较 | P0 |
 | 受控颜色/字体/URL/结构化文档 | 部分：Vue文本插值 | 配置缺运行时白名单与资源限制 | 数据schema+受控renderer/editor registry；不保存VXE对象 | 非法CSS/URL/脚本、超限文档、备份无函数/业务行/私有状态 | P0 |
-| 明确最终测试和未测边界 | 需要重构：原Gate假绿 | 漏window error，只跑dev，未纳入SFC audit，无lock | 统一错误fixture；dev+生产预览；SFC审计；锁定安装 | 原问题RED；多帧高度稳定与0错误；完整Release Gate | P0 |
+| 明确最终测试和未测边界 | 已实现：第一批补强，本批扩展配置浏览器场景 | 四类错误检查、dev/生产预览、SFC audit及frozen安装已纳入 | 统一错误fixture；dev+生产预览；SFC审计；锁定安装 | 原问题RED；多帧高度稳定与0错误；完整Release Gate | P0 |
 
 ### 业务页面与数据完整性
 
@@ -75,7 +75,7 @@
 | 操作列：inline/more/hidden、排序、形式、对齐、间距、最大行内数；真实宽度不足自动收起；导出二级菜单；删除危险色（`src/actions.js:18-64`；`src/settings.js:311-345`） | 部分：position/order/danger；固定 190px；More 是单层绝对定位 div（`src/BusinessTable.vue:20-22,55-59`；`src/types.ts:17`） | 无 disabled/权限/visibleWhen；无 fit；More 可能被单元格/组件 overflow 裁切；无 click-away/Escape/回焦和二级菜单 | Action registry 保存稳定 action.id；resolver 计算 visible/disabled/reason；列用 ResizeObserver 执行 fit；菜单 teleport 到 overlay host；菜单项与行内按钮共用 action descriptor | 宽度逐级收纳；disabled 不触发 handler且有原因；More/二级菜单键盘；点击外部/Escape/滚动关闭并回焦；危险操作确认 | P1 |
 | 菜单键盘：上下循环、Home/End、Right 开子菜单、Left/Escape 返回、Tab 关闭、关闭后回锚点（`src/menus.js:70-126`） | 缺失 | 当前 More 无 `role=menu/menuitem`、`aria-expanded`，没有方向键/关闭/回焦 | 统一 `MenuOverlay` + roving tabindex 状态机；二级菜单用相同模型；坐标通过 floating layer 计算 | 全键盘流程；首末循环；禁用项跳过；子菜单左右键；窗口 resize/祖先滚动；焦点回原行 | P1 |
 | Dialog/Drawer：原生 dialog 提供 modal inert；补 Tab 循环、cancel、背景点击、首次聚焦、关闭回焦（`src/ui.js:136-213`） | 缺失 | 当前设置 aside 不是模态，也无 close 按钮和焦点边界；视觉上称不上抽屉 | 建立 `Dialog/Drawer` 基础组件，统一 focus trap、initialFocus、returnFocus、Escape、backdrop、scroll lock；嵌套 dialog 管理层级 | Tab/Shift+Tab 循环；Escape；背景关闭策略；嵌套字体搜索/确认框；关闭回焦；屏幕阅读器标题关联 | P1 |
-| hover/focus/disabled：全局 `:focus-visible` 2px；hover 只在可用按钮；disabled cursor+opacity；菜单 focus 与 hover 同态；减少动态效果（`src/styles.css:15,26-27,46-57`；`src/custom.css:49-52`；`src/refinement.css:212`） | 部分：仅 button hover；分页 disabled 依赖浏览器且无专门视觉；输入、菜单、面板、冻结图标缺少统一 focus-visible（`src/style.css:1`） | 鼠标状态有一点，键盘状态断裂；主按钮 disabled/hover 可能仍混淆；无 reduced-motion | 提供 Button/Input/IconButton/MenuItem 状态 token；`focus-visible` 不用 `outline:none`；disabled 与 aria-disabled 分开；全局尊重 reduced motion | 键盘焦点可见；disabled 不产生 hover/点击；高对比/减少动态；错误输入 focus ring + message | P1 |
+| hover/focus/disabled：全局 `:focus-visible` 2px；hover 只在可用按钮；disabled cursor+opacity；菜单 focus 与 hover 同态；减少动态效果（`src/styles.css:15,26-27,46-57`；`src/custom.css:49-52`；`src/refinement.css:212`） | 部分：本批已补button禁用视觉、input/select/button的focus-visible和冻结侧约束；菜单焦点移动、错误输入联动与完整状态token仍缺失（`src/style.css:1`） | 鼠标状态有一点，键盘状态断裂；主按钮 disabled/hover 可能仍混淆；无 reduced-motion | 提供 Button/Input/IconButton/MenuItem 状态 token；`focus-visible` 不用 `outline:none`；disabled 与 aria-disabled 分开；全局尊重 reduced motion | 键盘焦点可见；disabled 不产生 hover/点击；高对比/减少动态；错误输入 focus ring + message | P1 |
 | 设置键盘：页签 Left/Right/Home/End；对齐分段方向键；字体搜索方向键；色板 Escape；拖动列表有上下键替代（`src/settings.js:104-118,194-202`；`src/experience.js:38-84`） | 缺失 | 当前列设置只有原生 checkbox/range/button；没有 tablist/segmented/search picker；排序只靠鼠标点击 | `Tabs`/`SegmentedControl`/`Combobox`/`SortableList` 作为可复用 primitives；拖拽永远配上下移动命令 | 每个控件完整键盘矩阵；roving tabindex；焦点在重渲染后保持；中文输入法不误触快捷键 | P2 |
 | 查询、视图和反馈：顶部查询区、展开高级条件、筛选 chips、未查询提示、命名视图“未保存”提示（`index.html:35-64`） | 部分：一个关键词输入、查询按钮、原生 view select；View 只应用传入配置，不能 CRUD（`src/BusinessTable.vue:32-36,19`） | 缺少高级/列筛选反馈、视图 CRUD/默认/系统与个人区分；切换列配置直接改内存但没有保存或 dirty 表达 | 查询区由业务传 schema，表格维护统一 QueryModel；Filter chips/active count 一方渲染；ViewService CRUD 和权限由 adapter 提供 | 查询前后 pending；清除 chip；视图脏状态；默认/系统视图不可误删；远程查询参数一致 | P2 |
 | 远程加载与加载态：旧版没有真实远程后端，是同步本地 Demo（`README.md:54`） | 有基础 loading：`loading || busy` 交给 VXE，错误有 `role=alert`；但 `load()` 无 AbortController/sequence（`src/BusinessTable.vue:13,28,50`；`src/types.ts:10`） | 快速搜索/分页可被旧响应覆盖；旧请求 finally 可提前关掉新请求 loading；没有保留数据/重试策略和 `aria-busy` 说明 | `useDataQuery` 持有 AbortController + monotonic requestId；只允许最新请求提交 rows/error/busy；区分 initial loading、refreshing、error with stale data | 慢旧请求晚返回；abort 不显示错误；快速翻页 busy 不闪退；失败保留旧数据并可重试；aria-busy/live 文案 | P0 |
@@ -84,7 +84,7 @@
 | 分页与汇总：总数、当前范围、筛选合计、页尺寸、页码、跳页；窄屏收敛为必要控件（`index.html:69-75`；`src/styles.css:153-169,342-345`） | 部分：总数、页数、页尺寸、上一页/下一页（`src/BusinessTable.vue:64`） | 无范围、页码/跳转/汇总；pageSize 改变后不重置页码，可能落到空页；total 变化也未夹紧 page | Pagination model 统一 clamp；可配置 summary slot；桌面数字页码，窄屏 prev/current/next；pageSize 改变回第 1 页 | 删除最后一页数据；改变 pageSize；total 变小；0 条；大页数；390px 不溢出 | P1 |
 | 响应式：700px 下页面工具换行、查询纵排、工具栏分行、表格固定 360px 高并横滚、冻结退化；设置抽屉 800px 全宽、580px 列选择横排（`src/styles.css:319-358`；`src/custom.css:166-198`） | 部分：720px 顶栏纵向、工具条横滚、设置浮层铺满左右（`src/style.css:1`） | 当前只是堆叠与横滚，没有优先级/More；表格和设置的二维/普通内容滚动边界未区分 | 断点围绕容器宽度而非页面；二维表独立横滚，普通表单严禁横溢；设置在 tablet/fullscreen 切换；动作和工具共用 overflow resolver | 1440/1366/768/390/320；容器嵌套窄宽；无 document scrollWidth；表格仍可横滚；底栏不遮内容 | P1 |
 | 富文本：撤销/重做、字体字号、格式、颜色、段落列表、链接/清除；选区混合状态；中文 composition；白名单粘贴；手机全屏（`src/rich-text.js:186-525`；`src/refinement.css:129-138,200-202`） | 缺失 | 当前 schema/renderers 没有富文本插件点 | 作为可选 Renderer/Editor plugin，不进入核心表格；保存 Delta/受控 AST，不保存 HTML；编辑器回填与业务保存分离 | 选区状态/混合格式；Ctrl/Cmd+Z/Y；composition；粘贴清洗；1000 字上限；链接白名单；手机全屏；取消不保存 | P4 |
-| 配置安全与持久化：schema 3、白名单归一化、1–30 字列名、颜色/列宽/工具名校验、恢复到草稿后再应用（`src/customization.js:38-68,144-200`；`src/settings.js:374-437`） | 部分：稳定 column/action id 与 schema 1；`saveConfig` 直接替换并 await persistence，但无校验/迁移失败 UI（`src/types.ts:14-18`；`src/BusinessTable.vue:14-17`） | 当前存储对象简单，但 UI 可写值没有 Zod 边界；保存失败会从事件 promise 冒出，组件没有恢复 applied config | Schema 层负责 parse/migrate/normalize；持久化使用 optimistic 或 confirmed 策略之一并明确回滚；设置只提交通过校验的 ResolvedConfig | 非法旧配置；重复列名；越界宽度；保存失败回滚；schema migration；业务配置不能携带模板/脚本 | P1 |
+| 配置安全与持久化：schema 3、白名单归一化、1–30 字列名、颜色/列宽/工具名校验、恢复到草稿后再应用（`src/customization.js:38-68,144-200`；`src/settings.js:374-437`） | 部分：本批已加入Zod字段校验、schema迁移、能力Guard和保存失败诊断；旧入口保留schema1；`saveConfig` 直接替换并 await persistence，但无校验/迁移失败 UI（`src/types.ts:14-18`；`src/BusinessTable.vue:14-17`） | 当前保存失败已捕获且保留本地状态；草稿/取消、confirmed保存与版本冲突仍待实现 | Schema 层负责 parse/migrate/normalize；持久化使用 optimistic 或 confirmed 策略之一并明确回滚；设置只提交通过校验的 ResolvedConfig | 非法旧配置；重复列名；越界宽度；保存失败回滚；schema migration；业务配置不能携带模板/脚本 | P1 |
 
 ## 4. 规则、数据工具与输出矩阵
 
@@ -183,7 +183,7 @@
 
 批次不是大功能一次合并：每个分支仍按可验证子功能提交。Action基础、Overlay等跨批前置可独立小PR，但必须在矩阵注明归属和依赖。
 
-## 7. 第一批执行记录
+## 7. 第一批执行记录（历史记录）
 
 范围已按用户要求直接执行，不等待新的方案确认。使用当前会话的独立克隆，main保持原始提交；生产变更仅发生在从最新main创建的feature中。
 
@@ -200,3 +200,116 @@
 - 远程验证：[PR #2](https://github.com/gw-hhh/business-table/pull/2) 指向development；代码提交 `cb78255615b06c62e5e30f5598458c216ebe4061` 的 [完整GitHub Actions](https://github.com/gw-hhh/business-table/actions/runs/35570481300) 已真实 **SUCCESS**。这是feature的验证记录，main尚未合入本批。
 - 下一批：`feature/config-protocol`，配置分层、稳定ID校验、codec/migration、Persistence异常及版本冲突；该批仍须从已包含本批的最新main开始。
 - 尚未完成的UI、设置、协议、导出和高级扩展仍保持上文的部分/缺失状态。
+
+## 8. Master Handoff 接续批次（历史记录：配置运行时前置批次）
+
+本节记录视觉还原前的架构前置批次；其中“本批”和未完成项均指当时状态，**最新完成项、门禁和剩余缺口见第9节**。需求优先级仍为：用户最新指示 → `BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md`（100节）→ 本矩阵中的产品完整性基准 → 旧规范中不冲突的约束。第6节原计划保留追踪用途。
+
+### 已核实的基线和交付方式
+
+- 第7节的远端状态是历史记录。PR #2 已进入 development，PR #3 已进入 main；当前 main 为 `d06979f428cf52bd401a1e41589c190272474a56`。
+- 在该 main 上重新执行 frozen install 和完整 Release Gate，退出码均为0；Vitest 22/22、Playwright 4/4，类型检查、SFC/可移植性审计、库/声明/Demo构建通过；四类浏览器错误均为0。日志为本次本地实测，不能替代后续 feature 验证。
+- 从该 main 创建本地 `feature/config-runtime`。遵照用户最新安排，继续本地开发、测试、预览和提交；用户验收前不推送、不创建新PR、不修改远端分支。验收后仍遵循 feature → development → main。
+- 旧包145个文件继续原样保留；新生产代码不得引用 reference。
+
+### 本批架构迁移矩阵
+
+| 旧版能力 / UI / 交互 | 当前 Vue 状态 | 差异 | 新架构实现方式 | 测试要求 | 优先级 |
+|---|---|---|---|---|---|
+| 简单表格与可选工具栏 | 原1.0入口总创建搜索/视图/设置/More状态 | 最简调用应只有Core表格分页 | 显式Feature Gate；兼容旧title/views/actions代码声明；Demo显式启用原有入口 | 最简挂载无高级DOM；OFF详情getter/工厂计数为0；原22测试保留 | P0 本批 |
+| 配置恢复、非法字段容灾 | 只有schema1完整快照，直接合并 | 无版本迁移、局部校验及诊断 | Zod外壳+逐字段校验；自有Preference v1→v2→v3；远端仅可覆盖白名单 | 损坏JSON、错误版本/表ID、重复列ID、部分坏字段保留其余数据 | P0 本批 |
+| 必选列、固定列、列宽 | 显隐/冻结/宽度均无能力Guard | 用户/视图/远端可突破代码约束 | Access/Default/Capability/Constraint分层；UI与写入共用Guard | 锁定列checked/active且disabled可见；合法宽度可改；非法覆盖被拒绝 | P0 本批 |
+| 列设置入口与面板 | 同步内置UI与状态 | 无default/custom/headless及延迟加载 | 分离ColumnSettings；首次交互加载；共享受Guard的Context；关闭/卸载取消迟到结果 | 交互前不读详情/不加载，首次1次、后续复用；失败隔离；custom/headless实际挂载 | P0 本批 |
+| 视图布局与个人布局 | 切View把列覆盖写进个人config | 清除/切换后可能串值 | Preference和View列布局分层解析 | A→B→清除恢复个人布局；不改输入、不发个人保存 | P0 本批；View CRUD后续 |
+| 操作列、More及显示渲染 | 直接传Action函数；无Registry | 配置不能安全引用稳定ID | 代码Registry；Allowed ∩ Registered ∩ Visible；禁用状态保留；未知renderer文本回退 | 重复注册不覆盖；未知ID诊断跳过；远端不能注入handler；disabled不执行 | P0 本批基础；完整溢出/菜单后续 |
+| 设置失败与加载反馈 | Provider已具备取消保护；偏好失败会阻止加载 | 配置错误不能拖垮数据主流程 | 配置诊断回调与安全默认值；偏好失败后继续Core加载 | 加载/保存失败无unhandledrejection；数据可用；四类浏览器错误0 | P0 本批 |
+
+### 当时的分支拆分与未完成范围
+
+1. `feature/config-runtime`：本表P0可验证闭环。保留旧schema1 Persistence，新入口通过preferenceChange输出schema3 Delta；不会把新协议塞进旧适配器。
+2. `feature/settings-draft-layout`：设置草稿/应用/取消、拖动和键盘排序、完整列能力编辑、Layout/Toolbar与Headless适配。
+3. `feature/search-view-runtime`：完整Search/View Runtime、typed筛选、视图CRUD及远端适配。
+4. 原第6节视觉、报价Demo完整性、导出、渲染/编辑及数据工具批次按依赖继续，全部旧版功能仍在第4节逐项追踪。
+
+本批不宣称完整Data Headless Runtime、全部高级Feature或旧版UI已迁移。配置工厂与注册表通过单测仍不足以完成本批，必须真实接入组件并通过完整门禁。
+
+### 本批完成情况
+
+| 条目 | 本地feature结果 | 仍待迁移 |
+|---|---|---|
+| Definition/Preference/Schema | 已接入ConfiguredBusinessTable；逐字段回退、自有版本迁移、差量输出、列ID和能力Guard | 旧报价偏好适配、版本冲突 |
+| Feature Gate/生命周期 | 代码优先，OFF短路；默认UI按需加载；激活后的权限收窄、加载中变更、关闭及卸载有回归 | 尚未实现的高级Feature |
+| 列设置 | 默认/custom/headless共用受Guard上下文；左右图标、受限侧禁用、可用滑块和窄屏工具栏 | 草稿、应用/取消、完整Drawer、排序编辑 |
+| Views | 列配置独立覆盖层，切换与清除恢复个人布局 | View CRUD、权限和完整Runtime |
+| Registry | 类型化ID注册；rowAction和renderer真实接入；未知项回退；坏扩展局部隔离 | 其他Registry槽的完整功能接入 |
+| 数据与原API | 原有22项查询/基础测试保留；异步pageSize配置同步；旧Persistence仍schema1 | 完整报价业务迁移 |
+| UI与视觉 | 修复窄屏按钮换行、滑块宽度、禁用与焦点状态；保留原valueMap样式 | 第3节所有未完成的密度、字体、布局、抽屉、菜单等仍需逐项迁移 |
+
+完整结果及本批边界记录在[本地验收记录](CONFIG-RUNTIME-ACCEPTANCE.md)，接入和兼容变化见[配置入口](CONFIGURATION.md)。
+
+## 9. 旧版视觉还原批次（当前有效）
+
+### 基准、分支和验收范围
+
+用户最新要求以旧版 `index.html` 及六张截图还原外观和交互。本批沿用尚待用户验收的本地 `feature/config-runtime` 修正与补齐，不另起脱离现有实现的页面。main 基线仍是第8节已验证的 `d06979f428cf52bd401a1e41589c190272474a56`；下面的 **137/32** 是本地 feature 最终完整门禁结果，不是 main 或远端 CI 的结果。用户验收前不推送；后续集成继续执行 feature → development → main。
+
+旧版样式按 `styles.css → custom.css → enhancements.css → refinement.css` 的实际级联核对。六种参考画面为主页面、行 More、页面 More、我的视图、快捷列设置、完整设置抽屉。1920×945 目标是主卡片 `(24, 96, 1872, 810)`、表头 **44px**、截图中的双行记录 **73px**、表格工具栏 **56px**、底栏 **57px**。旧版初始普通密度的双行记录约61px，与用户截图的已保存设置不同，不能用初始默认值替代截图目标。同步核对14px正文、12–13px辅助文字、36px查询控件、蓝色 `#2468e8`、6/8px圆角和背景/边框层级。
+
+本批通过真实浏览器几何、语义与交互验收，并对照参考画面检查。没有建立用户截图的逐像素差分基线，不能把布局断言通过写成“所有旧版视觉已逐像素一致”。旧 reference 继续只读；通用 `src/` 保持配置驱动，报价字段、表单、示例数据和文件操作位于 Demo/宿主，不引用旧实现。
+
+### 本批视觉与交互迁移矩阵
+
+| 旧版能力 / UI / 交互 | 当前 Vue 状态 | 差异及剩余范围 | 新架构实现方式 | 测试要求与本批证据 | 优先级 |
+|---|---|---|---|---|---|
+| 页面层级、查询区、主卡片、表体留白和固定底栏 | **已实现本批参考布局**：页头、两行查询、工具栏、条件条、表格和分页分层；1920×945几何目标覆盖 | 任意宿主容器、全部字号/密度组合仍需后续扩展验证 | Demo负责页面布局；通用表格提供查询、工具和汇总插槽，受限高度内由表格滚动 | Playwright断言卡片坐标/尺寸、44px表头、73px记录、底栏位置；390px无文档横溢 | P1 本批 |
+| 字号、行距、配色、边框、状态标签、双行项目/客户 | **已实现对应外观**：链接、辅助文字、浅底状态标签、hover/focus/disabled和细分隔线 | 任意映射图标/边框、完整字体选择与全部主题组合未完成 | 作用域样式与通用单元格渲染；Demo提供双行字段和状态映射 | 页面和六种参考状态对照；正文/表头几何与正式表对齐浏览器验证 | P1 本批 |
+| 行操作和 More：查看/修改、分隔、危险操作、导出子菜单 | **已实现菜单子集**：浮层不受单元格裁剪，键盘导航、Escape/返回与回焦；长菜单可滚动，子菜单限制在视口内 | 行内最大数量、真实宽度自动收纳和操作外观编辑仍未迁移 | 通用 `RowActions`/菜单组件读取代码 Action 描述；回调前按最新配置重检完整祖先链，父节点隐藏/禁用后子项不能继续执行 | 单测覆盖祖先权限变化、禁用、外部关闭、子菜单和长菜单；Playwright覆盖实际菜单位置与Escape回焦；390×240长菜单另作浏览器检查 | P1 本批；外观配置后续 |
+| 页面 More：备份、恢复、示例数据、说明 | **已实现 Demo 流程和菜单外观** | 不等于通用 Header/Toolbar Runtime 或旧备份协议兼容 | 页面工具由宿主提供；报价数据导入导出与表格偏好分离 | 页面 More 可达、外部点击关闭；JSON整批校验测试，损坏/重复记录拒绝 | P1 本批子集 |
+| 我的视图：列表、默认、改名、顺序、删除、更新/另存 | **已实现 Demo 本地流程和弹层外观**；切换“全部报价”改变数据范围 | 服务端视图权限、版本冲突、完整 Search/View Runtime 未完成 | Demo管理命名视图；通用层保持查询快照与 View/Preference 覆盖分离，不持久化VXE对象 | 弹层宽度/实际切换；独立快照、损坏视图、隐藏列保留、离开View恢复个人偏好；切换后清理选择 | P1 本批子集 |
+| 280px快捷列面板：显隐、全选、拖动、双冻结图标、恢复/确认 | **已实现草稿闭环**：取消不改正式配置；锁定列仍可见且受Guard保护；键盘可调整顺序 | 完整旧版批量样式复制不属于快捷面板本批范围 | 独立draft经能力Guard一次提交；左右冻结互斥；更多设置接续同一draft | 单测覆盖取消、确认、全选、锁定、键盘顺序、恢复；Playwright覆盖280px、双pin和取消；关闭完整抽屉后快捷入口仍打开快捷面板 | P1 本批 |
+| 1040px设置抽屉：页签、列侧栏、基本编辑、固定底栏 | **已实现基本设置子集**：列名、宽度、显隐、允许排序、冻结；dirty状态、应用/取消及关闭确认 | 高级页签尚未完成；完整错误定位、所有设置页滚动记忆和持久化冲突恢复仍待补齐 | default/custom/headless继续共享受Guard上下文；抽屉草稿与已应用配置分离 | 无修改应用禁用；草稿接续/预览/一次应用；恢复仅改草稿；dirty关闭确认；取消不保存；390px表单可用 | P1 本批子集 |
+| 表头与正文的字体、字号、字重、对齐、颜色 | **已实现受控基础编辑和正式表应用** | 旧版字体搜索、完整色板、所有批量样式能力尚未迁移 | 自有类型化style字段与白名单；能力声明控制可编辑项；预览和正式表读取解析后的样式 | 非法样式/能力校验、合法偏好保留、与默认相同的差量清理；浏览器验证表头右对齐作用于正式VXE表头 | P1 本批子集 |
+| 多字段排序设置与草稿预览 | **已实现抽屉排序规则子集**：添加、删除、优先级、应用/取消 | 表头筛选、完整列菜单及拖宽持久化仍按原矩阵追踪 | 设置通过稳定列标识查找列，提交现有field/order查询协议；预览排序不提前改变正式查询 | 单测验证预览结果、一次提交和取消新增/删除规则 | P1 本批子集 |
+| 当前对象/整表预览与收起 | **已实现无业务副作用预览子集** | 映射、模板、试算和未迁移设置不能在预览中冒充可用 | 预览读取draft解析结果并保持 `inert`；正式配置只在应用后改变 | 编辑前后正式表隔离、预览内容变化、取消与应用；预览不触发业务操作 | P1 本批子集 |
+| 复选、页内全选/半选、查询与视图切换、记录更新 | **已实现 opt-in Selection 子集**：以rowKey维护选择，查询/View切换清理；更新后批量操作取得最新行数据 | 远端“选中全部结果”token和全部跨页策略未完成 | 通用Selection状态与业务批量handler分离，不保存私有行对象协议 | 未启用不渲染选择；选择事件、查询清理、最新行对象与View回归测试 | P1 本批子集 |
+| 客户/状态/负责人/大区/日期/关键词查询、条件条、汇总分页 | **已实现 Demo 本地查询子集**：草稿提交、展开、条件反馈；默认三条截图记录和合计376,510.00 | 完整typed列筛选、远程选项、多范围聚合仍待迁移 | 宿主组合业务条件；表格接收隔离查询快照、回首页、显示汇总；不把报价逻辑写入Core | 组合条件和包含端点日期测试；独立查询、默认三行、视图切换与分页布局浏览器验证 | P1 本批子集 |
+| 报价新增、修改、详情、复制为草稿、删除确认 | **已实现 Demo 本地流程**，不再仅显示handler文案 | 旧版整数分/状态编码协议适配、并发版本、跨标签页通知和全部业务校验仍需专项迁移 | 独立Demo model、表单和dialog；稳定行ID与局部数据更新 | 必填校验、复制新ID且不改原记录、修改不影响其他行；Dialog首次聚焦、Tab边界和关闭回焦 | P1 本批子集 |
+| JSON备份恢复、CSV导出和模板入口 | **已实现 Demo 本地子集** | 当前JSON为新版Demo协议；没有宣称直接兼容旧备份。Excel、完整导出范围/方案/映射格式与独立ExporterAdapter未完成 | 业务数据独立校验后替换；CSV由宿主生成，通用表格只提供入口/handler | JSON往返、坏记录和重复ID在替换前拒绝；其余格式必须另做实际文件独立解析验收 | P2 部分 |
+| 小屏、鼠标/键盘、弹层焦点与禁用状态 | **已实现本批覆盖场景**：390px页面和抽屉无文档横溢；表格允许内部横滚；菜单和Dialog键盘可用 | 全部旧版组合控件、嵌套弹层及320/768等完整矩阵尚未全部覆盖 | 页面响应式与组件范围样式分离；菜单视口约束；Dialog焦点管理；不削弱可用控件尺寸断言 | 窄屏测试保留滑块宽度要求；主/子菜单、Escape/回焦、禁用和父条件重检；四类浏览器错误均0 | P1 本批子集 |
+
+### 本批测试及 Release Gate
+
+新增/扩展测试按行为归属记录：
+
+- `tests/presentation.spec.ts`：外部查询快照、选择、一次设置提交、快捷/完整入口切换、隐藏列的View快照、最新选中行和View编辑隔离。
+- `tests/column-settings.spec.ts`：草稿确认/取消、双冻结与锁定、键盘顺序、完整抽屉、dirty关闭、样式能力与排序预览。
+- `tests/action-menu.spec.ts`：菜单键盘/回焦、子菜单、禁用及动态祖先权限、长菜单视口约束。
+- `tests/quotation-model.spec.ts`、`tests/quotation-dialog.spec.ts`：Demo组合查询、CRUD、JSON/视图校验与Dialog焦点。
+- `tests/e2e/visual-parity.spec.ts`：8个参考布局和真实交互场景，在开发与生产预览中执行；覆盖主页面、行/页面More、视图、快捷列、完整抽屉、390px和正式表头对齐。保留原有配置、查询、Provider与基础回归测试。
+- `tests/e2e/text-style.spec.ts`：1个真实字号场景，在开发与生产预览中执行。先复现项目/状态20/32px配置被固定14px覆盖，再验证正式表与预览一致、主副文字不裁切；默认14/12px、22/18px行距及73px行高保持。合计新增9个浏览器场景。
+
+上述Bug与功能以真实失败用例推进；菜单祖先权限、快捷入口复用、选择行更新及正式表头对齐均补充了回归。完整门禁首轮发现390px抽屉双列表单使列宽滑块仅167px，未满足已有可用宽度断言；将该断点改为单列表单后重新运行完整门禁，**没有放宽或删除断言**。
+
+第二轮137/30完整门禁通过后，截图复核发现Demo自定义项目/状态单元格字号被固定14px覆盖，已按TDD修复并新增浏览器回归。另取消无头浏览器默认隐藏滚动条的启动参数，让门禁与用户浏览器一致；抽屉整表预览达到y657/高227，并覆盖页签无意出现的1px垂直溢出回归。最终门禁以补充修复后重新执行的结果为准。
+
+| 最终本地完整 Release Gate | 实际结果 |
+|---|---|
+| `verify:release` | **PASS，退出码0** |
+| 可移植性审计、SFC审计、`vue-tsc` | **PASS**；生产代码与旧reference保持隔离 |
+| Vitest | **137/137 PASS** |
+| 声明、library与Demo构建 | **PASS** |
+| Playwright（开发 + 生产预览） | **32/32 PASS**（开发17、生产预览15） |
+| `console.error` / `pageerror` / `window error` / `unhandledrejection` | **0 / 0 / 0 / 0** |
+| 验证范围 | 本地feature代码；不代表远端CI已运行、main已发布或所有旧功能已完成 |
+
+完整文件清单、验证与验收入口见 [VISUAL-PARITY-ACCEPTANCE.md](VISUAL-PARITY-ACCEPTANCE.md)。旧包145/145文件SHA-256再次核对一致；依赖版本和锁文件保持不变。构建保留既有UMD混合导出和包体积提示，不能将这些提示与浏览器运行错误混为一谈。
+
+### 剩余缺口与后续拆分
+
+1. **P1 高级列设置与规则**：typed映射、模板、试算、完整列筛选/选项、富文本与批量样式；补齐实际编辑、预览、校验和应用闭环。建议后续 `feature/column-rules` 按可验证子项拆分，继续使用现有配置/草稿/renderer。
+2. **P1 操作与工具栏配置**：操作/工具名称、形式、顺序、对齐、间距、固定项、真实宽度自动More及完整外观设置；当前可见菜单和Demo工具不代表这些配置已完成。建议 `feature/toolbar-action-settings`。
+3. **P1 配置与Search/View Runtime**：完整Headless/远端适配、服务端权限、`expectedVersion`/409冲突及保留草稿重试；Demo本地View CRUD不替代通用Runtime。建议 `feature/search-view-runtime` 与小范围Persistence冲突批次分开验证。
+4. **P2 输出与业务完整性**：独立ExporterAdapter、Excel、导出范围/方案/模板/映射格式、旧业务备份显式转换、金额精度和并发存储。建议 `feature/export-adapters` 与Demo业务协议适配分别实施；必须解析真实输出文件并验证失败不损坏数据。
+5. **后续完整性**：原第4节组合筛选、条件标记、分组/对比、区域统计、历史/撤销等继续逐项保留，不因主界面接近参考就删除；完整键盘、密度/字号和响应式组合也需随相应功能补足。
+
+本批仍只申明上表明确列出的子集完成。后续新feature必须以已包含依赖批次的最新main为起点；当前本地视觉修正先按用户安排预览验收，再沿原分支流程集成，不跳过任何门禁。

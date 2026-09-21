@@ -16,10 +16,25 @@ npx pnpm@10.17.1 run dev -- --host 127.0.0.1
 ## 快速接入
 
 ```vue
-<BusinessTable table-key="asset.list" row-key="id" :columns="columns" :data-source="dataSource" :persistence="persistence" :views="views" :actions="actions" />
+<BusinessTable :columns="columns" :data="rows" />
 ```
 
 支持本地 data 或远程 dataSource。用户配置使用稳定 column.id 保存，不保存 VXE 内部对象。
+
+最简入口只显示表格和分页。需要原1.0工具入口时显式开启：
+
+```vue
+<BusinessTable
+  table-key="asset.list" row-key="id"
+  :features="{search:true,toolbar:true,columnSettings:true}"
+  :columns="columns" :data-source="dataSource"
+  :persistence="persistence" :views="views" :actions="actions"
+/>
+```
+
+新项目可以使用 `ConfiguredBusinessTable`，由 Definition 声明能力，由 Preference 保存差量。版本、列权限、Feature Gate 和 Registry 的完整接入示例见 [配置入口](docs/CONFIGURATION.md)。开发服务的 `/?example=config` 提供默认、自定义、Headless、Core-only 和远端关闭示例；原报价 Demo 在首页。
+
+当前最高优先级规范为 [Master Handoff](docs/BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md)。它描述最终目标，当前实现范围以迁移矩阵及本批验收记录为准。
 
 ## Release gate
 

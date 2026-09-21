@@ -13,6 +13,7 @@ window.queryRequests = []
 createApp({
   render: () => h(BusinessTable, {
     tableKey: 'test.provider', rowKey: 'id',
+    features: {search:true,toolbar:true},
     columns: [{ id: 'id', field: 'id', title: '编号', width: 180, sortable: true }],
     dataSource: {
       query: (query: Query) => new Promise<QueryResult<RowData>>((resolve, reject) => {

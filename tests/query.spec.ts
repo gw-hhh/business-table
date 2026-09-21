@@ -1,10 +1,12 @@
-import {afterEach,describe,expect,it} from 'vitest'
+import {afterEach,beforeAll,describe,expect,it} from 'vitest'
 import {defineComponent,nextTick,reactive,type PropType} from 'vue'
 import {flushPromises,mount,type VueWrapper} from '@vue/test-utils'
 import BusinessTable from '../src/BusinessTable.vue'
 import type {DataSource,FilterConfig,Query,QueryResult,SortConfig,ViewConfig} from '../src/types'
 
 type Row={id:string;status?:string}
+// These tests isolate Provider sequencing. Lazy module timing is covered separately.
+beforeAll(async()=>{await Promise.all([import('../src/components/TableSearch.vue'),import('../src/components/ViewSwitcher.vue'),import('../src/components/TableToolbar.vue')])})
 
 const VxeTableStub=defineComponent({
   name:'VxeTableStub',
@@ -64,6 +66,7 @@ function mountTable(overrides:Record<string,unknown>={}){
     props:{
       tableKey:'query-tests',
       rowKey:'id',
+      features:{search:true,toolbar:true,views:true},
       columns:[{id:'id',field:'id',title:'编号',sortable:true},{id:'status',field:'status',title:'状态'}],
       ...overrides,
     },

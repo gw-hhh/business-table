@@ -1,5 +1,7 @@
 # BusinessTable — Codex 项目上下文
 
+当前最高优先级需求为 [BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md](BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md)。本文冲突部分以总交接规范为准；用户最新工作流为本地开发、完整验证、用户验收后才推送 GitHub。
+
 ## 核心定位
 
 BusinessTable 不是报价管理页面，而是企业级、跨项目复用、配置驱动的 Vue 3 通用业务表格二次封装。报价管理仅是第一个 Demo / 旧版参考场景。
@@ -28,7 +30,7 @@ Vue 3、TypeScript 6.x、Vite 8、VXE Table 4.21.x、VXE PC UI 类型依赖、Zo
 
 `column.id`、`action.id`、`tool.id` 必须是稳定持久化标识，不能使用中文标题、数组下标或当前显示顺序代替。
 
-配置层级：组件默认 → 项目默认 → 用户配置 → View → ResolvedConfig。
+配置链路：Local Definition → 可选 Remote Override → 外壳校验/迁移 → Feature Gate → Capability Guard → Preference Delta → View Delta → Registry/Feature Resolver。后端负责角色、项目、用户等业务优先级，前端不重建这些业务规则。关闭 Feature 后不读取详情、不初始化功能状态、不加载模块。
 
 ## 产品能力方向
 

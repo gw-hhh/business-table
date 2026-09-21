@@ -1,0 +1,4 @@
+.bt-floating.bt__menu,.bt-floating.bt__submenu{max-width:calc(100vw - 16px);overflow:visible}
+/* Scroll the item list while fixed submenus keep their viewport coordinates. */
+.bt-floating.bt__menu>.bt__menu-items,.bt-floating.bt__submenu>.bt__menu-items{max-height:calc(100dvh - 28px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.bt-floating.bt__submenu{position:fixed;z-index:151}
