@@ -1,0 +1,6 @@
+
+> quotation-manager-refactor@3.1.0 test:navigation
+> python3 tests/navigation_test.py
+
+file {"mode": "file", "native_storage": true, "cross_browser_restart": false, "passed": false, "error": "Page.goto: net::ERR_BLOCKED_BY_ADMINISTRATOR at file:///mnt/data/quotation-polish/quotation-manager-v3/quotation-manager.html\nCall log:\n  - navigating to \"file:///mnt/data/quotation-polish/quotation-manager-v3/quotation-manager.html\", waiting until \"load\"\n", "page_errors": []}
+http {"mode": "http", "native_storage": true, "cross_browser_restart": false, "passed": false, "error": "Page.goto: net::ERR_BLOCKED_BY_ADMINISTRATOR at http://127.0.0.1:43945/index.html\nCall log:\n  - navigating to \"http://127.0.0.1:43945/index.html\", waiting until \"load\"\n", "page_errors": []}

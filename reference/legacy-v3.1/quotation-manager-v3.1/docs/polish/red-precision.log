@@ -1,0 +1,5 @@
+FAIL 数字固定/最多分段选项兼容原最少最多小数位 Locator.click: Timeout 2500ms exceeded.
+Call log:
+  - waiting for locator("#number-precision-max")
+
+RESULT 0 / 1

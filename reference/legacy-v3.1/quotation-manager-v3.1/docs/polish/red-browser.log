@@ -1,0 +1,41 @@
+FAIL 390px 工具栏名称/位置/形式各有足够宽度且不溢出 {'x': 27, 'y': 410.96875, 'width': 34, 'height': 37}
+FAIL 工具栏桌面配置紧凑且有共享列名 Locator expected to have count '2'
+Actual value: 0 
+Call log:
+  - Expect "to_have_count" with timeout 5000ms
+  - waiting for locator(".toolbar-config-heading")
+    9 × locator resolved to 0 elements
+      - unexpected value "0"
+
+FAIL 无修改时应用禁用；修改有摘要，取消不覆盖配置 Locator expected to be disabled
+Actual value: enabled 
+Call log:
+  - Expect "to_be_disabled" with timeout 5000ms
+  - waiting for locator("#settings-apply")
+    9 × locator resolved to <button type="button" id="settings-apply" class="btn btn-primary">应用</button>
+      - unexpected value "enabled"
+
+FAIL 预览跟随工具栏/列，并保留整表和收起切换 Locator expected to have count '2'
+Actual value: 0 
+Call log:
+  - Expect "to_have_count" with timeout 5000ms
+  - waiting for locator(".toolbar-live-preview")
+    9 × locator resolved to 0 elements
+      - unexpected value "0"
+
+FAIL 列设置显示当前编辑对象，批量样式含义明确 Locator expected to contain text '状态'
+Actual value: None
+Error: element(s) not found 
+Call log:
+  - Expect "to_contain_text" with timeout 5000ms
+  - waiting for locator("#editing-column-context")
+
+FAIL 映射显示即时样例且样式可以展开 Locator expected to contain text '草稿'
+Actual value: None
+Error: element(s) not found 
+Call log:
+  - Expect "to_contain_text" with timeout 5000ms
+  - waiting for locator(".mapping-inline-preview").first
+
+FAIL 富文本工具按语义分组并明确回填作用 
+RESULT 0 / 2

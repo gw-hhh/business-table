@@ -1,0 +1,8 @@
+FAIL 工具栏空名称不能保存且定位对应工具 Locator expected to have attribute 'true'
+Actual value: None
+Error: element(s) not found 
+Call log:
+  - Expect "to_have_attribute" with timeout 5000ms
+  - waiting for locator("#tool-label-export-button")
+
+RESULT 0 / 1

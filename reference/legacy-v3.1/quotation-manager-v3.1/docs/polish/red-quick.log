@@ -1,0 +1,9 @@
+FAIL 快捷列面板的未应用修改进入完整设置可直接应用 Locator expected to be enabled
+Actual value: disabled 
+Call log:
+  - Expect "to_be_enabled" with timeout 5000ms
+  - waiting for locator("#settings-apply")
+    9 × locator resolved to <button disabled type="button" title="没有待应用的修改" id="settings-apply" class="btn btn-primary">应用</button>
+      - unexpected value "disabled"
+
+RESULT 0 / 1

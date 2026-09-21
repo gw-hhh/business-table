@@ -1,0 +1,108 @@
+[
+  {
+    "file": "browser-export.xlsx",
+    "zip_crc": "passed",
+    "xml_parts": 6,
+    "independent_parser": "openpyxl",
+    "import": "passed",
+    "first_row": [
+      "报价编号",
+      "项目名称",
+      "客户",
+      "含税金额（元）",
+      "状态",
+      "负责人",
+      "大区",
+      "创建日期",
+      "有效期至",
+      "备注"
+    ],
+    "render": "not_performed"
+  },
+  {
+    "file": "browser-template-blank.xlsx",
+    "zip_crc": "passed",
+    "xml_parts": 7,
+    "independent_parser": "openpyxl",
+    "import": "passed",
+    "first_row": [
+      "报价编号",
+      "项目名称",
+      "客户",
+      "含税金额（元）",
+      "状态",
+      "负责人",
+      "大区",
+      "创建日期",
+      "有效期至",
+      "备注"
+    ],
+    "render": "not_performed"
+  },
+  {
+    "file": "browser-template-example.xlsx",
+    "zip_crc": "passed",
+    "xml_parts": 8,
+    "independent_parser": "openpyxl",
+    "import": "passed",
+    "first_row": [
+      "报价编号",
+      "项目名称",
+      "客户",
+      "含税金额（元）",
+      "状态",
+      "负责人",
+      "大区",
+      "创建日期",
+      "有效期至",
+      "备注"
+    ],
+    "render": "not_performed"
+  },
+  {
+    "file": "rules-mapping-export.xlsx",
+    "zip_crc": "passed",
+    "xml_parts": 6,
+    "independent_parser": "openpyxl",
+    "import": "passed",
+    "first_row": [
+      "报价编号",
+      "项目名称",
+      "客户",
+      "含税金额（元）",
+      "状态（显示值）",
+      "状态（原值）",
+      "负责人",
+      "大区",
+      "创建日期",
+      "有效期至",
+      "备注"
+    ],
+    "render": "not_performed"
+  },
+  {
+    "file": "rules-percent.xlsx",
+    "zip_crc": "passed",
+    "xml_parts": 6,
+    "independent_parser": "openpyxl",
+    "import": "passed",
+    "first_row": [
+      "报价编号",
+      "含税金额（元）（显示值）",
+      "含税金额（元）（原值）"
+    ],
+    "render": "not_performed"
+  },
+  {
+    "file": "rules-scaled.xlsx",
+    "zip_crc": "passed",
+    "xml_parts": 6,
+    "independent_parser": "openpyxl",
+    "import": "passed",
+    "first_row": [
+      "报价编号",
+      "含税金额（元）"
+    ],
+    "render": "not_performed"
+  }
+]

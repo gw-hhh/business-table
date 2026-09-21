@@ -1,0 +1,9 @@
+FAIL 全局颜色错误定位到外观输入，保留修改 Locator expected to have attribute 'true'
+Actual value: None 
+Call log:
+  - Expect "to_have_attribute" with timeout 5000ms
+  - waiting for locator("#appearance-color")
+    9 × locator resolved to <input type="text" maxlength="7" aria-label="内容颜色" placeholder="跟随默认" id="appearance-color"/>
+      - unexpected value "null"
+
+RESULT 0 / 1
