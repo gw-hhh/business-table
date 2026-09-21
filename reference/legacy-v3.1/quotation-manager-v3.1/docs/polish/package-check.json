@@ -1,0 +1,12 @@
+{
+  "version": "3.1.0",
+  "staging_build_exit": 0,
+  "staging_unit_exit": 0,
+  "unit_passed": 95,
+  "html_sha256": "64b5fd6c99de9ebf4b8131064425f706493ec104e822b5643fc59b0da6607488",
+  "same_source_build": true,
+  "zip_crc": "passed",
+  "member_bytes_equal_staging": true,
+  "font_files_included": 0,
+  "scope": "Source copy rebuilt, unit-tested; full archive CRC and every member compared with staged bytes."
+}

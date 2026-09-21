@@ -1,0 +1,584 @@
+
+> quotation-manager-refactor@3.0.0 test
+> node --test tests/*.test.cjs
+
+TAP version 13
+# Subtest: 核心模块提供明确接口
+ok 1 - 核心模块提供明确接口
+  ---
+  duration_ms: 5.536329
+  type: 'test'
+  ...
+# Subtest: 十进制金额精确转换为分
+ok 2 - 十进制金额精确转换为分
+  ---
+  duration_ms: 0.640597
+  type: 'test'
+  ...
+# Subtest: 拒绝非法、负数、超限及多于两位小数金额
+ok 3 - 拒绝非法、负数、超限及多于两位小数金额
+  ---
+  duration_ms: 1.466282
+  type: 'test'
+  ...
+# Subtest: 日期校验不允许不存在的日期
+ok 4 - 日期校验不允许不存在的日期
+  ---
+  duration_ms: 2.832173
+  type: 'test'
+  ...
+# Subtest: 关键词归一化，原数据不变
+ok 5 - 关键词归一化，原数据不变
+  ---
+  duration_ms: 4.525853
+  type: 'test'
+  ...
+# Subtest: 高级筛选：大区、负责人、创建日期闭区间
+ok 6 - 高级筛选：大区、负责人、创建日期闭区间
+  ---
+  duration_ms: 0.796557
+  type: 'test'
+  ...
+# Subtest: 我负责的未结包含草稿和评审，但不含他人和合同
+ok 7 - 我负责的未结包含草稿和评审，但不含他人和合同
+  ---
+  duration_ms: 4.023748
+  type: 'test'
+  ...
+# Subtest: 反向或非法查询日期被拒绝
+ok 8 - 反向或非法查询日期被拒绝
+  ---
+  duration_ms: 0.29471
+  type: 'test'
+  ...
+# Subtest: 排序持续作用于过滤后数据并且不修改源数组
+ok 9 - 排序持续作用于过滤后数据并且不修改源数组
+  ---
+  duration_ms: 2.358154
+  type: 'test'
+  ...
+# Subtest: 分页自动收敛到最后一页，空数据保持第一页
+ok 10 - 分页自动收敛到最后一页，空数据保持第一页
+  ---
+  duration_ms: 0.966241
+  type: 'test'
+  ...
+# Subtest: 冻结列偏移含选择列且累计左右宽度
+ok 11 - 冻结列偏移含选择列且累计左右宽度
+  ---
+  duration_ms: 0.639534
+  type: 'test'
+  ...
+# Subtest: 列设置必须保留编号，未知列不会进入结果
+ok 12 - 列设置必须保留编号，未知列不会进入结果
+  ---
+  duration_ms: 0.761205
+  type: 'test'
+  ...
+# Subtest: CSV 包含 BOM，文本转义并防止公式直接执行
+ok 13 - CSV 包含 BOM，文本转义并防止公式直接执行
+  ---
+  duration_ms: 0.718135
+  type: 'test'
+  ...
+# Subtest: 表单验证不接受空名称和有效期早于创建日期
+ok 14 - 表单验证不接受空名称和有效期早于创建日期
+  ---
+  duration_ms: 0.666557
+  type: 'test'
+  ...
+# Subtest: 原始六条演示记录核心字段保留且金额准确
+ok 15 - 原始六条演示记录核心字段保留且金额准确
+  ---
+  duration_ms: 0.379462
+  type: 'test'
+  ...
+# Subtest: 负数差额格式化保留负号和两位小数
+ok 16 - 负数差额格式化保留负号和两位小数
+  ---
+  duration_ms: 63.648137
+  type: 'test'
+  ...
+# Subtest: 别名与原始字段分离且保留内容/表头样式
+ok 17 - 别名与原始字段分离且保留内容/表头样式
+  ---
+  duration_ms: 6.890441
+  type: 'test'
+  ...
+# Subtest: 不可信颜色、字体及范围被白名单归一化
+ok 18 - 不可信颜色、字体及范围被白名单归一化
+  ---
+  duration_ms: 0.561371
+  type: 'test'
+  ...
+# Subtest: 允许关闭业务列排序，操作列不能启用排序
+ok 19 - 允许关闭业务列排序，操作列不能启用排序
+  ---
+  duration_ms: 1.284316
+  type: 'test'
+  ...
+# Subtest: 旧单字段排序迁移为排序数组
+ok 20 - 旧单字段排序迁移为排序数组
+  ---
+  duration_ms: 4.548168
+  type: 'test'
+  ...
+# Subtest: 显式清空新排序不恢复过期单排序
+ok 21 - 显式清空新排序不恢复过期单排序
+  ---
+  duration_ms: 0.957729
+  type: 'test'
+  ...
+# Subtest: 多字段排序稳定且空值始终最后
+ok 22 - 多字段排序稳定且空值始终最后
+  ---
+  duration_ms: 18.934846
+  type: 'test'
+  ...
+# Subtest: 关闭列排序会清除视图中该字段规则且去重
+ok 23 - 关闭列排序会清除视图中该字段规则且去重
+  ---
+  duration_ms: 0.652213
+  type: 'test'
+  ...
+# Subtest: 空值占位符不会吞掉零金额
+ok 24 - 空值占位符不会吞掉零金额
+  ---
+  duration_ms: 71.211139
+  type: 'test'
+  ...
+# Subtest: 金额显示四舍五入与小数位控制
+ok 25 - 金额显示四舍五入与小数位控制
+  ---
+  duration_ms: 1.441974
+  type: 'test'
+  ...
+# Subtest: 日期格式仅影响显示
+ok 26 - 日期格式仅影响显示
+  ---
+  duration_ms: 1.110497
+  type: 'test'
+  ...
+# Subtest: 操作设置过滤未知操作且危险操作名称不可伪装
+ok 27 - 操作设置过滤未知操作且危险操作名称不可伪装
+  ---
+  duration_ms: 0.831553
+  type: 'test'
+  ...
+# Subtest: 默认行内查看修改，其余进入更多，导出含两个子按钮
+ok 28 - 默认行内查看修改，其余进入更多，导出含两个子按钮
+  ---
+  duration_ms: 0.553931
+  type: 'test'
+  ...
+# Subtest: 重复或空白列名在应用时拒绝
+ok 29 - 重复或空白列名在应用时拒绝
+  ---
+  duration_ms: 2.940958
+  type: 'test'
+  ...
+# Subtest: 样式配置完整进入视图快照与比较键
+ok 30 - 样式配置完整进入视图快照与比较键
+  ---
+  duration_ms: 6.906559
+  type: 'test'
+  ...
+# Subtest: 对比度计算准确
+ok 31 - 对比度计算准确
+  ---
+  duration_ms: 0.61048
+  type: 'test'
+  ...
+# Subtest: 设置备份不包含报价数据且拒绝其他业务备份
+ok 32 - 设置备份不包含报价数据且拒绝其他业务备份
+  ---
+  duration_ms: 3.867221
+  type: 'test'
+  ...
+# Subtest: 颜色手动输入错误时拒绝应用，空颜色仍可继承默认
+ok 33 - 颜色手动输入错误时拒绝应用，空颜色仍可继承默认
+  ---
+  duration_ms: 1.050734
+  type: 'test'
+  ...
+# Subtest: 体验摘要：不修改原快照，不改变业务键
+ok 34 - 体验摘要：不修改原快照，不改变业务键
+  ---
+  duration_ms: 12.792748
+  type: 'test'
+  ...
+# Subtest: 体验摘要：无变化不产生待保存项目
+ok 35 - 体验摘要：无变化不产生待保存项目
+  ---
+  duration_ms: 18.734884
+  type: 'test'
+  ...
+# Subtest: 体验摘要：工具栏和外观归入各自分类
+ok 36 - 体验摘要：工具栏和外观归入各自分类
+  ---
+  duration_ms: 4.922265
+  type: 'test'
+  ...
+# Subtest: 体验摘要：隐藏列样式仍被追踪而不清除
+ok 37 - 体验摘要：隐藏列样式仍被追踪而不清除
+  ---
+  duration_ms: 1.812763
+  type: 'test'
+  ...
+# Subtest: 体验摘要：映射和模板各有准确定位分区
+ok 38 - 体验摘要：映射和模板各有准确定位分区
+  ---
+  duration_ms: 1.587973
+  type: 'test'
+  ...
+# Subtest: 规则摘要：旧金额格式保持旧小数与千分位
+ok 39 - 规则摘要：旧金额格式保持旧小数与千分位
+  ---
+  duration_ms: 9.33274
+  type: 'test'
+  ...
+# Subtest: 规则摘要：百分比明确指出比例值与百分数
+ok 40 - 规则摘要：百分比明确指出比例值与百分数
+  ---
+  duration_ms: 0.518315
+  type: 'test'
+  ...
+# Subtest: 规则摘要：关闭筛选不会声称顶部查询已关闭
+ok 41 - 规则摘要：关闭筛选不会声称顶部查询已关闭
+  ---
+  duration_ms: 0.370074
+  type: 'test'
+  ...
+# Subtest: 工具栏空名称被阻止，已有正常名称可原样应用
+ok 42 - 工具栏空名称被阻止，已有正常名称可原样应用
+  ---
+  duration_ms: 11.704288
+  type: 'test'
+  ...
+# Subtest: 默认辅助文字配色在白色背景达到4.5对比度
+ok 43 - 默认辅助文字配色在白色背景达到4.5对比度
+  ---
+  duration_ms: 2.255999
+  type: 'test'
+  ...
+# Subtest: 导出字段只含业务白名单并保持选定顺序
+ok 44 - 导出字段只含业务白名单并保持选定顺序
+  ---
+  duration_ms: 7.112669
+  type: 'test'
+  ...
+# Subtest: XLSX 为真实 OOXML 包，金额数值、编号文本、日期序列
+ok 45 - XLSX 为真实 OOXML 包，金额数值、编号文本、日期序列
+  ---
+  duration_ms: 52.571259
+  type: 'test'
+  ...
+# Subtest: Excel 表头支持别名，样式保持对齐字体
+ok 46 - Excel 表头支持别名，样式保持对齐字体
+  ---
+  duration_ms: 1.623152
+  type: 'test'
+  ...
+# Subtest: 用户字符串保持文本，CSV 防公式注入
+ok 47 - 用户字符串保持文本，CSV 防公式注入
+  ---
+  duration_ms: 12.815089
+  type: 'test'
+  ...
+# Subtest: 固定模板不受别名影响且示例单独放置
+ok 48 - 固定模板不受别名影响且示例单独放置
+  ---
+  duration_ms: 23.200212
+  type: 'test'
+  ...
+# Subtest: 空模板没有示例报价，保留说明和校验
+ok 49 - 空模板没有示例报价，保留说明和校验
+  ---
+  duration_ms: 31.223056
+  type: 'test'
+  ...
+# Subtest: 金额合计使用 SUM 和准确缓存，条件单独工作表
+ok 50 - 金额合计使用 SUM 和准确缓存，条件单独工作表
+  ---
+  duration_ms: 104.703212
+  type: 'test'
+  ...
+# Subtest: 大额总数超过精度阈值使用精确文本
+ok 51 - 大额总数超过精度阈值使用精确文本
+  ---
+  duration_ms: 6.78025
+  type: 'test'
+  ...
+# Subtest: OOXML 文本转义且保护 Excel 字符串转义序列
+ok 52 - OOXML 文本转义且保护 Excel 字符串转义序列
+  ---
+  duration_ms: 1.928728
+  type: 'test'
+  ...
+# Subtest: 日期在 1900 年边界采用 Excel 日期系统
+ok 53 - 日期在 1900 年边界采用 Excel 日期系统
+  ---
+  duration_ms: 0.670218
+  type: 'test'
+  ...
+# Subtest: 零字段拒绝，未知导出方案字段过滤
+ok 54 - 零字段拒绝，未知导出方案字段过滤
+  ---
+  duration_ms: 1.093974
+  type: 'test'
+  ...
+# Subtest: 下载样本写入供独立 ZIP/XML 和工作簿导入核验
+ok 55 - 下载样本写入供独立 ZIP/XML 和工作簿导入核验
+  ---
+  duration_ms: 28.559737
+  type: 'test'
+  ...
+# Subtest: 非法 XML 字符清理，不损坏中文与表情
+ok 56 - 非法 XML 字符清理，不损坏中文与表情
+  ---
+  duration_ms: 5.339087
+  type: 'test'
+  ...
+# Subtest: 映射支持显示、原编码及并列导出，不改原始状态
+ok 57 - 映射支持显示、原编码及并列导出，不改原始状态
+  ---
+  duration_ms: 0.962228
+  type: 'test'
+  ...
+# Subtest: 百分数基数导出为 Excel 比例数字并保留百分号格式
+ok 58 - 百分数基数导出为 Excel 比例数字并保留百分号格式
+  ---
+  duration_ms: 1.386009
+  type: 'test'
+  ...
+# Subtest: 缩放金额导出合计按同一单位计算，百分比不自动求和
+ok 59 - 缩放金额导出合计按同一单位计算，百分比不自动求和
+  ---
+  duration_ms: 1.046118
+  type: 'test'
+  ...
+# Subtest: 仓库接口已实现
+ok 60 - 仓库接口已实现
+  ---
+  duration_ms: 3.011092
+  type: 'test'
+  ...
+# Subtest: 删除后查询、刷新和重新创建仓库均不会复活
+ok 61 - 删除后查询、刷新和重新创建仓库均不会复活
+  ---
+  duration_ms: 6.463947
+  type: 'test'
+  ...
+# Subtest: 仓库返回副本，列表渲染不能修改原数据
+ok 62 - 仓库返回副本，列表渲染不能修改原数据
+  ---
+  duration_ms: 1.068308
+  type: 'test'
+  ...
+# Subtest: 缓存损坏进入临时模式且不覆盖损坏内容
+ok 63 - 缓存损坏进入临时模式且不覆盖损坏内容
+  ---
+  duration_ms: 1.633888
+  type: 'test'
+  ...
+# Subtest: 写入失败时仓库记录不变
+ok 64 - 写入失败时仓库记录不变
+  ---
+  duration_ms: 1.007894
+  type: 'test'
+  ...
+# Subtest: 其他标签页更新后拒绝使用过期记录覆盖
+ok 65 - 其他标签页更新后拒绝使用过期记录覆盖
+  ---
+  duration_ms: 1.481094
+  type: 'test'
+  ...
+# Subtest: 编辑版本过期时拒绝覆盖
+ok 66 - 编辑版本过期时拒绝覆盖
+  ---
+  duration_ms: 5.829698
+  type: 'test'
+  ...
+# Subtest: 缺少本地存储仍可在当前会话操作
+ok 67 - 缺少本地存储仍可在当前会话操作
+  ---
+  duration_ms: 0.414103
+  type: 'test'
+  ...
+# Subtest: 导入重复编号或非法记录时整批不写入
+ok 68 - 导入重复编号或非法记录时整批不写入
+  ---
+  duration_ms: 0.889321
+  type: 'test'
+  ...
+# Subtest: 首次写入被浏览器拒绝时降级而不是白屏
+ok 69 - 首次写入被浏览器拒绝时降级而不是白屏
+  ---
+  duration_ms: 0.931917
+  type: 'test'
+  ...
+# Subtest: 重新加载时存储已清除且写入失败，保留原仓库快照
+ok 70 - 重新加载时存储已清除且写入失败，保留原仓库快照
+  ---
+  duration_ms: 3.572927
+  type: 'test'
+  ...
+# Subtest: v3 数字格式接口可用
+ok 71 - v3 数字格式接口可用
+  ---
+  duration_ms: 3.904977
+  type: 'test'
+  ...
+# Subtest: 数字固定、最多位数以及千分位
+ok 72 - 数字固定、最多位数以及千分位
+  ---
+  duration_ms: 2.722843
+  type: 'test'
+  ...
+# Subtest: 两种百分比基数明确且无放大百倍
+ok 73 - 两种百分比基数明确且无放大百倍
+  ---
+  duration_ms: 0.358992
+  type: 'test'
+  ...
+# Subtest: 分单位转换、负数舍入、零值不误判为空
+ok 74 - 分单位转换、负数舍入、零值不误判为空
+  ---
+  duration_ms: 1.332325
+  type: 'test'
+  ...
+# Subtest: 缩放只影响显示且支持精确大金额
+ok 75 - 缩放只影响显示且支持精确大金额
+  ---
+  duration_ms: 1.318141
+  type: 'test'
+  ...
+# Subtest: 类型化映射区分数字、文本和前导零
+ok 76 - 类型化映射区分数字、文本和前导零
+  ---
+  duration_ms: 0.632836
+  type: 'test'
+  ...
+# Subtest: 空值与未映射值有独立回退
+ok 77 - 空值与未映射值有独立回退
+  ---
+  duration_ms: 0.441584
+  type: 'test'
+  ...
+# Subtest: 映射重复和数字位数冲突在应用前报错
+ok 78 - 映射重复和数字位数冲突在应用前报错
+  ---
+  duration_ms: 17.076654
+  type: 'test'
+  ...
+# Subtest: 配置归一化保留旧样式并往返新增配置
+ok 79 - 配置归一化保留旧样式并往返新增配置
+  ---
+  duration_ms: 9.650666
+  type: 'test'
+  ...
+# Subtest: 筛选显示标签但始终匹配原值，多选为或
+ok 80 - 筛选显示标签但始终匹配原值，多选为或
+  ---
+  duration_ms: 1.475308
+  type: 'test'
+  ...
+# Subtest: 百分比筛选输入10代表10%而不是比例10
+ok 81 - 百分比筛选输入10代表10%而不是比例10
+  ---
+  duration_ms: 0.647725
+  type: 'test'
+  ...
+# Subtest: 筛选区间先后、无效数值必须报错
+ok 82 - 筛选区间先后、无效数值必须报错
+  ---
+  duration_ms: 2.683371
+  type: 'test'
+  ...
+# Subtest: 富文本白名单去除恶意链接、图片和未知属性
+ok 83 - 富文本白名单去除恶意链接、图片和未知属性
+  ---
+  duration_ms: 1.1672
+  type: 'test'
+  ...
+# Subtest: 模板字段白名单与非递归纯文本展开
+ok 84 - 模板字段白名单与非递归纯文本展开
+  ---
+  duration_ms: 0.260057
+  type: 'test'
+  ...
+# Subtest: 工具栏默认保留原入口且设置不能全部隐藏
+ok 85 - 工具栏默认保留原入口且设置不能全部隐藏
+  ---
+  duration_ms: 0.251405
+  type: 'test'
+  ...
+# Subtest: 备注富文本结构保存而原备注仍为可读文字
+ok 86 - 备注富文本结构保存而原备注仍为可读文字
+  ---
+  duration_ms: 0.750175
+  type: 'test'
+  ...
+# Subtest: 富文本超长拒绝且正文和纯文本不一致不会静默入库
+ok 87 - 富文本超长拒绝且正文和纯文本不一致不会静默入库
+  ---
+  duration_ms: 6.97603
+  type: 'test'
+  ...
+# Subtest: 状态字典顺序参与多字段排序，原始数据不改变
+ok 88 - 状态字典顺序参与多字段排序，原始数据不改变
+  ---
+  duration_ms: 2.321893
+  type: 'test'
+  ...
+# Subtest: 金额精确相等筛选不会被0.29浮点乘法误差漏掉
+ok 89 - 金额精确相等筛选不会被0.29浮点乘法误差漏掉
+  ---
+  duration_ms: 0.421822
+  type: 'test'
+  ...
+# Subtest: 数字筛选保存原单位语义，之后改格式不改变筛选范围
+ok 90 - 数字筛选保存原单位语义，之后改格式不改变筛选范围
+  ---
+  duration_ms: 0.575141
+  type: 'test'
+  ...
+# Subtest: 手动数字筛选项保存原始数值类型并累计完整数据数量
+ok 91 - 手动数字筛选项保存原始数值类型并累计完整数据数量
+  ---
+  duration_ms: 0.577433
+  type: 'test'
+  ...
+# Subtest: 空白启用模板应拒绝，不能意外清空单元格展示
+ok 92 - 空白启用模板应拒绝，不能意外清空单元格展示
+  ---
+  duration_ms: 0.368624
+  type: 'test'
+  ...
+# Subtest: 分组汇总按完整查询结果计算整数分、不生成伪记录
+ok 93 - 分组汇总按完整查询结果计算整数分、不生成伪记录
+  ---
+  duration_ms: 23.245344
+  type: 'test'
+  ...
+# Subtest: 条件标记优先级只影响显示，不改变状态；无效规则不会执行
+ok 94 - 条件标记优先级只影响显示，不改变状态；无效规则不会执行
+  ---
+  duration_ms: 12.474938
+  type: 'test'
+  ...
+# Subtest: 对比只看不同项按原始值而非格式化字符串判断
+ok 95 - 对比只看不同项按原始值而非格式化字符串判断
+  ---
+  duration_ms: 4.664841
+  type: 'test'
+  ...
+1..95
+# tests 95
+# suites 0
+# pass 95
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1312.422082

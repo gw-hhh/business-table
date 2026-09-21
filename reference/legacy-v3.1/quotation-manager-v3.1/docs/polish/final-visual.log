@@ -1,0 +1,4 @@
+
+> quotation-manager-refactor@3.1.0 test:visual
+> python3 tests/polish_screenshots.py
+

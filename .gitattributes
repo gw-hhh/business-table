@@ -1,0 +1,2 @@
+# Keep every byte of the supplied reference archive, including original line endings.
+reference/legacy-v3.1/quotation-manager-v3.1/** -text

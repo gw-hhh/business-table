@@ -1,0 +1,8 @@
+FAIL 规则试算样例与底部当前对象预览一致 Locator expected to contain text '25.00%'
+Actual value: 原值（元）63860→显示结果6,386,000.00%Excel 数值 / 格式63860 / #,##0.00% 
+Call log:
+  - Expect "to_contain_text" with timeout 5000ms
+  - waiting for locator(".number-preview-cases")
+    9 × locator resolved to <div class="number-preview-cases">…</div>
+      - unexpected value "原值（元）63860→显示结果6,386,000.00%Excel 数值 / 格
+RESULT 0 / 1

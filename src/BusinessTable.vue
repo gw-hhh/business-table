@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends RowData">
-import{computed,onMounted,ref,watch}from'vue'
+import{computed,onBeforeUnmount,onMounted,ref,toRaw,watch}from'vue'
 import type{Action,ColumnConfig,DataSource,FilterConfig,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,ViewConfig}from'./types'
 import{applyFilters,applySorts,displayValue,getValue,makeConfig,mapStyle,mergeColumns,patchColumn}from'./core'
 const props=withDefaults(defineProps<{tableKey:string;rowKey:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;loading?:boolean}>(),{title:'数据列表',data:()=>[],views:()=>[],actions:()=>[],persistence:null,config:null})
@@ -10,7 +10,86 @@ const resolvedColumns=computed(()=>mergeColumns(props.columns,config.value).filt
 const query=computed<Query>(()=>({page:page.value,pageSize:pageSize.value,sorts:sorts.value,filters:filters.value,keyword:keyword.value,viewId:activeView.value}))
 const pages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize.value)))
 function rowId(row:T){return String(getValue(row,props.rowKey)??'')}
-async function load(){busy.value=true;error.value='';try{emit('queryChange',query.value);if(props.dataSource){const r=await props.dataSource.query(query.value);rows.value=r.rows;total.value=r.total}else{let r=[...(props.data??[])];if(keyword.value){const k=keyword.value.toLowerCase();r=r.filter(x=>resolvedColumns.value.some(c=>String(getValue(x,c.field)??'').toLowerCase().includes(k)))}r=applyFilters(r,filters.value);r=applySorts(r,sorts.value);total.value=r.length;rows.value=r.slice((page.value-1)*pageSize.value,page.value*pageSize.value)}}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{busy.value=false}}
+let requestSequence=0
+let activeController:AbortController|null=null
+let ready=false
+let disposed=false
+function unwrapQueryValue(value:unknown,seen=new WeakMap<object,unknown>()):unknown{
+  if(value===null||typeof value!=='object')return value
+  const raw=toRaw(value)
+  if(seen.has(raw))return seen.get(raw)
+  if(raw instanceof Map){
+    const result=new Map<unknown,unknown>()
+    seen.set(raw,result)
+    for(const [key,item] of raw)result.set(unwrapQueryValue(key,seen),unwrapQueryValue(item,seen))
+    return result
+  }
+  if(raw instanceof Set){
+    const result=new Set<unknown>()
+    seen.set(raw,result)
+    for(const item of raw)result.add(unwrapQueryValue(item,seen))
+    return result
+  }
+  if(Array.isArray(raw)||Object.prototype.toString.call(raw)==='[object Object]'){
+    const result=Array.isArray(raw)?new Array(raw.length):{}
+    seen.set(raw,result)
+    for(const [key,item] of Object.entries(raw)){
+      Object.defineProperty(result,key,{value:unwrapQueryValue(item,seen),enumerable:true,writable:true,configurable:true})
+    }
+    return result
+  }
+  return raw
+}
+function copyQuery(source:Query):Query{
+  return {...source,sorts:source.sorts.map(s=>({...s})),filters:source.filters.map(f=>({...f,value:structuredClone(unwrapQueryValue(f.value))}))}
+}
+function validPage(request:Query,count:number){return Math.max(1,Math.min(request.page,Math.ceil(count/request.pageSize)))}
+async function load(snapshot?:Query){
+  if(!ready||disposed)return
+  const sequence=++requestSequence
+  activeController?.abort()
+  const controller=new AbortController()
+  activeController=controller
+  const isCurrent=()=>!disposed&&sequence===requestSequence&&!controller.signal.aborted
+  busy.value=true
+  error.value=''
+  try{
+    const request=copyQuery(snapshot??query.value)
+    emit('queryChange',copyQuery(request))
+    if(props.dataSource){
+      const result=await props.dataSource.query({...copyQuery(request),signal:controller.signal})
+      if(!isCurrent())return
+      const correctedPage=validPage(request,result.total)
+      if(correctedPage!==request.page){
+        page.value=correctedPage
+        void load({...request,page:correctedPage})
+        return
+      }
+      rows.value=result.rows
+      total.value=result.total
+    }else{
+      let result=[...(props.data??[])]
+      if(request.keyword){
+        const keyword=request.keyword.toLowerCase()
+        result=result.filter(row=>resolvedColumns.value.some(column=>String(getValue(row,column.field)??'').toLowerCase().includes(keyword)))
+      }
+      result=applySorts(applyFilters(result,request.filters),request.sorts)
+      total.value=result.length
+      page.value=validPage(request,result.length)
+      rows.value=result.slice((page.value-1)*request.pageSize,page.value*request.pageSize)
+    }
+  }catch(cause){
+    if(isCurrent())error.value=cause instanceof Error?cause.message:String(cause)
+  }finally{
+    if(isCurrent()){
+      busy.value=false
+      activeController=null
+    }
+  }
+}
+function search(){page.value=1;void load()}
+function goPage(next:number){page.value=Math.max(1,Math.min(next,pages.value));void load()}
+function changePageSize(){page.value=1;void load()}
 async function saveConfig(next:TableConfig){config.value=next;emit('configChange',next);if(props.persistence)await props.persistence.save(props.tableKey,next)}
 async function toggleVisible(id:string,visible:boolean){await saveConfig(patchColumn(config.value,id,{visible}))}
 async function togglePin(id:string,side:'left'|'right'){const current=config.value.columns[id]?.fixed;await saveConfig(patchColumn(config.value,id,{fixed:current===side?false:side}))}
@@ -20,17 +99,29 @@ function applyView(view:ViewConfig){activeView.value=view.id;filters.value=view.
 function runAction(a:Action<T>,row:T){moreRow.value=null;void a.handler?.(row)}
 const inlineActions=computed(()=>props.actions.filter(a=>(a.position??'inline')==='inline').sort((a,b)=>(a.order??0)-(b.order??0)))
 const moreActions=computed(()=>props.actions.filter(a=>a.position==='more').sort((a,b)=>(a.order??0)-(b.order??0)))
-watch(()=>props.data,()=>{if(!props.dataSource)void load()},{deep:true});watch([page,pageSize],()=>void load())
-onMounted(async()=>{if(props.persistence){const stored=await props.persistence.load(props.tableKey);if(stored)config.value=stored}void load()})
+watch([()=>props.dataSource,()=>props.data],([source],[previousSource])=>{
+  if(source!==previousSource)page.value=1
+  if(source!==previousSource||!source)void load()
+},{deep:true})
+onMounted(async()=>{
+  if(props.persistence){
+    const stored=await props.persistence.load(props.tableKey)
+    if(disposed)return
+    if(stored)config.value=stored
+  }
+  ready=true
+  void load()
+})
+onBeforeUnmount(()=>{disposed=true;requestSequence++;activeController?.abort()})
 </script>
 <template>
-<section class="bt" data-business-table>
+<section class="bt" data-business-table :aria-busy="Boolean(loading||busy)">
   <div v-if="error" class="bt__error" role="alert">{{error}}</div>
   <header class="bt__bar">
     <div><span class="bt__title">{{title}}</span><span class="bt__status"> · {{total}} 条</span></div>
     <div class="bt__tools">
-      <input v-model="keyword" class="bt__search" placeholder="搜索当前数据" @keyup.enter="page=1;load()">
-      <button class="primary" @click="page=1;load()">查询</button>
+      <input v-model="keyword" class="bt__search" placeholder="搜索当前数据" @keyup.enter="search">
+      <button class="primary" @click="search">查询</button>
       <div v-if="views.length">
         <select :value="activeView??''" aria-label="视图" @change="e=>{const v=views.find(x=>x.id===(e.target as HTMLSelectElement).value);if(v)applyView(v)}"><option value="">视图</option><option v-for="v in views" :key="v.id" :value="v.id">{{v.name}}</option></select>
       </div>
@@ -47,7 +138,8 @@ onMounted(async()=>{if(props.persistence){const stored=await props.persistence.l
       </div>
     </aside>
   </header>
-  <vxe-table :data="rows" :loading="loading||busy" :height="'auto'" border="inner" stripe>
+  <vxe-table :data="rows" :loading="loading||busy" border="inner" stripe>
+    <template #loading><div v-if="loading||busy" class="bt__loading" role="status" aria-label="加载中">加载中…</div></template>
     <vxe-column v-for="c in resolvedColumns" :key="c.id" :field="c.field" :title="c.title" :width="c.width" :min-width="c.minWidth??120" :fixed="c.fixed||undefined" :align="c.align??'left'" :sortable="false">
       <template #header><button v-if="c.sortable" style="border:0;background:transparent;padding:0;font-weight:600" @click="sort(c)">{{c.title}} <span v-if="sorts[0]?.field===c.field">{{sorts[0]?.order==='asc'?'↑':'↓'}}</span></button><span v-else>{{c.title}}</span></template>
       <template #default="{row}"><span v-if="c.valueMap" class="bt-tag" :style="{color:mapStyle(getValue(row,c.field),c.valueMap)?.color,background:mapStyle(getValue(row,c.field),c.valueMap)?.background}">{{displayValue(getValue(row,c.field),c)}}</span><span v-else>{{displayValue(getValue(row,c.field),c)}}</span></template>
@@ -61,6 +153,6 @@ onMounted(async()=>{if(props.persistence){const stored=await props.persistence.l
     </vxe-column>
     <template #empty><div class="bt__empty">暂无数据</div></template>
   </vxe-table>
-  <footer class="bt__footer"><span>共 {{total}} 条，第 {{page}} / {{pages}} 页</span><div class="bt__pages"><select v-model.number="pageSize" aria-label="每页条数"><option v-for="n in pagination?.pageSizeOptions??[10,20,50,100]" :key="n" :value="n">{{n}} 条/页</option></select><button :disabled="page<=1" @click="page--">上一页</button><button :disabled="page>=pages" @click="page++">下一页</button></div></footer>
+  <footer class="bt__footer"><span>共 {{total}} 条，第 {{page}} / {{pages}} 页</span><div class="bt__pages"><select v-model.number="pageSize" aria-label="每页条数" @change="changePageSize"><option v-for="n in pagination?.pageSizeOptions??[10,20,50,100]" :key="n" :value="n">{{n}} 条/页</option></select><button :disabled="page<=1" @click="goPage(page-1)">上一页</button><button :disabled="page>=pages" @click="goPage(page+1)">下一页</button></div></footer>
 </section>
 </template>

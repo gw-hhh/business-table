@@ -1,0 +1,732 @@
+{
+  "archive": "quotation-refactor-v3.1.zip",
+  "sha256": "ad0b1d616b841d755e4f10cf43a796e4dbf70bf5aa7fd3253b6dd5a9433c8858",
+  "fileCount": 145,
+  "files": [
+    {
+      "path": "quotation-manager-v3.1/.gitignore",
+      "bytes": 44,
+      "sha256": "c4987e51081fcad0f505e717a59045a852c79d1775be5b706e4a6ee19e8e384c"
+    },
+    {
+      "path": "quotation-manager-v3.1/CHANGELOG.md",
+      "bytes": 2532,
+      "sha256": "4b6bd1ed7b4c2f68868a48db3391dd08b0ef5cbe79ae2cfd92a111fb9a435af3"
+    },
+    {
+      "path": "quotation-manager-v3.1/README.md",
+      "bytes": 7684,
+      "sha256": "2f34d1cb7ed77b13b863c178cf7b142d9aacb7e53733f8e021f420883f572038"
+    },
+    {
+      "path": "quotation-manager-v3.1/SHA256SUMS.txt",
+      "bytes": 13618,
+      "sha256": "f39476f91bdaf4bbedb349254c79a4a913bf70cce79ed174445a21463a176b28"
+    },
+    {
+      "path": "quotation-manager-v3.1/build.cjs",
+      "bytes": 777,
+      "sha256": "c78172c9370f22e1da4d3da398b14ad1d30033ab593f95f9f086a81bd7800c5b"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/DESIGN-TOKENS.md",
+      "bytes": 1099,
+      "sha256": "526b69418424645da243f9288aa874f8aaabddd755949b8dd6e583f6d2f9dd1d"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/DESIGN.md",
+      "bytes": 3096,
+      "sha256": "cd32376cd4f0aa08b7646f2696536607de180770b3cedd024446f8a90539eedd"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/PLAN.md",
+      "bytes": 2432,
+      "sha256": "cbca566d3835e78c3e8756156926e5b62261fae37ad40e84b3b615bf2b89665f"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/PROGRESS.md",
+      "bytes": 1703,
+      "sha256": "a77def16e142292e39ecebe4ac8e9e961e63a67affc761c6405b3090477af0c2"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/REVIEW.md",
+      "bytes": 1882,
+      "sha256": "87fa4c3324da16167bfda3ab5e4632e9eb149f639038c43f8ec353e38bc2717a"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/TEST-REPORT.md",
+      "bytes": 6930,
+      "sha256": "d125c59b0928e77413801fb57b4c55ceae050b117386c62ffb2d455239841797"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/history/V3-README.md",
+      "bytes": 23399,
+      "sha256": "9f6f7862d707953a105a7a1e714baedcb2a6d0fe95b55698a63f1337e0a449f8"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/history/V3-TEST-REPORT.md",
+      "bytes": 5114,
+      "sha256": "8a12fab374d7b4440483d248b77829ff7cb3dec60521b4bc8a53d3cef930538b"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/incremental/BASELINE-TEST-REPORT.md",
+      "bytes": 6132,
+      "sha256": "5391e2734a43a8d9c86534c910a039fbe8d9e849aa91363b5d645398940d4f2f"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/incremental/PLAN.md",
+      "bytes": 2185,
+      "sha256": "da55d0b3863b31cc1e6253b1d4a99738f9a0f939ca6bb83e97a8d185d0e73bea"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/incremental/PROGRESS.md",
+      "bytes": 1969,
+      "sha256": "f4cda43fd28a667748d274c1570a71bc17b723fbb9c938db32c8736a419c0de4"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/PLAN.md",
+      "bytes": 1489,
+      "sha256": "1a36e16851e776b83c1b7015b26ec2bc8621b4dce7588955eae9aad0277021f2"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/REVIEW.md",
+      "bytes": 1887,
+      "sha256": "d47313de1faf4fa1b19620f071f4f8b510452ac26952680f750e252bc83e0884"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/baseline-unit.log",
+      "bytes": 15184,
+      "sha256": "006b24fe0d5ad46619cfdabec3d96a267535891f9c848fac49968664d6d8a2a0"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/current-unit.log",
+      "bytes": 15179,
+      "sha256": "1cfb68136c59598748495792c075fffa7335c6e69a4f6d94448e997517770166"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-full-suite.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-full-suite.log",
+      "bytes": 28028,
+      "sha256": "924fd9a89fe1d60e31f093bb7ff47e04407fdfbb73bf83037b7d060e46f760e3"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-navigation.exit",
+      "bytes": 1,
+      "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-navigation.log",
+      "bytes": 780,
+      "sha256": "cc9361baebfcb4e2e26b1d2c267b8ee7b62557d4ed1ac879e018ff5cb8a1771c"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-secondary-results.json",
+      "bytes": 222,
+      "sha256": "3c5b4f5ec290d772890b163b44e432f606dc38f8a4c69ba6f2b1b47917539294"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-secondary-run.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-visual.exit",
+      "bytes": 1,
+      "sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-visual.log",
+      "bytes": 87,
+      "sha256": "e400d3ff92231bfa350b29d1a065e31239de773dd6b2e96a5f3e5534f08658d4"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-workbooks-openpyxl.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-workbooks-openpyxl.log",
+      "bytes": 320,
+      "sha256": "5e017eb9db56a3dcbcc8e505ab793c1400f0cb05c86012306c8ab10bf1aabfc8"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-workbooks.exit",
+      "bytes": 1,
+      "sha256": "6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/final-workbooks.log",
+      "bytes": 1105,
+      "sha256": "7bcbe42f91a67c71fb8c611cc34953bc687c85d44ebc9114cc3f8a01904404df"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/full-suite-attempt1.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/full-suite-attempt1.log",
+      "bytes": 25044,
+      "sha256": "3eccd30b1c7c954f60a172fcdad94c775e6ef885555751fe8440f204f63fa505"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/green-anchor-gap.log",
+      "bytes": 94,
+      "sha256": "e08c948f3fe69bffda508630f26f89596b1e306fb5aae4981bcdcb13e159a032"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/green1.log",
+      "bytes": 445,
+      "sha256": "bd16d82f15f861dbe74dbbfaf24d67abae5debeb7ec837180becaaad95c34c59"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/green2.log",
+      "bytes": 1729,
+      "sha256": "1ee23067f2edac44b08eb61adfab876a965cb653cf1a63bb6b1957911fe4e603"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/green3.log",
+      "bytes": 1489,
+      "sha256": "96787bd5bf2e435dd4003c76e05f65fd17501af82ed660ad4c95e9e57e7b0855"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/green4.log",
+      "bytes": 1881,
+      "sha256": "b9b70cdcac0586d1ae3ba0ae187b13e3af78fb276f8d305347a005db0d06dbb7"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/package-build.log",
+      "bytes": 104,
+      "sha256": "8f470a267d1518c3723b22d42b616ff3c3972b84e3ce992bf1bb58293eca1ff4"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/package-check.json",
+      "bytes": 411,
+      "sha256": "f23612504f8498ec88413d398633e320c787f0f2bc40a628dee398c044f97d36"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/package-unit.log",
+      "bytes": 17002,
+      "sha256": "cefa8e0fd54fec43c40d77420403f3179e54e52478d565b392611554f6718831"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-anchor-gap.log",
+      "bytes": 103,
+      "sha256": "f5af81ab0a6726c177333ae349bf2083f2ef00fbb556a053e202508cbf3bcbfa"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-browser.log",
+      "bytes": 1668,
+      "sha256": "06cd7f2142f018af0d49e75d06095ba2d704861acf60e212cf471ca7eeeaf565"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-bulk.log",
+      "bytes": 424,
+      "sha256": "396716acf0a5c6a9704de560df6e9f523ef9504f5d581789fa8a61cfdc1a60cc"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-decor.log",
+      "bytes": 64,
+      "sha256": "1f3a39a27ac30ac1699cc429d340d5e31a9ff6dd50d04ef3156813753ac7cf9f"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-global-error.log",
+      "bytes": 413,
+      "sha256": "840d43f0d5fece82fa0a070c1aa0f7c9f0aa9b9104ffdf57d9763b3d4544567e"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-palette.log",
+      "bytes": 222,
+      "sha256": "1c3ddcdb1bd9c8c821162d4c559e6d67d1c4fb5ad991ac8d401154d936bb98e6"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-precision.log",
+      "bytes": 180,
+      "sha256": "801f077b717972c91d48793128582c4bcad7d905939b5adb6f4c472b712061da"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-quick.log",
+      "bytes": 430,
+      "sha256": "0797b89640925b7d68d11fbdae6e7564d262e0d5bd8189501b83ad5038cbcfe4"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-sticky.log",
+      "bytes": 177,
+      "sha256": "b10e1c0dc64776a19fdd7c06f0a9e9e29f90ec36e27e958027e0d572f23d7ef2"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-toolbar-error.log",
+      "bytes": 275,
+      "sha256": "312cc6202d4569f4750c03c22d0d1b3e565c789e2377aec25b7a0afdbe84ccb2"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/red-trial.log",
+      "bytes": 488,
+      "sha256": "516cd7dbcd792659c045ecb8032b7f154cd85cb9cbb5b29267ac4f8d2e93f0bd"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/regression1.log",
+      "bytes": 9054,
+      "sha256": "6b46e6c9c4570c5225008eaf0ba4ee0913842551d0e2ed8d88df7faf57c96137"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/screenshots-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/screenshots1.log",
+      "bytes": 2351,
+      "sha256": "1bb2c93eb836560fe99596b849c3cee09bee9b7faef175241fd4dc06b0667938"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/unit-expanded.log",
+      "bytes": 17022,
+      "sha256": "bffb59856b2f5cfb5c722ebc87472cdf1a68883bc5bb315b21003cbcd3cda6a1"
+    },
+    {
+      "path": "quotation-manager-v3.1/docs/polish/verification-summary.json",
+      "bytes": 318,
+      "sha256": "f6a2cfc3ae2c71c7e7b9ae9ee1bfcf74fa008455add6b5bd62fcc5385bd5d916"
+    },
+    {
+      "path": "quotation-manager-v3.1/examples/quotation-export-sample.xlsx",
+      "bytes": 15207,
+      "sha256": "d7377e09185bc2a128b9e1303309bc8857d35c214371eacf5b95cfcfbf54a09b"
+    },
+    {
+      "path": "quotation-manager-v3.1/examples/quotation-template-blank.xlsx",
+      "bytes": 35401,
+      "sha256": "f5f7521acbf3c3f87911880ff5f2d08022ab1c143da8ebfcfb20c1f2604e4306"
+    },
+    {
+      "path": "quotation-manager-v3.1/examples/quotation-template-example.xlsx",
+      "bytes": 38422,
+      "sha256": "05016535b52689e11eeecb9618eae9aaca2c4d2205a63bdef4717b175aa7f276"
+    },
+    {
+      "path": "quotation-manager-v3.1/index.html",
+      "bytes": 10278,
+      "sha256": "f46abda16c94026234236e65202daf943a504e8823e527b0e1ce6dc9e0d4c546"
+    },
+    {
+      "path": "quotation-manager-v3.1/package.json",
+      "bytes": 1089,
+      "sha256": "b34414fe11a8b711fd86ab917224868629a083d0d3bdb56f872cb48dafaef7fa"
+    },
+    {
+      "path": "quotation-manager-v3.1/quotation-manager.html",
+      "bytes": 458207,
+      "sha256": "64b5fd6c99de9ebf4b8131064425f706493ec104e822b5643fc59b0da6607488"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/actions.js",
+      "bytes": 4099,
+      "sha256": "47cd68d87c99c5465750a422d41f8f454eade48c73bfdeaf02d7af4cd3feaf7a"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/app.js",
+      "bytes": 52807,
+      "sha256": "fb7b1101982aa2e4bfee8f0f29bcd6eed6f9a512276d3d7e04ec7dc27d518bfb"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/column-filter-ui.js",
+      "bytes": 9281,
+      "sha256": "c151238d353e9584290d069b3f8224fb959cd8d104e455b60559112c848937ea"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/column-rules.js",
+      "bytes": 29004,
+      "sha256": "acf021bcf18f2b9ac92e07303ad941b2cbd34daa59a119858beb79b785128ee4"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/config.js",
+      "bytes": 3372,
+      "sha256": "c5faf07d9eaa5ae27f1fb1d81d5a6354246fa8b6382f38e36ee6e8c5a9877065"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/core.js",
+      "bytes": 13604,
+      "sha256": "0a36563db244948b8e797f7afdf175c6918787bfeebd2138950aee8a6a2254ec"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/custom.css",
+      "bytes": 18396,
+      "sha256": "d7eb21a9bd6e7201d391ff5f096426c7f30597f09bbb4189249524a845fff599"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/customization.js",
+      "bytes": 13103,
+      "sha256": "b053d69ae7c55349048ea36f1f73f8806af7d349dbef80dd4569114a9a672f75"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/enhancements.css",
+      "bytes": 10097,
+      "sha256": "b44f170c029976b37711ca04aa196364e10b980f10fa7921a4a8ca4f54d77ba7"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/experience.js",
+      "bytes": 9888,
+      "sha256": "0c2e6e0a621aa90717b0a1a18e1af275fa1f7b75385afdaa0bcc8d0d1e22fa92"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/export-data.js",
+      "bytes": 14572,
+      "sha256": "7bd6543bf1ccbd9c847ae45f6ee337dd417d0920f64654822ae21c6feb342646"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/export-dialog.js",
+      "bytes": 13360,
+      "sha256": "da13df9fa117848a74e5cb245ac9083cea8c3334a1233c9c2552490d288e34f1"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/forms.js",
+      "bytes": 10335,
+      "sha256": "8753ae0142a8723e59128a13b99fb66a9f25c22be3a4f7c4342ac6927fd77fba"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/menus.js",
+      "bytes": 6569,
+      "sha256": "5f118b34884c88be5c028de671bc82b3905cc0aac886b03976380c499d6af973"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/refinement.css",
+      "bytes": 30223,
+      "sha256": "7f4dfbedc8a66ac40467846cabfac070a0a2e4eedfccc3b751c669a802b5e951"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/repository.js",
+      "bytes": 7184,
+      "sha256": "a4df21c5d5ef01fbc4907e21ad05595b14c4507ec0140cf72c248e208c742841"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/rich-text.js",
+      "bytes": 30520,
+      "sha256": "a9ab3ec130d4a9f8a0349f5afcf70c3ab0e9cf414024c5855d5b326be5a520aa"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/rule-settings.js",
+      "bytes": 21093,
+      "sha256": "6d3a80abf7c8cac333d582fcec7e8da2cd91b3ae8dfdba5c5b260bd8f0a88898"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/settings-preview.js",
+      "bytes": 10215,
+      "sha256": "6e6c3c09c26a51f4e3d7a2033de7abb0ca1cd49d36d387b7efb5933f0a664126"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/settings.js",
+      "bytes": 39690,
+      "sha256": "61962e7964898b59583bcd4907c915e07d7330b2e2ca275ce208f06f902168e7"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/styles.css",
+      "bytes": 28688,
+      "sha256": "23aa6d7e09ee5f24d0045ca91ae39a4e5954e377e156c42fbfbdd64177a462d9"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/table.js",
+      "bytes": 16333,
+      "sha256": "4cf475922319dcbab69b3c4cd7beede3ed257f38d4e9aa3cf7debfd63f58d9f8"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/toolbar.js",
+      "bytes": 5427,
+      "sha256": "b8d5de4db0808f98fa455899f800f2a8ee00bf34a2a3f366b1ad90ae09387761"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/ui.js",
+      "bytes": 17027,
+      "sha256": "df63b64e07b851bb1e42aecb3539db65f5a75a141da5af0bbed7073dec08cc0d"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/workbench.js",
+      "bytes": 21222,
+      "sha256": "db74d400348c926597f4ee73667b3dd4f9183bcd9257a222e726b98468c605ca"
+    },
+    {
+      "path": "quotation-manager-v3.1/src/xlsx.js",
+      "bytes": 12526,
+      "sha256": "143adbcd49e7a6124e94db62739a1ee97f257dc182b6cb626c27faaff237cafb"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/browser-export.xlsx",
+      "bytes": 11189,
+      "sha256": "13cd85118a49db435dcdafd15b54fae810482be97864cd0c07b8e63d9e5d1e75"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/browser-template-blank.xlsx",
+      "bytes": 35401,
+      "sha256": "f5f7521acbf3c3f87911880ff5f2d08022ab1c143da8ebfcfb20c1f2604e4306"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/browser-template-example.xlsx",
+      "bytes": 38422,
+      "sha256": "05016535b52689e11eeecb9618eae9aaca2c4d2205a63bdef4717b175aa7f276"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/export-sample.xlsx",
+      "bytes": 15207,
+      "sha256": "e90bf45873ba0d8c2f52aeab80417f5c2cce70756a5d80d94d607faac61ea2f4"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/independent-xlsx-openpyxl-report.json",
+      "bytes": 2274,
+      "sha256": "bad13e1a8dccb3e34b1979fc84d65eb804404e877804897d9a8fb43518d313fe"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/navigation-report.json",
+      "bytes": 746,
+      "sha256": "8b2d4abaac68c6c2abf2768fafe559db2f33639f63c9e04a2f76f80474542696"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1366-columns.png",
+      "bytes": 146134,
+      "sha256": "4ae66daa1911b700077a97b1a2d6a7fa05f8821e5474af639dcb6ea7beeeefb5"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1366-main.png",
+      "bytes": 139255,
+      "sha256": "b495dce84d8855d2f1c4ec9629abfb64acc2d16c4488ab06bfde2c0c093dfe4e"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1366-mapping.png",
+      "bytes": 148331,
+      "sha256": "f190087013646f2f4fc9fc617266841de0b9f872df6da74cf29adcc3b6472315"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1366-richtext.png",
+      "bytes": 112102,
+      "sha256": "9a92cc79e499daad3dea810cbd278133da9b4cb2466696661b9ccacd9ef652a9"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1366-toolbar.png",
+      "bytes": 136406,
+      "sha256": "ac76479b3c354a166c4478087ecbbff2c11ad2883a8628a0f6f63d00e1aaa826"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1440-columns.png",
+      "bytes": 169097,
+      "sha256": "d4f34a56118cf4c4068f51ae59974a5c7b1f6bf382d9feafeea7916e6f3edadc"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1440-main.png",
+      "bytes": 141291,
+      "sha256": "9d553f853f49ab183e1b0767a08569c4dc8a5e6adb2aa962e3ec8d5c270ce5bf"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1440-mapping.png",
+      "bytes": 164401,
+      "sha256": "a475a34bc844b2663c8edc4f650e2b8e44f33ec4ed7d17fbe6a165632e497e7a"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1440-richtext.png",
+      "bytes": 121619,
+      "sha256": "55f2711581e2cbe0c58312b28725eb0c8420e9ab8642e3237b48144de4dab51b"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-1440-toolbar.png",
+      "bytes": 151645,
+      "sha256": "81b623a2a21a947c115e0b68864940fb716e4bdf95cb39c62429deac390a3924"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-320-columns.png",
+      "bytes": 71869,
+      "sha256": "34cef5712f6a8b67fcd7c157f30076728373ac943930e25c6ec02f93d6a33631"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-320-main.png",
+      "bytes": 67315,
+      "sha256": "b305c45f28f6088786ba847f8e2e4cd357c8f83237d790e687f9178b8ca9c98b"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-320-mapping.png",
+      "bytes": 69721,
+      "sha256": "f93b2234c85bf2351f01561474b0dd64e0985d4254e2f7fc0dbe31699253594c"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-320-richtext.png",
+      "bytes": 51803,
+      "sha256": "18d9b6d8bb6a0f8fa6ba8f7cfc59b3ce4a52b8376f313258be873670ac55f677"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-320-toolbar.png",
+      "bytes": 68443,
+      "sha256": "742f54bbf0e82bcd334afb71c6bc14944473cb12cf262cab6830f8b9aa311c88"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-390-columns.png",
+      "bytes": 73663,
+      "sha256": "66d0845c6b86328eb5bb4d244eaff8da8aff68c120be31a2ad3f206cb3ff86ad"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-390-main.png",
+      "bytes": 74671,
+      "sha256": "56602997d477c5670f8f61b886094881b479d31ef1403041ff40d53cdec6757e"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-390-mapping.png",
+      "bytes": 68595,
+      "sha256": "cd7aa5034ba27644390990025abe36c0d646a6cdcf4dbe146a765afdd73e4c62"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-390-richtext.png",
+      "bytes": 42373,
+      "sha256": "1cc213fa1ba0ab42e7140ec79182aa23c6da83585a9713ead88096cc9ebaef83"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-390-toolbar.png",
+      "bytes": 65324,
+      "sha256": "1a84a6a2bdcb927a47b1f8e7a64cd5028bdf7a65d752fc71db28cd0d6fe853ef"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-768-columns.png",
+      "bytes": 97200,
+      "sha256": "5935332aa3b21eddbc50b186e41f122d502d6287d90a0e56b7a838375a4e4609"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-768-main.png",
+      "bytes": 103476,
+      "sha256": "b588085fab75d76a244494808f1bc056385941314ad237d43641f819b0d8cd09"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-768-mapping.png",
+      "bytes": 94148,
+      "sha256": "cc52a8e0e7a5e31d16c43522bd5de2e0b4cfa05ba24adcdca268ccb4e449bb17"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-768-richtext.png",
+      "bytes": 72404,
+      "sha256": "0b5f961852e09ca7b0aa5e308dccc2061853c37bbe17429aeacbacfe69d0034d"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-768-toolbar.png",
+      "bytes": 71569,
+      "sha256": "1949c2b5ee8b045c26507c42cfd64f899b3e40cd490438f24d051c5076e5d2fc"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-layouts.json",
+      "bytes": 4709,
+      "sha256": "8143e62c1489f06b8f362ee0dd32ccc9ace6265f7858a731acf7f90fb1edc1a7"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/polish-report.json",
+      "bytes": 3455,
+      "sha256": "e68670ccd5ec3963e1e90669920d47621d1e55c415783c04d5668055951c6c0f"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/rules-mapping-export.xlsx",
+      "bytes": 11816,
+      "sha256": "85aeacc5828bcb2a570d1fccee1e6e7bd86b024c1618e9cfceea558839eb0991"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/rules-percent.xlsx",
+      "bytes": 6455,
+      "sha256": "ff7eb231e0b279208af8541a0d9fe09d154c38a3d52ebafeb6a3602efa0c1a01"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/rules-scaled.xlsx",
+      "bytes": 7520,
+      "sha256": "414112833d7867f826174ea610a31c6f06a1ee9639696034288149054c386c79"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/template-blank.xlsx",
+      "bytes": 35401,
+      "sha256": "f5f7521acbf3c3f87911880ff5f2d08022ab1c143da8ebfcfb20c1f2604e4306"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/artifacts/template-example.xlsx",
+      "bytes": 38422,
+      "sha256": "05016535b52689e11eeecb9618eae9aaca2c4d2205a63bdef4717b175aa7f276"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/browser_test.py",
+      "bytes": 35122,
+      "sha256": "09e1537a763e5e3f4ef2873204ec44c0784a46eba1a4a00ddfe87fcd224ebd81"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/capture_v3.py",
+      "bytes": 2092,
+      "sha256": "6cd605497d0424e3b9d76038f49f02c9f9897bc69fb453fc72e57b829d2760a6"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/column_icons_test.py",
+      "bytes": 15364,
+      "sha256": "eed7afd71934ed46a4bde6cf2bb45f372adc21e6094127c25560abd642fa297b"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/core.test.cjs",
+      "bytes": 5072,
+      "sha256": "9bf69b43fa3e488d33f2defb82cb56105915d7307805171da57fab47fe0d04a5"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/customization.test.cjs",
+      "bytes": 6159,
+      "sha256": "04e089f22124800c60eb6bf651ff6f075930b05263ff763e93f06efdf0fa7203"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/customization_browser_test.py",
+      "bytes": 29338,
+      "sha256": "153c2698e7a7d1dbb3299b89d0aa9c7bfafbd5448b756f2de70fb326dbc3a25d"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/enhancements_browser_test.py",
+      "bytes": 16298,
+      "sha256": "c1a48a34155dd524f695231d4bc3daaadb4193a21a8d209698dcf1a82ebfb062"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/experience.test.cjs",
+      "bytes": 2592,
+      "sha256": "6efae614ed066917783a918ebcf723938abb6071c86ececfa5f506f3aeb5fb31"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/export.test.cjs",
+      "bytes": 8087,
+      "sha256": "71c3d94225aea48459803b95b84925dbfc343b4152775ea1a4dbdceed553a0de"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/navigation_test.py",
+      "bytes": 2823,
+      "sha256": "0e6a19f9d38db5be381d5188ff0e1d903a348f03905cfa6282ec12b2e36ed13a"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/polish_browser_test.py",
+      "bytes": 16240,
+      "sha256": "cf19369dfd0e1861d9450d6d4e6a2a7a881415fce97436fa7d22df86e5b727b8"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/polish_screenshots.py",
+      "bytes": 1619,
+      "sha256": "76cb1d56b92fe4354db830907777e88473790f8ec58587def7b0c69f91021e36"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/repository.test.cjs",
+      "bytes": 3844,
+      "sha256": "03e3c467ed6896c50ce862de65acfb819307169cbb4dc83f2d7436cd0acae466"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/rules.test.cjs",
+      "bytes": 8877,
+      "sha256": "c82139e83c65493a0ba4f8a3142544a60f0bf6a45dba4a888bebbe4613820ac4"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/verify_workbooks.py",
+      "bytes": 3048,
+      "sha256": "cbda336d675db3a857405621ac76fd4126348d45ba2ebe82ea6285bdc9a199df"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/verify_workbooks_openpyxl.py",
+      "bytes": 3964,
+      "sha256": "e713ca5cee03816bb926d73d785ba3a4183a9d6e9900b76e4f7045f195e704cb"
+    },
+    {
+      "path": "quotation-manager-v3.1/tests/workbench.test.cjs",
+      "bytes": 1600,
+      "sha256": "e7a03652d08c0757f0847d13c1b2837b1fa2c8c0bf796250a5d6d55b5c59c8e5"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+# 第一批：迁移基础与真实 Release Gate
+
+> 执行方式：superpowers:executing-plans，在本会话按任务执行并由独立代理复查；用户已明确要求分析后直接实现。
+
+**Goal:** 原样保存参考项目和完整迁移矩阵，修复阻塞基线，建立可靠查询/分页生命周期。
+
+**Architecture:** 保留现有 BusinessTable、公共 Query/Persistence/ColumnConfig 和 VXE。只在现有组件中收敛请求生命周期，不重写 UI。旧模块仅作为行为参考，禁止正式 src 导入。
+
+**Tech Stack:** Vue 3.5.43、TypeScript 6、VXE 4.21.10、Vite 8、pnpm 10.17.1、Vitest、Playwright Chromium。
+
+**Spec:** CODEX-PROJECT-CONTEXT.md；LEGACY-MIGRATION.md 第1、2、6、7节；用户的第一阶段和自动继续要求。
+
+## 约束与重点
+
+- feature 从 main 1f62254 创建，只提向 development；main 不直接接收 feature。
+- 原包145文件逐字节保留，Git 禁用该子目录换行转换；不构建旧包。
+- 不修改依赖版本范围；提交已安装验证的锁文件，CI frozen install。
+- Bug/行为测试先RED再实现；每批完整type/mount/unit/declarations/lib/demo/Chromium，错误零容忍。
+- 特别检查：旧请求晚失败；请求中卸载/切换源；父容器自适应高度；页尺寸和数据量同时改变；使用signal不破坏忽略signal的现有Provider。
+
+## Task 1：门禁和布局基线
+
+Files：tests/e2e/runtime.ts、demo.spec.ts、playwright.config.ts、src/BusinessTable.vue、package.json、.github/workflows/verify.yml、pnpm-lock.yaml、.gitignore、.gitattributes。
+
+- [x] RED：在页面脚本前监听 error/unhandledrejection，保留console.error/pageerror监听；原Demo上断言错误为空、四行表格高度不持续增长，冻结取消/右侧/左侧状态可验证。
+- [x] Run：`pnpm exec playwright test --project=chromium-dev`；预期至少高度/原生ErrorEvent断言失败，不能删断言或过滤ResizeObserver错误。
+- [x] GREEN：移除 VXE 的错误 `height="auto"`；保持自然内容高度。将SFC audit加入原verify链；Playwright增加真实build后的preview项目。
+- [x] Run：dev/preview都PASS，数据和操作仍可见；不把禁用autoResize或屏蔽error作为修复。
+
+```ts
+window.addEventListener('error', event => report(event.message))
+window.addEventListener('unhandledrejection', event => report(String(event.reason)))
+expect(errors).toEqual([])
+expect(heightAfter).toBeLessThan(700)
+```
+
+## Task 2：查询和旧版分页行为
+
+Files：tests/query.spec.ts、tests/e2e/fixtures/provider.html、tests/e2e/fixtures/provider.ts、tests/e2e/query.spec.ts、src/BusinessTable.vue、src/style.css、docs/USAGE.md。
+
+Interfaces：保持 `DataSource<T>.query(Query): Promise<QueryResult<T>>`，沿用可选 `Query.signal`；不新增业务字段。组件发出的queryChange和Provider参数为独立快照。
+
+- [x] RED：deferred Provider先触发A再B，B先返回，再让A成功/失败；断言A signal aborted、数据/total/error/loading均属于B。
+- [x] RED：卸载取消当前请求；切换Provider/切回Local不让旧响应回写；过滤value数组和sort快照互不污染。
+- [x] RED：Local末页数据缩减自动到最后有效页，空数据第1页，pageSize改变回第1页；Remote total缩小补查有效页；搜索/排序/View回首页只发一次请求。
+- [x] RED：真实VXE慢请求显示加载文案，完成后消失，错误可重试，浏览器所有错误0。
+- [x] GREEN：AbortController+递增序号；每次await后验证仍为当前请求，finally仅关闭当前loading；onBeforeUnmount使请求过期并abort。
+- [x] GREEN：显式用户操作统一调用load，移除page/pageSize watcher，避免改页后重复查询；Local clamp在slice前，Remote越界时保留旧行并查询有效页。
+- [x] GREEN：提供组件自己的loading slot，使用简洁文案和aria-busy，避免要求宿主另装VXE Loading组件。
+- [x] Run：`pnpm test`、`pnpm run type-check`、`pnpm run build`、`pnpm test:e2e`；预期全部PASS。
+
+```ts
+const first = deferred<QueryResult<RowData>>()
+const second = deferred<QueryResult<RowData>>()
+second.resolve({ rows: [{ id: 'new' }], total: 1 })
+first.resolve({ rows: [{ id: 'old' }], total: 99 })
+expect(renderedIds()).toEqual(['new'])
+expect(firstSignal.aborted).toBe(true)
+```
+
+## Task 3：完整验收与集成准备
+
+- [x] 执行 `pnpm install --frozen-lockfile`、`pnpm run verify:release`；记录用例数与所有构建结果。
+- [x] 复查145文件SHA和无正式src引用reference；核实正式输出不含旧代码。
+- [x] 独立代理检查整批diff和高风险边界；必要修复继续RED→GREEN。
+- [x] 更新迁移矩阵、使用说明与批次报告，明确未迁移能力，保留兼容说明。
+- [x] 提交到feature并创建目标development的PR；检查该提交真实GitHub CI，禁止绕过失败或直接合main。
+
+## 执行记录
+
+- Pre-flight：任务1修改组件VXE布局，任务2修改同一组件请求逻辑，顺序执行；浏览器错误fixture由任务1建立后任务2复用。
+- Ruling：原main脚本通过但window error失败，不能满足严格基线。先在feature修复门禁/布局，再进行P0查询迁移；这是恢复用户要求的Gate，不放宽标准。
+- Ruling：现有任务使用独立克隆，未创建额外worktree；用户明确要求从最新main创建feature，该步骤已完成。
+- Ruling：按用户要求直接实现，不增加技能默认的重复方案批准；本计划和矩阵保留审查记录。
+
+- Task 1: complete — 原布局测试 RED（高度2512、原生窗口错误2）；移除错误高度配置并修复列设置面板定位；dev/preview GREEN。
+- Task 2: complete — 请求/分页16个场景全部RED后实现，16/16GREEN；真实VXE慢请求复现loading组件缺失后以组件slot修复。
+- Final: fixed 自动页码纠正误提交搜索草稿 — 原快照补查回归 RED→GREEN。
+- Final: fixed 嵌套Vue代理导致快照失败 — 响应式对象/数组、日期、循环引用和参数隔离回归 RED→GREEN。
+- Final review: 独立审查的2项P2已通过上述测试修复；无遗留阻止本批集成的问题。
+- Task 3 local: complete — frozen install退出0；完整Release Gate退出0；Vitest 3文件22/22、Playwright 4/4（开发3、生产预览1），console.error/pageerror/window error/unhandledrejection均0。
+- Integrity: 原包145文件的磁盘与Git暂存blob SHA-256均一致；正式src/build入口和产物没有旧版引用。
+- Task 3 remote: complete — [PR #2 → development](https://github.com/gw-hhh/business-table/pull/2)，代码提交 `cb78255615b06c62e5e30f5598458c216ebe4061` 的 [GitHub Actions](https://github.com/gw-hhh/business-table/actions/runs/35570481300) 已真实 SUCCESS；main尚未合入。
+- Integration: development与main的生产文件一致但历史不同；对齐development历史后完整tree保持 `3a8979485b7173780459e264eb295632114aea19`。本机Git凭据不可用，改用已连接GitHub通道，远端tree与本地测试tree完全一致。
