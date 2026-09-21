@@ -47,7 +47,7 @@ onMounted(async()=>{if(props.persistence){const stored=await props.persistence.l
       </div>
     </aside>
   </header>
-  <vxe-table :data="rows" :loading="loading||busy" :height="'auto'" border="inner" show-overflow stripe>
+  <vxe-table :data="rows" :loading="loading||busy" :height="'auto'" border="inner" stripe>
     <vxe-column v-for="c in resolvedColumns" :key="c.id" :field="c.field" :title="c.title" :width="c.width" :min-width="c.minWidth??120" :fixed="c.fixed||undefined" :align="c.align??'left'" :sortable="false">
       <template #header><button v-if="c.sortable" style="border:0;background:transparent;padding:0;font-weight:600" @click="sort(c)">{{c.title}} <span v-if="sorts[0]?.field===c.field">{{sorts[0]?.order==='asc'?'↑':'↓'}}</span></button><span v-else>{{c.title}}</span></template>
       <template #default="{row}"><span v-if="c.valueMap" class="bt-tag" :style="{color:mapStyle(getValue(row,c.field),c.valueMap)?.color,background:mapStyle(getValue(row,c.field),c.valueMap)?.background}">{{displayValue(getValue(row,c.field),c)}}</span><span v-else>{{displayValue(getValue(row,c.field),c)}}</span></template>
