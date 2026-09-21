@@ -64,7 +64,7 @@ expect(firstSignal.aborted).toBe(true)
 - [x] 复查145文件SHA和无正式src引用reference；核实正式输出不含旧代码。
 - [x] 独立代理检查整批diff和高风险边界；必要修复继续RED→GREEN。
 - [x] 更新迁移矩阵、使用说明与批次报告，明确未迁移能力，保留兼容说明。
-- [ ] 提交到feature并创建目标development的PR；检查该提交真实GitHub CI，禁止绕过失败或直接合main。
+- [x] 提交到feature并创建目标development的PR；检查该提交真实GitHub CI，禁止绕过失败或直接合main。
 
 ## 执行记录
 
@@ -80,3 +80,5 @@ expect(firstSignal.aborted).toBe(true)
 - Final review: 独立审查的2项P2已通过上述测试修复；无遗留阻止本批集成的问题。
 - Task 3 local: complete — frozen install退出0；完整Release Gate退出0；Vitest 3文件22/22、Playwright 4/4（开发3、生产预览1），console.error/pageerror/window error/unhandledrejection均0。
 - Integrity: 原包145文件的磁盘与Git暂存blob SHA-256均一致；正式src/build入口和产物没有旧版引用。
+- Task 3 remote: complete — [PR #2 → development](https://github.com/gw-hhh/business-table/pull/2)，代码提交 `cb78255615b06c62e5e30f5598458c216ebe4061` 的 [GitHub Actions](https://github.com/gw-hhh/business-table/actions/runs/35570481300) 已真实 SUCCESS；main尚未合入。
+- Integration: development与main的生产文件一致但历史不同；对齐development历史后完整tree保持 `3a8979485b7173780459e264eb295632114aea19`。本机Git凭据不可用，改用已连接GitHub通道，远端tree与本地测试tree完全一致。

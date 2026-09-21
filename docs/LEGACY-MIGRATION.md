@@ -197,5 +197,6 @@
 - 产物预览：四行表体192px，未再出现自动增高；这只证明本批布局修复，不代表旧版视觉已全部迁移。
 - 完整性：145文件磁盘与Git暂存blob均逐文件SHA-256一致；src/正式构建入口和产物未引入reference；旧测试产物在原包目录外。
 - 独立审查：2项P2已修复并覆盖回归；无遗留阻止本批集成的问题。远程CI以本批PR实际结果为准，不能用此处本地PASS代替。
+- 远程验证：[PR #2](https://github.com/gw-hhh/business-table/pull/2) 指向development；代码提交 `cb78255615b06c62e5e30f5598458c216ebe4061` 的 [完整GitHub Actions](https://github.com/gw-hhh/business-table/actions/runs/35570481300) 已真实 **SUCCESS**。这是feature的验证记录，main尚未合入本批。
 - 下一批：`feature/config-protocol`，配置分层、稳定ID校验、codec/migration、Persistence异常及版本冲突；该批仍须从已包含本批的最新main开始。
 - 尚未完成的UI、设置、协议、导出和高级扩展仍保持上文的部分/缺失状态。
