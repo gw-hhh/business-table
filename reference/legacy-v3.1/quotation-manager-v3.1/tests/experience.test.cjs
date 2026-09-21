@@ -1,0 +1,13 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const C=require('../src/core.js'),X=require('../src/customization.js'),E=require('../src/experience.js');
+test('体验摘要：不修改原快照，不改变业务键',()=>{const a=C.normalizeSnapshot(),old=JSON.stringify(a),b=C.clone(a);b.columns[0].label='单号';const changed=E.changes(a,b);assert.equal(changed.length,1);assert.equal(changed[0].key,a.columns[0].key);assert.equal(changed[0].field,'setting-column-label');assert.equal(JSON.stringify(a),old);});
+test('体验摘要：无变化不产生待保存项目',()=>{const a=C.normalizeSnapshot();assert.deepEqual(E.changes(a,C.clone(a)),[]);});
+test('体验摘要：工具栏和外观归入各自分类',()=>{const a=C.normalizeSnapshot(),b=C.clone(a);b.toolbar.gap=12;b.appearance.striped=true;const rows=E.changes(a,b);assert.equal(rows.length,2);assert.deepEqual(new Set(rows.map(x=>x.tab)),new Set(['toolbar','appearance']));});
+test('体验摘要：隐藏列样式仍被追踪而不清除',()=>{const a=C.normalizeSnapshot(),b=C.clone(a),col=b.columns.find(c=>!c.visible);col.body.color='#2468e8';const rows=E.changes(a,b);assert.equal(rows[0].key,col.key);assert.equal(col.visible,false);});
+test('体验摘要：映射和模板各有准确定位分区',()=>{const a=C.normalizeSnapshot(),b=C.clone(a),col=b.columns[0];col.mapping.enabled=true;col.template.enabled=true;assert.deepEqual(E.changes(a,b).map(x=>x.section),['section-mapping','section-template']);});
+test('规则摘要：旧金额格式保持旧小数与千分位',()=>{const col=C.normalizeSnapshot().columns.find(c=>c.key==='amountCents');assert.match(E.numberSummary(col),/原有格式/);assert.match(E.numberSummary(col),/2 位小数/);});
+test('规则摘要：百分比明确指出比例值与百分数',()=>{const c={number:{enabled:true,mode:'percent',minDigits:2,maxDigits:2,percentBase:'ratio'}};assert.match(E.numberSummary(c),/比例值/);c.number.percentBase='hundred';assert.match(E.numberSummary(c),/百分数/);});
+test('规则摘要：关闭筛选不会声称顶部查询已关闭',()=>{assert.equal(E.summary({filter:{enabled:false}},'section-filter'),'已关闭 · 不影响顶部查询');});
+test('工具栏空名称被阻止，已有正常名称可原样应用',()=>{const s=C.normalizeSnapshot();assert.equal(X.validateSettings(s),true);s.toolbar.items[0].label=' ';assert.throws(()=>X.validateSettings(s),/工具栏名称/);});
+test('默认辅助文字配色在白色背景达到4.5对比度',()=>{assert.ok(X.contrastRatio('#64748b','#ffffff')>=4.5);});

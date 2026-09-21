@@ -43,3 +43,13 @@
 5. 新版 `src/` 与 tests，按 TDD 分批迁移
 
 任何迁移都必须保持 main 可运行，并通过完整 Release Gate。
+
+## 原包目录与完整性
+
+原包 `quotation-refactor-v3.1.zip` 已完整解压，保留顶层目录：
+
+`quotation-manager-v3.1/`（145 个文件，所有源码、样式、文档、日志、测试、截图和 XLSX 均保留）。
+
+原始项目说明位于 [quotation-manager-v3.1/README.md](quotation-manager-v3.1/README.md)。本文件是仓库的参考目录说明，没有替换原始 README。
+
+原包 SHA-256：`ad0b1d616b841d755e4f10cf43a796e4dbf70bf5aa7fd3253b6dd5a9433c8858`；逐文件字节数和 SHA-256 见 [ARCHIVE-MANIFEST.json](ARCHIVE-MANIFEST.json)。原包子目录保持只读参考；分析和新测试产物放在其外，禁止通过重新构建覆盖旧单文件。Git 对此子目录禁用换行转换，避免 Windows checkout 改写原始字节。

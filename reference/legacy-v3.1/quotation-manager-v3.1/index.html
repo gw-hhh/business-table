@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="报价管理本地演示：查询、新增编辑、视图、表格设置和导出。">
+  <title>报价管理</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="src/styles.css">
+  <link rel="stylesheet" href="src/custom.css">
+  <link rel="stylesheet" href="src/enhancements.css">
+  <link rel="stylesheet" href="src/refinement.css">
+</head>
+<body>
+  <a class="skip-link" href="#table-viewport">跳到报价列表</a>
+  <main class="app-shell" id="app">
+    <header class="page-header">
+      <div class="heading-block">
+        <p class="breadcrumb">销售管理 <span>/</span> 报价管理</p>
+        <div class="page-title-row"><span class="page-symbol" data-icon="file"></span><h1>报价管理</h1><span class="local-badge" id="mode-badge">本地演示</span></div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn quiet user-indicator" id="help-button" aria-label="使用说明"><span class="user-avatar">林</span><span>林予安</span><span data-icon="info"></span></button>
+        <span class="toolbar-divider desktop-only"></span>
+        <button type="button" class="btn" id="template-button"><span data-icon="file"></span>模板下载</button>
+        <button type="button" class="btn" id="export-button"><span data-icon="download"></span>导出</button>
+        <button type="button" class="btn btn-primary" id="create-button"><span data-icon="plus"></span>新增报价</button>
+        <button type="button" class="btn icon-btn" id="more-button" title="数据与说明" aria-label="数据与说明" aria-haspopup="dialog" aria-expanded="false"><span data-icon="more"></span></button>
+      </div>
+    </header>
+    <div id="storage-warning" class="notice-banner warning-banner" role="alert" hidden></div>
+    <div id="external-warning" class="notice-banner" role="status" hidden><span>其他页面的数据有更新，请刷新列表后继续操作。</span><button type="button" class="text-link" id="external-refresh">刷新列表</button></div>
+    <section class="main-card" aria-label="报价管理">
+      <form id="search-form" class="search-panel" novalidate>
+        <div class="search-grid">
+          <div class="search-field"><label for="filter-keyword">关键词</label><div class="input-with-icon"><span data-icon="search"></span><input id="filter-keyword" name="keyword" type="search" placeholder="报价编号 / 项目 / 客户" maxlength="100" autocomplete="off"></div></div>
+          <div class="search-field"><label for="filter-customer">客户</label><select id="filter-customer" name="customer"><option value="">全部客户</option></select></div>
+          <div class="search-field"><label for="filter-status">状态</label><select id="filter-status" name="status"><option value="">全部状态</option><option value="draft">草稿</option><option value="review">评审中</option><option value="contract">已转合同</option><option value="open">未结（草稿 / 评审中）</option></select></div>
+          <div class="filter-actions"><button type="button" class="btn" id="reset-button">重置</button><button type="submit" class="btn btn-primary" id="search-button">查询</button><button type="button" class="btn btn-text" id="advanced-button" aria-controls="advanced-fields" aria-expanded="false"><span id="advanced-label">展开</span><span data-icon="down" id="advanced-icon"></span></button></div>
+        </div>
+        <div class="advanced-grid" id="advanced-fields" hidden>
+          <div class="search-field"><label for="filter-region">大区</label><select id="filter-region" name="region"><option value="">全部大区</option></select></div>
+          <div class="search-field"><label for="filter-owner">负责人</label><select id="filter-owner" name="owner"><option value="">全部负责人</option></select></div>
+          <div class="search-field date-range-field"><label for="filter-createdFrom">创建日期</label><div class="date-range"><input id="filter-createdFrom" name="createdFrom" type="date" aria-label="创建开始日期"><span>至</span><input id="filter-createdTo" name="createdTo" type="date" aria-label="创建结束日期"></div></div>
+        </div>
+        <p class="form-error search-error" id="search-error" role="alert" hidden></p>
+      </form>
+      <div class="table-toolbar">
+        <div class="table-title" id="table-title"><h2>报价列表</h2><span class="toolbar-divider"></span><button type="button" class="view-switch" id="view-button" title="保存与切换视图" aria-label="保存与切换视图" aria-haspopup="dialog" aria-expanded="false"><span data-icon="bookmark"></span><span id="current-view-name">全部报价</span><span data-icon="down"></span></button><span class="modified-label" id="view-modified" hidden>未保存</span><span class="count-badge" id="result-count">0</span></div>
+        <div class="selection-bar" id="selection-bar" hidden><span>已选 <strong id="selected-count">0</strong> 条</span><button type="button" class="text-link" id="select-filtered-button">选择全部结果</button><span class="toolbar-divider"></span><button type="button" class="text-link" id="batch-export">导出所选</button><button type="button" class="text-link text-danger" id="batch-delete">删除</button><button type="button" class="text-link muted" id="clear-selection">取消选择</button></div>
+        <div class="table-tools" aria-label="表格工具">
+          <button type="button" class="btn icon-btn" id="batch-button" title="批量操作" aria-label="批量操作" aria-pressed="false"><span data-icon="batch"></span></button>
+          <button type="button" class="btn icon-btn is-active" id="search-toggle-button" title="显示或隐藏查询区域" aria-label="显示或隐藏查询区域" aria-controls="search-form" aria-expanded="true"><span data-icon="search"></span></button>
+          <span class="toolbar-divider"></span>
+          <button type="button" class="btn icon-btn" id="refresh-button" title="刷新列表" aria-label="刷新列表"><span data-icon="refresh"></span></button>
+          <button type="button" class="btn icon-btn" id="density-button" title="行高" aria-label="行高" aria-haspopup="dialog" aria-expanded="false"><span data-icon="rows"></span></button>
+          <button type="button" class="btn icon-btn" id="sort-settings-button" title="排序规则" aria-label="排序规则"><span data-icon="sort"></span></button>
+          <button type="button" class="btn icon-btn" id="columns-button" title="列设置" aria-label="列设置" aria-haspopup="dialog" aria-expanded="false"><span data-icon="columns"></span></button>
+          <button type="button" class="btn icon-btn" id="data-tools-button" title="数据工具" aria-label="数据工具"><span data-icon="filter"></span></button>
+          <button type="button" class="btn settings-entry" id="settings-button"><span data-icon="settings"></span>表格设置</button>
+        </div>
+      </div>
+      <div class="filter-summary" id="filter-summary" hidden><div id="filter-chips" class="filter-chips"></div><span id="query-pending" class="pending-label" hidden>条件已修改，点击查询生效</span></div>
+      <div id="table-viewport" class="table-viewport" tabindex="0" role="region" aria-label="报价列表，可横向滚动">
+        <table id="quote-table" class="quote-table"><caption class="sr-only">报价列表，点击报价编号查看详情</caption><colgroup id="table-cols"></colgroup><thead><tr id="table-head"></tr></thead><tbody id="table-body"></tbody></table>
+        <noscript><p class="empty-text">请启用 JavaScript 后使用此页面。</p></noscript>
+      </div>
+      <footer class="table-footer">
+        <div class="result-summary"><span id="page-info" aria-live="polite">共 0 条</span><span class="footer-divider">·</span><span id="amount-label">筛选合计</span><strong id="amount-total">¥ 0.00</strong></div>
+        <div class="pagination" aria-label="分页">
+          <label class="sr-only" for="page-size">每页条数</label><select id="page-size"><option value="10">10 条 / 页</option><option value="25">25 条 / 页</option><option value="50">50 条 / 页</option><option value="100">100 条 / 页</option></select>
+          <nav id="page-buttons" class="page-buttons" aria-label="页码"></nav>
+          <form id="page-jump-form" class="page-jump"><label for="page-jump">前往</label><input id="page-jump" type="number" min="1" value="1" inputmode="numeric" aria-label="跳转页码"><button type="submit" class="btn btn-text">跳转</button></form>
+        </div>
+      </footer>
+    </section>
+    <div class="page-note"><span id="persistence-note">数据仅保存在当前浏览器，不会提交到服务器。</span><span>金额单位：人民币元</span></div>
+  </main>
+  <div id="toast-host" class="toast-host" aria-live="polite" aria-atomic="false"></div>
+  <input type="file" id="restore-file" accept=".json,application/json" hidden>
+  <script src="src/config.js" defer></script>
+  <script src="src/column-rules.js" defer></script>
+  <script src="src/customization.js" defer></script>
+  <script src="src/core.js" defer></script>
+  <script src="src/repository.js" defer></script>
+  <script src="src/ui.js" defer></script>
+  <script src="src/menus.js" defer></script>
+  <script src="src/actions.js" defer></script>
+  <script src="src/xlsx.js" defer></script>
+  <script src="src/export-data.js" defer></script>
+  <script src="src/rich-text.js" defer></script>
+  <script src="src/column-filter-ui.js" defer></script>
+  <script src="src/rule-settings.js" defer></script>
+  <script src="src/toolbar.js" defer></script>
+  <script src="src/experience.js" defer></script>
+  <script src="src/settings-preview.js" defer></script>
+  <script src="src/settings.js" defer></script>
+  <script src="src/export-dialog.js" defer></script>
+  <script src="src/table.js" defer></script>
+  <script src="src/forms.js" defer></script>
+  <script src="src/workbench.js" defer></script>
+<script src="src/app.js" defer></script>
+</body>
+</html>

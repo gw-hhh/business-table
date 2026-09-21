@@ -1,0 +1,5 @@
+FAIL 颜色预设支持回填色值且不覆盖数据 Locator.click: Timeout 2500ms exceeded.
+Call log:
+  - waiting for locator("#setting-body-color").locator("..").locator("..").get_by_label("常用颜色")
+
+RESULT 0 / 1

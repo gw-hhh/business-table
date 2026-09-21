@@ -1,0 +1,216 @@
+/* 3.1 统一表现层。业务数据、列宽及用户的内联文字样式不在这里重置。 */
+:root{
+ --control-height:36px;--row-padding:9px;--radius:8px;
+ --text:#263248;--secondary:#526177;--muted:#66758b;--line:#e5eaf1;
+ --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;
+ --ui-radius:6px;--ui-line:#dfe5ee;--ui-soft:#f7f9fc;--ui-focus:#2468e8;
+}
+input,select,textarea,.btn{border-radius:var(--ui-radius)}
+input::placeholder,textarea::placeholder{color:#748095}
+h1{font-size:22px;font-weight:600;letter-spacing:0}
+.app-shell{padding:20px 24px 12px;gap:16px}.page-header{min-height:60px}
+.breadcrumb{font-size:12px;color:#68768a;margin-bottom:7px}
+.local-badge,.page-note{font-size:12px;color:#66758b}.table-toolbar{padding:10px 18px;min-height:56px}
+.search-panel{padding:18px 20px}.search-field>label,.search-field select,.input-with-icon input{font-size:14px}
+.icon-btn{width:32px;height:32px}.btn:focus-visible{outline:2px solid var(--ui-focus);outline-offset:2px}
+.table-settings-button,.settings-entry{height:32px;font-size:13px}.view-switch{height:32px}#current-view-name{font-size:13px}
+.quote-table td{padding-top:var(--row-padding);padding-bottom:var(--row-padding);height:48px;line-height:22px}
+.quote-table th{height:44px;line-height:20px}.quote-table.density-compact{--row-padding:6px}.quote-table.density-compact td{height:44px}
+.quote-table.density-loose{--row-padding:15px}.quote-table.density-loose td{height:72px}
+.custom-table .cell-customer{font-size:max(12px,.86em);line-height:18px;margin-top:2px;color:#64748b}
+.cell-name{line-height:22px}.expired-label{font-size:12px;line-height:18px;color:#9a5713}
+.custom-table .money{font-variant-numeric:tabular-nums;letter-spacing:0}
+.custom-table .status-pill{padding:2px 7px;line-height:20px}.status-neutral{color:#526177}.status-blue{color:#245fbb}.status-green{color:#167457}
+.custom-actions .action-button,.custom-actions .more-trigger{min-height:30px;padding:4px 0;font-size:inherit;font-weight:400}
+.custom-actions [data-table-action='detail']{color:#526177}.custom-actions .more-trigger{color:#64748b}
+.custom-actions .action-button:hover,.custom-actions .more-trigger:hover{color:var(--primary)}
+.custom-actions .text-danger,.custom-actions .text-danger:hover{color:var(--danger)}
+/* 保留位置而非 display 切换：鼠标经过时表头名称不会移动。 */
+.custom-table th{padding-left:10px;padding-right:10px}.header-content{gap:1px;min-height:32px}
+.column-filter-trigger.icon-btn{display:inline-flex;width:22px;min-width:22px;height:28px;opacity:0;pointer-events:none}
+.column-menu-trigger.icon-btn{width:20px;min-width:20px;height:28px}
+th:hover .column-filter-trigger.icon-btn,th:focus-within .column-filter-trigger.icon-btn,.column-filter-trigger.icon-btn.is-active{opacity:1;pointer-events:auto}
+.header-content .sort-button{gap:3px}.header-content .sort-button>.icon{width:11px;height:11px}
+.cell-copy.icon-btn{width:28px;height:28px}.table-footer{padding:12px 18px;font-size:13px}
+.result-summary{color:#66758b}.page-btn,.pagination select,.page-jump input,.page-jump .btn{height:32px;font-size:13px}
+.page-btn{min-width:32px}.count-badge,.modified-label{font-size:12px}
+.custom-table tbody tr.is-selected>td{background:#edf4ff}.quote-table td.range-selected{background:#f1f6ff!important;box-shadow:inset 0 0 0 1px #3576df}
+.quote-table td.range-focus{outline:2px solid #2468e8;outline-offset:-2px}
+.quote-table tr.has-rule-mark>.pinned:first-child{box-shadow:inset 3px 0 0 #bf863b}.row-mark{font-size:12px}
+/* 对话框使用统一的标题、内容、底部节奏。 */
+.dialog-header{padding:16px 24px;align-items:center}.dialog-header h2{font-size:16px;line-height:24px}
+.dialog-subtitle{font-size:12px;color:#64748b;line-height:18px;margin-top:4px}
+.dialog-footer{padding:12px 24px;min-height:60px;gap:8px;background:#fff}.dialog-body{padding:20px 24px}
+.field label,.field-label{font-size:13px;color:#526177}.field input,.field select{height:36px}
+.field-hint,.small-note,.dialog-footer .footer-note{font-size:12px;color:#64748b;line-height:1.6}
+.form-grid{gap:20px 16px}.field{gap:7px}.form-error{font-size:13px}
+.settings-drawer .dialog-header{padding:14px 24px;min-height:68px}.settings-drawer .dialog-body{padding:0}
+.settings-tabs{gap:24px;padding:0 24px;min-height:44px;overflow-x:auto;scrollbar-width:thin}
+.settings-tabs>button{flex-shrink:0;height:44px;padding:0;font-size:14px;white-space:nowrap}
+.settings-change-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:4px 24px;border-bottom:1px solid #edf0f5;background:#fbfcfe;flex-shrink:0;font-size:12px;color:#66758b}
+.settings-change-summary>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.settings-change-summary .has-changes{color:#856017}.settings-change-summary .btn{height:26px;padding:0 4px;font-size:12px;flex-shrink:0}
+.columns-editor{grid-template-columns:200px minmax(0,1fr)}
+.settings-column-list{padding:12px 10px;background:#f8fafd}.batch-style-caption{display:flex;flex-direction:column;gap:3px;padding:2px 6px 8px}
+.batch-style-caption strong{font-size:13px;font-weight:500;color:#44546c}.batch-style-caption span{font-size:12px;color:#66758b}
+.settings-column-list>.setting-check{padding:0 6px 10px;font-size:12px;margin:0 0 8px}
+.column-pick-row{padding:4px 5px;min-height:50px}.column-pick{font-size:13px;gap:2px}.column-pick small{font-size:12px;color:#66758b}
+.column-pick-row.is-active{background:#eaf1ff;box-shadow:inset 2px 0 0 #2468e8}.column-pick-row input[type='checkbox']{width:15px;height:15px}
+.settings-column-list>.small-note{font-size:12px;line-height:18px}.column-detail{padding:16px 24px 24px;scroll-padding-top:56px}
+.column-section-nav{top:-16px;padding:8px 0;background:#fff;gap:4px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:18px;min-height:48px}
+.column-section-nav .btn{font-size:13px;height:30px;padding:0 10px;flex-shrink:0;color:#526177}
+.column-section-nav .btn:focus,.column-section-nav .btn:hover{color:#2468e8;background:#edf4ff}
+.column-detail-heading{align-items:flex-start;gap:12px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+#editing-column-context{font-size:16px;line-height:24px}.field-code{font-family:ui-monospace,Consolas,monospace;font-size:11px;display:block;color:#748095;margin-top:3px}
+.section-heading h3,.settings-section>h3,.settings-page h3{font-size:14px;color:#29384e;font-weight:600}
+.settings-section{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--line)}.settings-section:last-child{margin-bottom:0}
+.section-heading{margin-bottom:14px}.section-heading .btn{font-size:12px;height:30px}
+.setting-grid{gap:16px}.setting-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.setting-grid .field input,.setting-grid .field select{height:36px;font-size:14px}
+.setting-grid .field-hint{font-size:12px;color:#64748b}.setting-check{font-size:13px;gap:8px;line-height:20px;margin:10px 0}
+.setting-check input{width:16px;height:16px}.setting-inline{gap:16px;margin-top:14px}.detail-pins{font-size:13px}
+.detail-pins .pin-button{width:32px;height:32px}.bulk-style-bar{font-size:12px;padding:8px 12px;background:#f0f5ff}
+.bulk-style-bar .btn{height:30px;font-size:12px}.settings-page{padding:20px 24px}
+.settings-error{display:flex;justify-content:space-between;align-items:center;margin:8px 24px 0;gap:8px}.settings-error .btn{height:28px;flex-shrink:0;padding:0 4px}
+.settings-message{font-size:12px}.settings-footer-left .btn{font-size:13px}.settings-drawer .dialog-footer{padding:12px 24px;min-height:60px}
+.inline-setting-error{display:block;color:#be3544;font-size:12px;line-height:18px;margin-top:4px}.settings-content [aria-invalid='true']{border-color:#c73e4e}
+.change-review-list{display:flex;flex-direction:column;gap:4px}.change-review-list .btn{justify-content:flex-start;white-space:normal;text-align:left;height:auto;min-height:36px}
+/* 紧凑的工具配置列表；每个字段都有固定语义位置。 */
+.toolbar-settings>h3{margin:24px 0 12px;font-size:14px}.toolbar-preference-line{display:flex;gap:24px;align-items:center;justify-content:space-between;margin-top:8px}
+.toolbar-preference-line>.field{width:100px;flex-shrink:0}.toolbar-config-list{gap:0;border:1px solid var(--ui-line);border-radius:8px;overflow:hidden}
+.toolbar-config-heading,.toolbar-config-row{display:grid;grid-template-columns:26px minmax(140px,1.6fr) minmax(120px,1.1fr) minmax(120px,1.1fr) 40px 40px 66px;gap:12px;align-items:center}
+.toolbar-config-heading{padding:10px 14px;font-size:12px;color:#64748b;background:#f8fafc;border-bottom:1px solid var(--line)}
+.toolbar-config-row{padding:9px 14px;border:0;border-radius:0;border-bottom:1px solid #edf0f5;min-height:55px;background:#fff}
+.toolbar-config-row:last-child{border-bottom:0}.toolbar-config-row:hover,.toolbar-config-row:focus-within{background:#f8faff}
+.toolbar-config-row>.field>label,.toolbar-config-row>.field>.field-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.toolbar-config-row .field{gap:0}.toolbar-config-row .field input,.toolbar-config-row .field select{height:34px;font-size:13px;background:transparent;border-color:transparent;padding:0 8px}
+.toolbar-config-row .field input:hover,.toolbar-config-row .field select:hover,.toolbar-config-row .field input:focus,.toolbar-config-row .field select:focus{background:#fff;border-color:#ced8e6}
+.toolbar-config-row>.setting-check{font-size:0;line-height:0;margin:0;display:flex;align-items:center;justify-content:center;gap:0}
+.toolbar-config-row>.icon-btn{width:26px;height:32px}.toolbar-config-row .move-actions{display:flex;align-self:center;justify-content:flex-end}.toolbar-config-row .move-actions .icon-btn{height:30px;width:30px}
+/* 列映射先展示原值→文案→结果，颜色等精细设置在本条展开。 */
+.rule-section-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.rule-section-heading h3{font-size:14px;line-height:22px;margin:0}.rule-section-summary{display:block;font-size:12px;line-height:18px;margin-top:3px;color:#64748b}
+.rule-section-heading .btn{height:30px;padding:0 6px;font-size:12px}.feature-section{scroll-margin-top:64px}
+.mapping-items{display:flex;flex-direction:column;gap:10px;margin:16px 0}
+.mapping-item{padding:12px;border:1px solid var(--ui-line);border-radius:8px;background:#fff}
+.mapping-item:focus-within{border-color:#bed0ec}.mapping-item>.mapping-row{display:grid;grid-template-columns:minmax(90px,1fr) 16px minmax(110px,1.2fr) minmax(70px,1fr) 96px;gap:10px;align-items:center}
+.mapping-row>.field input{height:34px;font-size:13px}.mapping-arrow{align-self:end;height:34px;display:grid;place-items:center;color:#8592a5}
+.mapping-inline-preview{min-width:0;padding-top:22px;overflow:hidden}.mapping-inline-preview .mapped-value{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mapping-item .move-actions{align-self:end;height:34px;display:flex}.mapping-item .move-actions .icon-btn{width:30px;height:30px}
+.mapping-style-details{margin-top:8px;font-size:12px;color:#526177}.mapping-style-details>summary{cursor:pointer;display:list-item;width:max-content;padding:4px 2px;line-height:20px;min-height:28px}
+.mapping-style-body{padding-top:12px;margin-top:4px;border-top:1px dashed var(--ui-line);display:grid;grid-template-columns:1fr 120px;gap:16px;align-items:end}
+.mapping-colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;min-width:0}
+.mapping-color-control{display:flex;gap:4px;align-items:center;min-width:0}.mapping-color-control input[type='color']{width:30px;height:34px;flex-shrink:0;padding:3px}.mapping-color-control input[type='text']{min-width:0;width:100%;height:34px;font-size:12px;padding:0 5px}
+/* 对齐分段与字体搜索。旧 select 作为值模型，不参与焦点或读屏。 */
+.control-model{display:none!important}.segmented{display:inline-flex;gap:2px;border:1px solid #dfe5ee;background:#f5f7fa;border-radius:6px;padding:2px;max-width:100%}
+.segmented .btn{height:30px;min-width:32px;border:0;background:transparent;font-size:12px;padding:0 8px;color:#59687e;box-shadow:none}
+.segmented .btn[aria-pressed='true']{background:#fff;color:#2468e8;box-shadow:0 1px 3px #1b305019}.segmented .btn:focus-visible{outline-offset:-2px}
+.segmented-field .segmented{width:100%}.segmented-field .segmented>.btn{flex:1;padding:0 4px}
+.font-select-control{display:flex;min-width:0;gap:4px;align-items:center}.font-select-control select{min-width:0;flex:1;width:0}.font-select-control .icon-btn{flex-shrink:0}
+.font-search-dialog .dialog-body{display:flex;flex-direction:column;gap:12px}.font-search-options{display:flex;flex-direction:column;gap:4px;min-height:100px}.font-search-options .btn{justify-content:flex-start}
+.color-control{gap:5px}.color-control input[type='text']{font-size:12px;min-width:40px}.color-control .btn{font-size:12px;width:36px;height:32px}
+/* 预览为专属区域，与编辑滚动区相互独立，可记忆收起。 */
+.settings-preview{padding:0;background:#f8faff}.preview-heading{min-height:44px;padding:6px 20px;gap:12px;margin:0;font-size:13px}
+.preview-heading>strong{white-space:nowrap;max-width:35%;overflow:hidden;text-overflow:ellipsis}.preview-heading .preview-caption{font-size:12px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview-controls{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}.preview-controls>.btn{height:30px;padding:0 4px;font-size:12px}.preview-switch .btn{height:26px}
+.preview-content{padding:0 20px 12px;max-height:210px;overflow:auto}.preview-scroll{max-height:155px;overflow:auto;border:1px solid #dfe6f0;border-radius:6px;background:#fff}
+.table-preview-viewport .quote-table th{position:static}.table-preview-viewport .quote-table td{transition:none}.table-preview-viewport .quote-table .pinned{position:static}
+.table-preview-viewport .quote-table .boundary-left::after,.table-preview-viewport .quote-table .boundary-right::before{display:none}
+.preview-sample-row{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;color:#526177}.preview-sample{height:28px;max-width:380px;width:calc(100% - 45px);font-size:12px;padding:0 6px}
+.preview-size-options{display:flex;gap:10px;align-items:center;font-size:12px;margin:0 0 6px;color:#64748b}.preview-size-options .btn{height:24px;font-size:12px;padding:0 4px}
+.toolbar-preview-list{display:grid;grid-template-columns:1fr;gap:8px}.toolbar-preview-line{display:grid;grid-template-columns:85px minmax(0,1fr);align-items:center;gap:12px}
+.toolbar-live-preview{display:flex;align-items:center;min-width:0;overflow-x:auto;width:100%;padding:5px 8px;border:1px solid var(--ui-line);border-radius:6px;background:#fff}
+.toolbar-live-preview>.btn{flex-shrink:0;height:32px;font-size:12px}.toolbar-live-preview>.icon-btn{width:30px;min-width:30px}
+.mapping-preview-cases{display:flex;gap:0}.mapping-preview-case{padding:12px 16px;min-width:144px;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-start;gap:9px;border-right:1px solid #edf0f5}
+.mapping-preview-case:last-child{border-right:0}.mapping-preview-case .small-note{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.number-preview-cases{display:grid;grid-template-columns:1fr 20px 1fr 1.3fr;gap:12px;padding:14px 16px;background:#fff;border:1px solid var(--ui-line);border-radius:6px;align-items:center}
+.number-preview-cases>div{display:flex;flex-direction:column;gap:6px;min-width:0}.number-preview-cases strong{font-size:16px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.preview-code{font-size:12px;font-family:ui-monospace,monospace;overflow-wrap:anywhere}
+.action-preview-area{display:flex;align-items:center;gap:20px}.action-preview-cell{background:#fff;border:1px solid var(--ui-line);border-radius:6px;padding:10px 12px}
+.settings-preview .contrast-warning{font-size:12px;color:#885d1b;margin:8px 0 0;line-height:18px}.preview-action-note{margin-top:8px}
+/* 富文本：按编辑任务分组，状态明确但不占用正文空间。 */
+.rich-dialog.dialog{width:min(960px,calc(100vw - 32px));height:min(680px,calc(100dvh - 48px));max-height:calc(100dvh - 48px);margin:auto 0 auto auto}
+.rich-dialog .dialog-body{padding:16px 20px;gap:12px;overflow:auto}.rich-editor-toolbar{padding:6px 8px;gap:6px;background:#f8fafc;border-radius:6px}
+.rich-tool-group{display:flex;align-items:center;gap:4px;min-width:0;padding-right:8px;border-right:1px solid #dfe5ee}.rich-tool-group:last-child{border-right:0;padding-right:0}
+.rich-editor-toolbar select{height:32px;font-size:13px;max-width:145px}.rich-command.btn{height:32px;min-width:32px;padding:0 7px;background:transparent;border-color:transparent;font-size:13px}
+.rich-command.btn[aria-pressed='true']{color:#2468e8;background:#e6efff;border-color:#c3d7f8}.rich-command.btn[aria-pressed='mixed']{color:#856017;background:#fff7e7}
+.rich-tool-group .rich-symbol{font-size:16px;line-height:20px;font-family:Georgia,serif}.rich-tool-group .rich-symbol.rich-symbol-bold{font-weight:700}.rich-tool-group .rich-symbol.rich-symbol-italic{font-style:italic}.rich-tool-group .rich-symbol.rich-symbol-underline{text-decoration:underline}.rich-tool-group .rich-symbol.rich-symbol-strike{text-decoration:line-through}
+.rich-color{gap:4px;font-size:12px}.rich-color input{width:28px;height:30px}.rich-editor{min-height:240px;max-height:48dvh;padding:18px;font-size:14px;line-height:1.65;border-radius:6px}
+.rich-editor-footer{font-size:12px;align-items:center}.rich-selection-status{font-size:12px;color:#64748b;min-height:18px;line-height:18px}
+.rich-dialog .rich-footnote{margin-right:auto;font-size:12px;color:#64748b}.rich-dialog.dialog.is-expanded{width:calc(100vw - 32px);height:calc(100dvh - 32px);max-height:none}.rich-dialog.is-expanded .dialog-body{overflow:hidden}.rich-dialog.is-expanded .rich-editor{max-height:none;min-height:0;overflow:auto}
+.rich-dialog .rich-header-actions{display:flex;align-items:center;gap:8px}.rich-editor [data-qfield]{border-radius:4px}
+/* 辅助工具保持同一字号，不影响其业务交互。 */
+.export-sidebar .small-note,.export-fields>.small-note,.export-fields .section-heading .btn,.export-sidebar .setting-check{font-size:12px}.export-field-row,.export-field-row>label{font-size:13px}.export-field-row{min-height:36px}.export-field-row input[type='checkbox']{width:15px;height:15px}
+.action-rule .danger-note,.action-children>strong{font-size:12px}.action-rule .setting-check{font-size:12px}.action-rule-main .field input,.action-rule-main .field select{font-size:13px}
+.column-editor-header{position:sticky;top:-16px;z-index:8;background:#fff;padding-top:8px;margin-top:-8px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.column-editor-header .column-detail-heading{margin-bottom:4px;padding-bottom:4px;border-bottom:0}
+.column-editor-header .field-code{display:none}.column-editor-header .column-section-nav{position:static;min-height:36px;margin:0;padding:4px 0;border:0}
+.column-editor-header .column-section-nav .btn{box-shadow:none;border:0}
+.column-detail .feature-section{scroll-margin-top:0}.column-detail{scroll-padding-top:114px}
+.color-presets{position:relative;flex-shrink:0;font-size:12px;color:#526177}.color-presets>summary{list-style:none;cursor:pointer;padding:7px 4px;border-radius:4px}.color-presets>summary::-webkit-details-marker{display:none}
+.color-presets[open]>summary{background:#edf4ff;color:#2468e8}.color-preset-grid{position:absolute;top:100%;right:0;z-index:15;display:grid;grid-template-columns:repeat(4,28px);gap:8px;background:#fff;border:1px solid #dae2ee;border-radius:6px;padding:10px;box-shadow:0 4px 16px #233d601c}
+.color-preset-grid .btn{width:28px;height:28px;border:1px solid #94a3b8;border-radius:50%;padding:0}
+.number-precision-line{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}
+.number-precision-line .btn{height:32px;font-size:13px}
+/* 平板及窄屏显式排布；只有真正二维内容单独横向滚动。 */
+@media(max-width:1100px){
+ .toolbar-config-heading,.toolbar-config-row{grid-template-columns:24px minmax(115px,1.4fr) minmax(105px,1fr) minmax(105px,1fr) 34px 34px 62px;gap:8px}
+ .setting-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:800px){
+ .settings-drawer .dialog-header,.dialog-header{padding:14px 18px}.settings-tabs{padding:0 18px;gap:20px}.settings-change-summary{padding:4px 18px}
+ .columns-editor{grid-template-columns:180px minmax(0,1fr)}.column-detail{padding:16px 18px}.settings-page{padding:18px}
+ .toolbar-config-heading{display:none}.toolbar-config-row{grid-template-columns:26px minmax(0,1fr) minmax(0,1fr) 64px;grid-template-areas:'drag name name move' '. placement mode .' '. fixed divider .';gap:8px 10px;padding:12px}
+ .toolbar-config-row>.icon-btn{grid-area:drag}.toolbar-config-row>.field:nth-child(2){grid-area:name}.toolbar-config-row>.field:nth-child(3){grid-area:placement}.toolbar-config-row>.field:nth-child(4){grid-area:mode}
+ .toolbar-config-row>.setting-check:nth-child(5){grid-area:fixed}.toolbar-config-row>.setting-check:nth-child(6){grid-area:divider}.toolbar-config-row>.move-actions{grid-area:move}
+ .toolbar-config-row>.field>label,.toolbar-config-row>.field>.field-label{position:static;width:auto;height:auto;overflow:visible;clip:auto;white-space:normal;font-size:12px}
+ .toolbar-config-row>.field{gap:5px}.toolbar-config-row .field input,.toolbar-config-row .field select{border-color:#d9e1ed;background:#fff;height:36px;padding:0 8px;font-size:13px}
+ .toolbar-config-row>.setting-check{font-size:12px;line-height:20px;flex-direction:row;justify-content:flex-start;gap:6px}.toolbar-config-row>.setting-check input{width:15px;height:15px}
+ .mapping-item>.mapping-row{grid-template-columns:minmax(0,1fr) 14px minmax(0,1.2fr);gap:8px}.mapping-item .mapping-inline-preview{grid-column:1/3;padding-top:0}.mapping-item .move-actions{grid-column:3;justify-self:end}.mapping-style-body{grid-template-columns:1fr}.mapping-colors{gap:8px}
+ .preview-heading .preview-caption{display:none}.settings-preview .preview-content{max-height:170px}.preview-heading{padding:6px 14px}.preview-content{padding:0 14px 10px}
+ .action-rule-main{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr) 62px;grid-template-areas:'drag name name move' '. placement mode .' '. group group .';gap:10px}
+ .action-rule-main>.drag-handle{grid-area:drag}.action-rule-main>.field:nth-child(2){grid-area:name}.action-rule-main>.field:nth-child(3){grid-area:placement}.action-rule-main>.field:nth-child(4){grid-area:mode}.action-rule-main>.field:nth-child(5){grid-area:group}.action-rule-main>.move-actions{grid-area:move;flex-direction:row;height:32px}
+ .action-rule-main .icon-btn{height:30px;width:30px}.action-rule .setting-check,.action-rule .danger-note,.action-children{margin-left:0}
+ .sort-rule{grid-template-columns:24px 24px minmax(0,1fr) minmax(80px,.6fr);align-items:center;gap:8px}.sort-rule>.move-actions{grid-column:3/5;justify-content:flex-end;height:30px}
+}
+@media(max-width:580px){
+ .app-shell{padding:14px 10px;gap:12px}.page-title-row h1{font-size:20px}.page-header{gap:12px}.header-actions{width:100%;max-width:100%}
+ .search-panel{padding:16px 14px}.search-grid,.advanced-grid{gap:14px}.search-field>label{font-size:13px}.table-toolbar{padding:10px 12px;gap:8px}.table-footer{padding:12px;gap:12px}
+ .result-summary{white-space:normal;flex-wrap:wrap}.pagination{gap:8px}.local-badge{font-size:12px}.table-viewport{max-height:65dvh}
+ .settings-drawer .dialog-header{min-height:64px;padding:12px 14px}.settings-tabs{padding:0 14px;gap:20px;min-height:44px}.settings-tabs>button{font-size:13px}
+ .settings-change-summary{padding:4px 14px}.columns-editor{display:flex;flex-direction:column}
+ .settings-column-list{padding:8px 12px}.batch-style-caption{display:flex;flex-direction:row;align-items:center;justify-content:space-between;padding:0 2px 5px}.batch-style-caption strong{font-size:12px}.batch-style-caption span{font-size:11px}
+ .settings-column-list>.setting-check{display:flex;font-size:12px;padding:0;margin:0 0 5px}.settings-column-list>.small-note{display:none}.settings-column-items{flex:none;overflow-x:auto;max-height:60px}
+ .column-pick-row{min-height:42px;min-width:108px}.column-pick{font-size:12px}.column-pick-row .drag-handle{display:flex;width:20px;min-width:20px}.column-pick small{display:none}
+ .column-detail{padding:12px 14px 18px;scroll-padding-top:48px}.column-section-nav{top:-12px;min-height:42px;padding:5px 0;margin-bottom:12px}.column-section-nav .btn{font-size:12px;height:30px;padding:0 8px}
+ #editing-column-context{font-size:15px}.column-detail-heading{padding-bottom:12px;margin-bottom:16px}.column-detail-heading>.btn{font-size:12px;flex-shrink:0}.field-code{display:none}
+ .settings-page{padding:16px 14px}.setting-grid.two,.setting-grid.three,.setting-grid.four{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}
+ .setting-grid .field input,.setting-grid .field select{font-size:13px}.setting-grid .field-hint{font-size:12px}.settings-section{padding-bottom:18px;margin-bottom:18px}
+ .toolbar-preference-line{gap:10px;align-items:flex-start}.toolbar-preference-line>.setting-check{font-size:12px;max-width:220px}.toolbar-preference-line>.field{width:80px}
+ .toolbar-config-row{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr);grid-template-areas:'drag name name' 'placement placement mode' 'fixed divider move';gap:10px 8px;padding:12px}
+ .toolbar-config-row>.field:nth-child(3){grid-area:placement}.toolbar-config-row>.field:nth-child(4){grid-area:mode}
+ .toolbar-config-row .field input,.toolbar-config-row .field select{font-size:13px}.toolbar-config-row>.move-actions{justify-self:end}.toolbar-config-row>.setting-check{font-size:12px}
+ .toolbar-config-row>.setting-check:nth-child(5){grid-column:1/3;justify-self:start}.toolbar-config-row>.setting-check:nth-child(6){grid-column:1/3;justify-self:end;margin-right:5px}
+ .toolbar-config-row>.field:nth-child(4){min-width:120px}
+ .mapping-item{padding:10px}.mapping-style-body{gap:12px}.mapping-colors{grid-template-columns:1fr}.mapping-color-control input[type='text']{max-width:150px}
+ .preview-heading{gap:6px;min-height:44px;padding:6px 12px;font-size:12px}.preview-heading>strong{max-width:30%}.preview-controls{gap:6px}.preview-controls .btn{font-size:12px;padding:0 5px;min-width:0}
+ .preview-content{padding:0 12px 10px;max-height:160px!important}.preview-scroll{max-height:140px}.preview-sample-row{margin-bottom:6px}.toolbar-preview-line{grid-template-columns:1fr;gap:4px}
+ .toolbar-preview-line>.small-note{font-size:12px}.number-preview-cases{grid-template-columns:1fr 14px 1fr;gap:10px;padding:10px}.number-preview-cases>div:last-child{grid-column:1/-1}.number-preview-cases strong{font-size:14px}
+ .action-preview-area{display:block}.action-preview-cell{margin-top:8px}.settings-error{margin:8px 12px 0;align-items:flex-start}
+ .settings-drawer .dialog-footer{padding:10px 12px;min-height:60px;gap:6px}.settings-footer-left{gap:4px;flex-wrap:wrap}.settings-footer-left .btn{font-size:12px;padding:0 2px;height:30px}.settings-drawer .dialog-footer>.btn{font-size:13px;padding:0 12px;flex-shrink:0}
+ .color-control{flex-wrap:wrap}.color-control input[type='color']{width:30px;height:32px}.color-control input[type='text']{width:65px;flex:1}.color-control .btn{width:auto}
+ .segmented-field .segmented>.btn{padding:0 3px;min-width:26px}.font-select-control{gap:1px}.font-select-control .icon-btn{width:26px}
+ .rich-dialog.dialog,.rich-dialog.dialog.is-expanded{width:100vw;height:100dvh;max-height:100dvh;margin:0;border-radius:0}.rich-dialog .dialog-body{padding:12px;overflow:hidden}.rich-editor{min-height:0;flex:1;max-height:none;padding:14px;overflow:auto}
+ .rich-editor-toolbar{padding:6px;gap:5px;flex-shrink:0;max-height:210px;overflow:auto}.rich-tool-group{padding-right:6px;gap:3px}.rich-editor-toolbar select{font-size:13px;max-width:132px}
+ .rich-editor-footer{gap:4px;align-items:flex-start;flex-direction:column}.rich-selection-status{font-size:12px}.rich-dialog .rich-footnote{max-width:46%;line-height:18px}.rich-dialog .dialog-footer{padding:12px}
+}
+@media(max-height:760px){.preview-content{max-height:150px}.preview-heading{min-height:40px}.settings-drawer .dialog-header{min-height:60px;padding-top:10px;padding-bottom:10px}.rich-dialog .rich-editor{min-height:180px}}
+@media(max-width:360px){.setting-grid.two,.setting-grid.three,.setting-grid.four{grid-template-columns:1fr}.settings-change-summary{font-size:11px}.preview-heading>strong{max-width:23%}.toolbar-config-row{grid-template-columns:24px minmax(0,1fr) minmax(0,1fr);padding:10px;gap:8px}.toolbar-config-row>.field:nth-child(4){min-width:110px}.toolbar-preference-line{flex-wrap:wrap}.batch-style-caption span{font-size:10px}.dialog-subtitle{font-size:12px}.action-rule-main{grid-template-columns:18px minmax(0,1fr) minmax(0,1fr) 52px;gap:6px}.action-rule-main .move-actions .icon-btn{width:24px}.field label{font-size:12px}}
+@media(hover:none),(pointer:coarse){
+ .column-filter-trigger.icon-btn,.column-menu-trigger.icon-btn{opacity:1;pointer-events:auto}
+ .column-panel .pin-button{min-width:30px;min-height:36px}.column-panel .column-row{min-height:44px}.popover .menu-option,.q-menu-item{min-height:44px}
+ .rich-command.btn{min-width:36px;min-height:36px}.custom-actions .action-button,.custom-actions .more-trigger{min-height:36px}
+ .column-pick{min-height:36px}.column-pick-row{min-height:44px}.settings-tabs>button{min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+@media(max-width:580px){.column-editor-header{top:-12px;margin-bottom:12px}.column-editor-header .column-detail-heading{margin-bottom:2px}.column-detail .feature-section{scroll-margin-top:0}.column-detail{scroll-padding-top:108px}.rich-dialog.dialog.is-expanded{width:100vw;height:100dvh;margin:0}.toolbar-config-row>.setting-check{line-height:20px}}
+
+.column-section-nav .btn[aria-current="true"]{background:#edf4ff;color:#2468e8;font-weight:500}

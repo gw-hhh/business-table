@@ -1,0 +1,16 @@
+{
+  "version": "3.1.0",
+  "unit": {
+    "passed": 95,
+    "total": 95
+  },
+  "browser": {
+    "passed": 159,
+    "total": 159
+  },
+  "visual_screens": 25,
+  "workbooks_openpyxl": 6,
+  "artifact_tool_exit": 1,
+  "navigation_exit": 1,
+  "html_sha256": "64b5fd6c99de9ebf4b8131064425f706493ec104e822b5643fc59b0da6607488"
+}

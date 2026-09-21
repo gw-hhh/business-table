@@ -1,0 +1,11 @@
+
+> quotation-manager-refactor@3.1.0 test:workbooks:portable
+> python3 tests/verify_workbooks_openpyxl.py
+
+PASS browser-export.xlsx
+PASS browser-template-blank.xlsx
+PASS browser-template-example.xlsx
+PASS rules-mapping-export.xlsx
+PASS rules-percent.xlsx
+PASS rules-scaled.xlsx
+RESULT 6/6 passed; rendering not performed
