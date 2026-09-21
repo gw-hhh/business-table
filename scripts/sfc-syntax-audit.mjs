@@ -9,6 +9,6 @@ const files=[]
 function walk(dir){if(!fs.existsSync(dir))return;for(const n of fs.readdirSync(dir)){const f=path.join(dir,n),s=fs.statSync(f);if(s.isDirectory())walk(f);else if(n.endsWith('.vue'))files.push(f)}}
 walk('src');walk('demo')
 const failures=[]
-for(const file of files){const source=fs.readFileSync(file,'utf8');const m=source.match(/<script\s+setup(?:\s+lang=["']ts["'])?[^>]*>([\s\S]*?)<\/script>/i);if(m){const r=ts.transpileModule(m[1],{compilerOptions:{target:ts.ScriptTarget.ES2024,module:ts.ModuleKind.ESNext},reportDiagnostics:true,fileName:file+'.ts'});for(const d of r.diagnostics??[])failures.push(file+': '+ts.flattenDiagnosticMessageText(d.messageText,' '))}if(!/<template>[\s\S]*<\/template>/.test(source))failures.push(file+': missing template')}
+for(const file of files){const source=fs.readFileSync(file,'utf8');const m=source.match(/<script\s+setup(?:\s+lang=["']ts["'])?[^>]*>([\s\S]*?)<\/script>/i);if(m){const r=ts.transpileModule(m[1],{compilerOptions:{target:ts.ScriptTarget.ESNext,module:ts.ModuleKind.ESNext},reportDiagnostics:true,fileName:file+'.ts'});for(const d of r.diagnostics??[])failures.push(file+': '+ts.flattenDiagnosticMessageText(d.messageText,' '))}if(!/<template>[\s\S]*<\/template>/.test(source))failures.push(file+': missing template')}
 if(failures.length){console.error('SFC SYNTAX AUDIT FAILED');failures.forEach(x=>console.error('- '+x));process.exit(1)}
 console.log('SFC SYNTAX AUDIT OK:',files.length,'Vue SFCs')
