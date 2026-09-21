@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 const root=path.resolve(process.cwd())
 const req=createRequire(path.join(root,'package.json'))
 let ts
-try{ts=req('typescript')}catch(e){console.error('[BusinessTable] Project-local TypeScript is missing. Run npm install first.');process.exit(1)}
+try{const mod=req('typescript');ts=mod.default??mod}catch(e){console.error('[BusinessTable] Project-local TypeScript is missing. Run npm install first.');process.exit(1)}
 const files=[]
 function walk(dir){if(!fs.existsSync(dir))return;for(const n of fs.readdirSync(dir)){const f=path.join(dir,n),s=fs.statSync(f);if(s.isDirectory())walk(f);else if(n.endsWith('.vue'))files.push(f)}}
 walk('src');walk('demo')
