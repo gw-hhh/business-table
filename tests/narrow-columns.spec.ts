@@ -6,11 +6,12 @@ import BusinessTable from '../src/BusinessTable.vue'
 let widthChanged: ResizeObserverCallback | undefined
 let observed: Element | undefined
 const disconnect = vi.fn()
-const Grid = defineComponent({ template: '<div><slot /></div>' })
+const Grid = defineComponent({ methods: { recalculate: async () => {} }, template: '<div><slot /></div>' })
 const Column = defineComponent({ name: 'ColumnStub', props: ['field', 'fixed'], template: '<div><slot name="header" /></div>' })
 let wrapper: VueWrapper | undefined
 async function resize(width: number) {
   widthChanged?.([{ target: observed, contentRect: { width } } as ResizeObserverEntry], {} as ResizeObserver)
+  await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
   await flushPromises()
 }
 afterEach(() => { wrapper?.unmount(); vi.unstubAllGlobals(); widthChanged = undefined; observed = undefined; disconnect.mockClear() })

@@ -15,7 +15,10 @@ const props=withDefaults(defineProps<{tableKey?:string;rowKey?:string;title?:str
 const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]]}>()
 const slots=useSlots()
 const tableElement=ref<HTMLElement>()
-const narrow=useNarrowTable(tableElement)
+const gridElement=ref<{recalculate:(full?:boolean)=>Promise<void>}>()
+const narrow=useNarrowTable(tableElement,()=>{
+  void gridElement.value?.recalculate(true).catch(cause=>{if(!disposed)error.value=cause instanceof Error?cause.message:String(cause)})
+})
 const rows=ref<T[]>([]),total=ref(0),page=ref(props.pagination?.page??1),pageSize=ref(props.pagination?.pageSize??20),keyword=ref(''),sorts=ref<SortConfig[]>([]),filters=ref<FilterConfig[]>([]),activeView=ref<string|null>(null),busy=ref(false),error=ref('')
 const config=ref<TableConfig>(props.config??makeConfig(props.tableKey,props.columns))
 const viewColumns=ref<Record<string,UserColumnConfig>>({})
@@ -249,7 +252,7 @@ onBeforeUnmount(()=>{disposed=true;requestSequence++;activeController?.abort()})
   </header>
   <slot name="after-toolbar"/>
   <div class="bt__viewport">
-  <vxe-table :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:true,keyField:rowKey}">
+  <vxe-table ref="gridElement" :auto-resize="false" :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:true,keyField:rowKey}">
     <template #loading><div v-if="loading||busy" class="bt__loading" role="status" aria-label="加载中">加载中…</div></template>
     <vxe-column v-if="selection" width="42" :fixed="narrow?undefined:'left'" class-name="bt__select-cell">
       <template #header><input type="checkbox" aria-label="选择当前页" :checked="allSelected" :indeterminate="someSelected" @change="event=>selectPage((event.target as HTMLInputElement).checked)"></template>

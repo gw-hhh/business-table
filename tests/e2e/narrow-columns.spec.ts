@@ -16,7 +16,7 @@ test('narrow tables keep project data readable and restore desktop frozen column
     return !!target && element.contains(target)
   }), 'project text must receive pointer events, not an overlapping fixed column').toBe(true)
   await page.screenshot({ path: info.outputPath('readable-mobile-390.png'), fullPage: true })
-  const body = table.locator('.vxe-table--main-wrapper .vxe-table--body-wrapper')
+  const body = table.locator('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper')
   expect(await body.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
   await body.evaluate(element => { element.scrollLeft = element.scrollWidth })
   await table.getByRole('button', { name: '更多操作 Q20260914-0181', exact: true }).first().click()
