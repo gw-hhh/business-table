@@ -22,3 +22,17 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Full release gate
         run: pnpm run verify:release
+      - name: Capture UI parity evidence
+        if: ${{ failure() }}
+        run: pnpm run build:demo && pnpm exec playwright test tests/e2e/legacy-ui.spec.ts --project=chromium-dev
+      - name: Collect source evidence
+        if: ${{ always() }}
+        run: |
+          mkdir -p test-results
+          git archive --format=tar HEAD > test-results/source.tar
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: legacy-ui-evidence-${{ github.run_attempt }}
+          path: test-results/
+          retention-days: 7
