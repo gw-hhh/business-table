@@ -1,0 +1,43 @@
+name: receive-foundation
+on:
+  push:
+    branches: [feature/visual-parity-refinement]
+    paths: [.github/workflows/receive-foundation.yml, .delivery-transfer/foundation/**]
+permissions:
+  contents: read
+jobs:
+  restore-reviewed-source:
+    if: github.repository == 'gw-hhh/business-table' && github.ref == 'refs/heads/feature/visual-parity-refinement'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Restore exact tested source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = 407464a5d056726cd59275ea7d4d70c65be92978
+          cat .delivery-transfer/foundation/part-{00,01,02,03,04,05,06}.bin > /tmp/foundation.patch.xz
+          echo '36aa16474e24c25e149bca490c8ae855c76451341d440567e042b9d8e5403b0e  /tmp/foundation.patch.xz' | sha256sum -c -
+          xz -dc /tmp/foundation.patch.xz > /tmp/foundation.patch
+          echo '6491c5a91c444ccae990f0bb22092d904dcc2b63b302602e44aaa5f6b59e54b9  /tmp/foundation.patch' | sha256sum -c -
+          git apply --index --whitespace=nowarn /tmp/foundation.patch
+          git rm -r .delivery-transfer/foundation
+          git rm .github/workflows/receive-foundation.yml
+          test "$(git write-tree)" = a07949a9ece6bbf7e079506a5c958a7de7e7368b
+          git checkout HEAD -- .github/workflows/receive-foundation.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: unify runtime, settings sessions and shared presentation pipeline' -m 'Exact reviewed source tree a07949a9ece6bbf7e079506a5c958a7de7e7368b plus unchanged temporary receiver. Local 220 Vitest tests and vue-tsc passed. Development checkpoint; browser parity and remaining features are still being completed. Transport payload removed.'
+          git push origin HEAD:refs/heads/feature/visual-parity-refinement
+          git rev-parse HEAD > /tmp/RESTORED-COMMIT.txt
+          printf 'Restored source: %s\n' "$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restored-foundation-commit
+          path: /tmp/RESTORED-COMMIT.txt
+          retention-days: 14
