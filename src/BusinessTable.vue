@@ -4,16 +4,23 @@ import type{Action,ColumnConfig,DataSource,FilterConfig,Pagination,Persistence,Q
 import{applyFilters,applySorts,displayValue,getValue,makeConfig,mapStyle,mergeColumns,patchColumn}from'./core'
 import {guardColumnPatch,applyColumnPatches} from './config/columns'
 import {parsePreference} from './config/schema'
+import {normalizePagination,clampPage} from './runtime/pagination'
+import {withDeadline} from './runtime/deadline'
 import {resolveFeatureGate,type TableFeatures} from './config/features'
 import type {ConfigDiagnostic} from './config/diagnostics'
 import FeatureHost from './components/FeatureHost.vue'
 import CellRenderer from './components/CellRenderer'
 import TableIcon from './components/TableIcon.vue'
 import {columnTextCss as textStyle} from './components/settingsTypes'
-const props=withDefaults(defineProps<{tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default'})
+const props=withDefaults(defineProps<{tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;preferenceTimeoutMs?:number;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default',preferenceTimeoutMs:3000})
 const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]]}>()
 const slots=useSlots()
-const rows=ref<T[]>([]),total=ref(0),page=ref(props.pagination?.page??1),pageSize=ref(props.pagination?.pageSize??20),keyword=ref(''),sorts=ref<SortConfig[]>([]),filters=ref<FilterConfig[]>([]),activeView=ref<string|null>(null),busy=ref(false),error=ref('')
+const initialPagination=normalizePagination({...props.pagination,pageSize:props.config?.pageSize??props.pagination?.pageSize})
+const searchDraft=ref('')
+const allowedPageSizes=computed(()=>normalizePagination(props.pagination).pageSizeOptions)
+const preferenceController=new AbortController()
+let writeQueue:Promise<void>=Promise.resolve()
+const rows=shallowRef<T[]>([]),total=ref(0),page=ref(initialPagination.page),pageSize=ref(initialPagination.pageSize),keyword=ref(''),sorts=ref<SortConfig[]>([]),filters=ref<FilterConfig[]>([]),activeView=ref<string|null>(null),busy=ref(false),error=ref('')
 const config=ref<TableConfig>(props.config??makeConfig(props.tableKey,props.columns))
 const viewColumns=ref<Record<string,UserColumnConfig>>({})
 const personalColumns=computed(()=>mergeColumns(props.columns,config.value))
@@ -123,8 +130,8 @@ async function load(snapshot?:Query){
   }
 }
 function search(){clearSelection();page.value=1;void load()}
-function goPage(next:number){page.value=Math.max(1,Math.min(next,pages.value));void load()}
-function changePageSize(){page.value=1;void saveConfig({...config.value,pageSize:pageSize.value});void load()}
+function goPage(next:number){page.value=clampPage(next,pages.value);void load()}
+function changePageSize(){page.value=1;pageSize.value=normalizePagination({...props.pagination,pageSize:pageSize.value}).pageSize;void saveConfig(current=>({...current,pageSize:pageSize.value})).catch(()=>{});void load()}
 const extensionErrors=new Set<string>()
 function report(diagnostic:ConfigDiagnostic){
   if(diagnostic.code==='RuntimeExtensionError'){
@@ -135,9 +142,22 @@ function report(diagnostic:ConfigDiagnostic){
   emit('diagnostic',diagnostic)
 }
 function reportConfigError(cause:unknown){report({code:'RemoteConfigError',path:'preference',message:cause instanceof Error?cause.message:String(cause)})}
-async function saveConfig(next:TableConfig){
-  config.value=next;emit('configChange',next)
-  try{if(props.persistence)await props.persistence.save(props.tableKey,next)}catch(cause){reportConfigError(cause)}
+/** Serialize writes, but commit applied state only after durable success. */
+function saveConfig(update:(current:TableConfig)=>TableConfig,afterCommit?:()=>void):Promise<void>{
+  const key=props.tableKey,persistence=props.persistence
+  const task=writeQueue.catch(()=>{}).then(async()=>{
+    if(disposed||key!==props.tableKey)throw new Error('表格已切换，请重新打开设置。')
+    const next=update(config.value)
+    if(next===config.value)return
+    try{if(persistence)await persistence.save(key,structuredClone(unwrapQueryValue(next)) as TableConfig)}
+    catch(cause){reportConfigError(cause);throw cause}
+    if(disposed||key!==props.tableKey)return
+    config.value=next
+    afterCommit?.()
+    emit('configChange',structuredClone(unwrapQueryValue(next)) as TableConfig)
+  })
+  writeQueue=task
+  return task
 }
 function releaseViewOverrides(id:string,change:UserColumnConfig){
   if(!Object.hasOwn(viewColumns.value,id))return
@@ -146,31 +166,29 @@ function releaseViewOverrides(id:string,change:UserColumnConfig){
   if(Object.keys(patch).length)columns[id]=patch;else delete columns[id]
   viewColumns.value=columns
 }
-async function patch(id:string,change:UserColumnConfig){
-  const column=props.columns.find(item=>item.id===id)
-  if(!column)return
-  const guarded=guardColumnPatch(column,change,report)
-  if(Object.keys(guarded).length){releaseViewOverrides(id,guarded);await saveConfig(patchColumn(config.value,id,guarded))}
-}
-async function applyPatches(patches:Record<string,UserColumnConfig>){
-  let next=config.value
-  for(const [id,change] of Object.entries(patches)){
-    const column=props.columns.find(item=>item.id===id)
-    if(!column)continue
-    const guarded=guardColumnPatch(column,change,report)
-    if(Object.keys(guarded).length){releaseViewOverrides(id,guarded);next=patchColumn(next,id,guarded)}
-  }
-  if(next!==config.value)await saveConfig(next)
+function patch(id:string,change:UserColumnConfig){return applyPatches({[id]:change})}
+function applyPatches(patches:Record<string,UserColumnConfig>){
+  const accepted:Record<string,UserColumnConfig>=Object.create(null)
+  return saveConfig(current=>{
+    let next=current
+    for(const [id,change] of Object.entries(patches)){
+      const column=props.columns.find(item=>item.id===id)
+      if(!column)continue
+      const guarded=guardColumnPatch(column,change,report)
+      if(Object.keys(guarded).length){accepted[id]=guarded;next=patchColumn(next,id,guarded)}
+    }
+    return next
+  },()=>{for(const [id,change] of Object.entries(accepted))releaseViewOverrides(id,change)})
 }
 async function setQuery(change:Partial<Pick<Query,'keyword'|'filters'|'sorts'|'viewId'>>){
   const snapshot=copyQuery({...query.value,...change,page:1})
-  keyword.value=snapshot.keyword??'';filters.value=snapshot.filters;sorts.value=snapshot.sorts;activeView.value=snapshot.viewId??null;page.value=1
+  keyword.value=snapshot.keyword??'';searchDraft.value=keyword.value;filters.value=snapshot.filters;sorts.value=snapshot.sorts;activeView.value=snapshot.viewId??null;page.value=1
   clearSelection()
   await load(snapshot)
 }
 function getState(){return {rows:[...rows.value] as T[],total:total.value,page:page.value,pageSize:pageSize.value,query:copyQuery(query.value),columns:allResolvedColumns.value.map(column=>({...column}))}}
 function sort(column:ColumnConfig){if(!column.sortable)return;const old=sorts.value.find(s=>s.field===column.field);sorts.value=old?[{field:column.field,order:old.order==='asc'?'desc':'asc'}]:[{field:column.field,order:'asc'}];page.value=1;void load()}
-function applyView(view?:ViewConfig,searchKeyword?:string){activeView.value=view?.id??null;filters.value=view?.filters??[];sorts.value=view?.sorts??[];viewColumns.value=view?.columns??{};if(searchKeyword!==undefined)keyword.value=searchKeyword;clearSelection();page.value=1;emit('viewChange',activeView.value);return load()}
+function applyView(view?:ViewConfig,searchKeyword?:string){activeView.value=view?.id??null;filters.value=view?.filters??[];sorts.value=view?.sorts??[];viewColumns.value=view?.columns??{};if(searchKeyword!==undefined)keyword.value=searchKeyword;searchDraft.value=keyword.value;clearSelection();page.value=1;emit('viewChange',activeView.value);return load()}
 type FeatureName=keyof TableFeatures
 const declarations=computed(()=>({
   title:props.features?.title??(props.title!==undefined),
@@ -186,7 +204,7 @@ const hasHeaderFeatures=computed(()=>(['title','search','views','toolbar','colum
 const hosts=new Map<FeatureName,{activate:()=>Promise<object|undefined>;getContext:()=>object|undefined}>()
 function setHost(name:FeatureName,value:Element|ComponentPublicInstance|null){if(value)hosts.set(name,value as unknown as ReturnType<typeof hosts.get> & {});else hosts.delete(name)}
 function titleContext(details:{label?:string}){return reactive({get label(){return details.label??props.title??'数据列表'},get total(){return total.value}})}
-function searchContext(){const context=reactive({draft:keyword.value,submit(){keyword.value=context.draft;search()}});return context}
+function searchContext(){return reactive({get draft(){return searchDraft.value},set draft(value:string){searchDraft.value=value},submit(){keyword.value=searchDraft.value;search()},reset(){searchDraft.value='';keyword.value='';search()}})}
 function viewsContext(){return reactive({get views(){return props.views??[]},get activeId(){return activeView.value},apply(id:string){applyView(props.views?.find(view=>view.id===id))}})}
 function toolbarContext(){return {refresh:()=>void load()}}
 function columnSettingsContext(_details:unknown,controls:{close:()=>void;isActive:()=>boolean}){return reactive({openMode:'quick' as 'quick'|'drawer',get columns(){return allResolvedColumns.value.map(column=>({...column,visible:column.visible??true,fixed:column.fixed??false}))},get baseColumns(){return props.columns},get previewRows(){return rows.value as RowData[]},get previewCell(){return props.previewCell},get sorts(){return sorts.value.map(sort=>({...sort}))},setSorts:(next:SortConfig[])=>controls.isActive()?setQuery({sorts:next}):Promise.resolve(),patch:(id:string,change:UserColumnConfig)=>controls.isActive()?patch(id,change):Promise.resolve(),apply:(changes:Record<string,UserColumnConfig>)=>controls.isActive()?applyPatches(changes):Promise.resolve(),close:controls.close})}
@@ -204,9 +222,7 @@ function rowActionsContext(details:{allowedItems?:string[]}){
 defineExpose({reload:()=>load(),setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>hosts.get(name)?.getContext()})
 watch([()=>props.config,()=>props.pagination?.pageSize,()=>props.pagination?.pageSizeOptions],()=>{
   config.value=props.config??makeConfig(props.tableKey,props.columns)
-  const options=props.pagination?.pageSizeOptions??[10,20,50,100]
-  const requested=props.config?.pageSize??props.pagination?.pageSize??20
-  const nextSize=Number.isInteger(requested)&&requested>0&&options.includes(requested)?requested:options[0]??20
+  const nextSize=normalizePagination({...props.pagination,pageSize:props.config?.pageSize??props.pagination?.pageSize}).pageSize
   if(pageSize.value!==nextSize){pageSize.value=nextSize;page.value=1;void load()}
 })
 watch([()=>props.dataSource,()=>props.data],([source],[previousSource])=>{
@@ -216,16 +232,16 @@ watch([()=>props.dataSource,()=>props.data],([source],[previousSource])=>{
 onMounted(async()=>{
   if(props.persistence){
     try{
-      const stored=parsePreference(await props.persistence.load(props.tableKey),props.tableKey,report)
+      const stored=parsePreference(await withDeadline(signal=>props.persistence!.load(props.tableKey,{signal}),props.preferenceTimeoutMs,preferenceController.signal),props.tableKey,report)
       if(disposed)return
-      if(stored){config.value={schemaVersion:1,tableKey:props.tableKey,columns:stored.columns,pageSize:stored.pagination?.pageSize};if(stored.pagination?.pageSize)pageSize.value=stored.pagination.pageSize}
-    }catch(cause){reportConfigError(cause)}
+      if(stored){config.value={schemaVersion:1,tableKey:props.tableKey,columns:stored.columns,pageSize:stored.pagination?.pageSize};pageSize.value=normalizePagination({...props.pagination,pageSize:stored.pagination?.pageSize??props.pagination?.pageSize}).pageSize}
+    }catch(cause){if(!disposed)reportConfigError(cause)}
   }
   if(disposed)return
   ready=true
   void load()
 })
-onBeforeUnmount(()=>{disposed=true;requestSequence++;activeController?.abort()})
+onBeforeUnmount(()=>{disposed=true;preferenceController.abort();requestSequence++;activeController?.abort()})
 </script>
 <template>
 <section class="bt" :class="{'bt--fill':fill,['bt--'+density]:true}" data-business-table :aria-busy="Boolean(loading||busy)">
@@ -260,6 +276,6 @@ onBeforeUnmount(()=>{disposed=true;requestSequence++;activeController?.abort()})
     <template #empty><div class="bt__empty">暂无数据</div></template>
   </vxe-table>
   </div>
-  <footer class="bt__footer"><slot name="summary" :total="total" :rows="rows" :page="page" :page-size="pageSize"><span>共 {{total}} 条，第 {{page}} / {{pages}} 页</span></slot><div class="bt__pages"><select v-model.number="pageSize" aria-label="每页条数" @change="changePageSize"><option v-for="n in pagination?.pageSizeOptions??[10,20,50,100]" :key="n" :value="n">{{n}} 条 / 页</option></select><button :class="{'bt__page-arrow':fill}" aria-label="上一页" :disabled="page<=1" @click="goPage(page-1)"><TableIcon v-if="fill" name="chevron-left"/><template v-else>上一页</template></button><template v-if="fill"><button v-for="n in pageButtons" :key="n" :class="{'is-current':n===page}" :aria-current="n===page?'page':undefined" :aria-label="'第 '+n+' 页'" @click="goPage(n)">{{n}}</button></template><button :class="{'bt__page-arrow':fill}" aria-label="下一页" :disabled="page>=pages" @click="goPage(page+1)"><TableIcon v-if="fill" name="chevron-right"/><template v-else>下一页</template></button><label v-if="fill" class="bt__jump">前往 <input v-model.number="jumpPage" type="number" min="1" :max="pages" aria-label="跳转页码" @keyup.enter="goPage(jumpPage)"><button class="bt__link" @click="goPage(jumpPage)">跳转</button></label></div></footer>
+  <footer class="bt__footer"><slot name="summary" :total="total" :rows="rows" :page="page" :page-size="pageSize"><span>共 {{total}} 条，第 {{page}} / {{pages}} 页</span></slot><div class="bt__pages"><select v-model.number="pageSize" aria-label="每页条数" @change="changePageSize"><option v-for="n in allowedPageSizes" :key="n" :value="n">{{n}} 条 / 页</option></select><button :class="{'bt__page-arrow':fill}" aria-label="上一页" :disabled="page<=1" @click="goPage(page-1)"><TableIcon v-if="fill" name="chevron-left"/><template v-else>上一页</template></button><template v-if="fill"><button v-for="n in pageButtons" :key="n" :class="{'is-current':n===page}" :aria-current="n===page?'page':undefined" :aria-label="'第 '+n+' 页'" @click="goPage(n)">{{n}}</button></template><button :class="{'bt__page-arrow':fill}" aria-label="下一页" :disabled="page>=pages" @click="goPage(page+1)"><TableIcon v-if="fill" name="chevron-right"/><template v-else>下一页</template></button><label v-if="fill" class="bt__jump">前往 <input v-model.number="jumpPage" type="number" min="1" :max="pages" aria-label="跳转页码" @keyup.enter="goPage(jumpPage)"><button class="bt__link" @click="goPage(jumpPage)">跳转</button></label></div></footer>
 </section>
 </template>

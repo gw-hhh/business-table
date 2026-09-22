@@ -1,0 +1,28 @@
+BusinessTable 本轮设置细节精修
+
+分支：feature/visual-parity-refinement
+基线：feature/config-runtime@550efb2
+本地提交：48946a86b79efba366d4021b022ce2182cfca4ff
+
+本源码包已包含本轮修改，不需要再应用 patch。
+原 feature/config-runtime、development、main 未改；本轮产品修改尚未推送。
+
+运行（安装 Node.js 22.12 或更高兼容版本后，在本目录执行）：
+npx pnpm@10.17.1 install --frozen-lockfile
+npm run dev -- --host 127.0.0.1 --port 5180
+
+服务启动后，在你本机浏览器打开 http://127.0.0.1:5180/ 。
+这是你自己启动服务后的地址，并不是当前会话容器的远程链接。
+
+完整测试：
+npx pnpm@10.17.1 exec playwright install chromium
+npx pnpm@10.17.1 run verify:release
+
+验收记录：docs/VISUAL-REFINEMENT-ACCEPTANCE.md
+迁移矩阵：docs/LEGACY-MIGRATION.md 第10节
+
+另附 business-table-refinement-review.html 是可离线打开的截图对照页，
+并非可操作的业务Demo。高级筛选、映射、模板等仍有迁移缺口。
+
+附带 patch 仅供已有远端新分支 e9902d7 的仓库使用：先 git apply --check，再 git apply；
+工作区有自己的改动时请先保存，不要覆盖。

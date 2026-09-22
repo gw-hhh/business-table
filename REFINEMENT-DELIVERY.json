@@ -1,0 +1,11 @@
+{
+  "branch": "feature/visual-parity-refinement",
+  "baseline": "550efb28da9a8108005cac379cc0bb7235aa597e",
+  "remoteHeadAtStart": "e9902d71ce2ad9feaf3049b807d49c596b016450",
+  "localHead": "48946a86b79efba366d4021b022ce2182cfca4ff",
+  "uiChangesPushed": false,
+  "vitest": 151,
+  "playwright": 46,
+  "gateExit": 0,
+  "legacyFilesVerified": 145
+}

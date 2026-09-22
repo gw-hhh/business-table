@@ -2,6 +2,11 @@ import type { ColumnConfig, FixedSide, UserColumnConfig } from '../types'
 import type { ConfigDiagnostic } from './diagnostics'
 
 export interface ColumnCapabilities {
+  content?:boolean
+  format?:boolean
+  mapping?:boolean
+  template?:boolean
+  filter?:boolean
   visible?: boolean
   order?: boolean
   rename?: boolean

@@ -62,6 +62,12 @@ function move(id:string,targetId:string){
   let index=0
   draft.value=draft.value.map(column=>isColumnCapabilityEnabled(column,'order')?movable[index++]!:column)
 }
+function moveTarget(id:string,offset:number){
+  const movable=draft.value.filter(column=>isColumnCapabilityEnabled(column,'order'))
+  const index=movable.findIndex(column=>column.id===id)
+  return index<0?undefined:movable[index+offset]
+}
+function moveStep(id:string,offset:number){const target=moveTarget(id,offset);if(target)move(id,target.id)}
 function moveKey(id:string,event:KeyboardEvent){
   if(event.key!=='ArrowUp'&&event.key!=='ArrowDown')return
   event.preventDefault()
@@ -123,6 +129,7 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(prev
         <div class="bt-column-popup__pins">
           <button v-for="side in ['left','right'] as const" :key="side" class="bt-settings-icon" :class="{'is-active':column.fixed===side}" :disabled="!canPin(column,side)" :title="(side==='left'?'左冻结 ':'右冻结 ')+column.title" :aria-pressed="column.fixed===side" @click="pin(column,side)"><TableIcon :name="'pin-'+side" :size="14" /></button>
         </div>
+        <div class="bt-column-popup__moves"><button v-for="offset in [-1,1]" :key="offset" type="button" class="bt-settings-icon" :aria-label="(offset<0?'上移 ':'下移 ')+column.title" :disabled="!moveTarget(column.id,offset)" @click="moveStep(column.id,offset)"><TableIcon :name="offset<0?'chevron-up':'chevron-down'" :size="12" /></button></div>
       </div>
     </div>
     <p v-if="error" class="bt-settings-error" role="alert">{{error}}</p>

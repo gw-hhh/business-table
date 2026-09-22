@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import {ruleFieldSchemas} from '../features/columns/schema'
 import type { TableConfig } from '../types'
 import type { UserColumnConfig } from '../types'
 import type { ConfigDiagnostic, DiagnosticReporter } from './diagnostics'
@@ -14,8 +15,9 @@ const requiredColumn = z.object({ id: z.string().min(1), field: z.string().min(1
 const widthCapability = z.object({ enabled: z.boolean(), min: z.number().positive().optional(), max: z.number().positive().optional() })
   .refine(value => value.min === undefined || value.max === undefined || value.min <= value.max)
 const fixedCapability = z.object({ enabled: z.boolean(), allowedValues: z.array(fixed).optional() })
-const capabilitySchemas = { visible: z.boolean(), order: z.boolean(), rename: z.boolean(), align: z.boolean(), sortable:z.boolean(), headerStyle:z.boolean(), cellStyle:z.boolean(), width: z.union([z.boolean(), widthCapability]), fixed: z.union([z.boolean(), fixedCapability]) }
+const capabilitySchemas = { content:z.boolean(),format:z.boolean(),mapping:z.boolean(),template:z.boolean(),filter:z.boolean(), visible: z.boolean(), order: z.boolean(), rename: z.boolean(), align: z.boolean(), sortable:z.boolean(), headerStyle:z.boolean(), cellStyle:z.boolean(), width: z.union([z.boolean(), widthCapability]), fixed: z.union([z.boolean(), fixedCapability]) }
 const optionalColumnSchemas = {
+  ...ruleFieldSchemas,kind:z.enum(['data','actions']),
   type: z.enum(['text', 'number', 'currency', 'percent', 'date', 'enum', 'boolean']),
   width: z.number().positive(), minWidth: z.number().positive(), visible: z.boolean(), fixed,
   align: z.enum(['left', 'center', 'right']), sortable: z.boolean(), filterable: z.boolean(), emptyText: z.string(),
@@ -209,7 +211,7 @@ export function createPreferenceDelta(tableKey: string, baseColumns: Configurabl
     const patch = isRecord(config.columns) ? own(config.columns, column.id) : undefined
     const guarded = patch === undefined ? {} : guardColumnPatch(column, patch)
     const delta: UserColumnConfig = {}
-    const base: UserColumnConfig = { title: column.title, visible: column.visible ?? true, width: column.width, fixed: column.fixed ?? false, align: column.align ?? 'left', sortable:column.sortable??false, headerStyle:column.headerStyle??{}, cellStyle:column.cellStyle??{} }
+    const base: UserColumnConfig = { title: column.title, visible: column.visible ?? true, width: column.width, fixed: column.fixed ?? false, align: column.align ?? 'left', sortable:column.sortable??false, headerStyle:column.headerStyle??{}, cellStyle:column.cellStyle??{}, content:column.content,mapping:column.mapping,numberRule:column.numberRule,template:column.template,filter:column.filter,filterable:column.filterable,emptyText:column.emptyText,numberFormat:column.numberFormat,valueMap:column.valueMap }
     for (const key of Object.keys(guarded) as (keyof UserColumnConfig)[]) {
       if (key === 'order' || Object.is(guarded[key], base[key])) continue
       if ((key==='headerStyle'||key==='cellStyle') && Object.keys({...guarded[key],...base[key]}).every(field=>guarded[key]?.[field as keyof NonNullable<UserColumnConfig[typeof key]>]===base[key]?.[field as keyof NonNullable<UserColumnConfig[typeof key]>])) continue

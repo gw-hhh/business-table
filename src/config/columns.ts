@@ -1,16 +1,19 @@
 import { z } from 'zod'
+import {ruleFieldSchemas} from '../features/columns/schema'
+import {columnFontFamilies} from './font-families'
 import type { UserColumnConfig } from '../types'
 import type { DiagnosticReporter } from './diagnostics'
 import type { ColumnCapabilities, ConfigurableColumn } from './types'
 
 export const columnTextStyleSchema = z.object({
-  fontFamily: z.enum(['inherit','sans-serif','serif','monospace']).optional(),
+  fontFamily: z.enum(columnFontFamilies).optional(),
   fontSize: z.number().int().min(10).max(32).optional(),
   fontWeight: z.enum(['normal','500','600','bold']).optional(),
   color: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
   align: z.enum(['left','center','right']).optional(),
 }).strict()
-const fieldSchemas = {
+export const fieldSchemas = {
+  ...ruleFieldSchemas,
   title: z.string(),
   visible: z.boolean(),
   order: z.number().int().nonnegative(),
@@ -24,6 +27,7 @@ const fieldSchemas = {
 const capabilityKeys: Record<keyof UserColumnConfig, keyof ColumnCapabilities> = {
   title: 'rename', visible: 'visible', order: 'order', width: 'width', fixed: 'fixed', align: 'align',
   sortable:'sortable', headerStyle:'headerStyle', cellStyle:'cellStyle',
+  content:'content',mapping:'mapping',numberRule:'format',template:'template',filter:'filter',filterable:'filter',emptyText:'content',numberFormat:'format',valueMap:'mapping',
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {

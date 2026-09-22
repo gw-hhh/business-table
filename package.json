@@ -28,14 +28,15 @@
     "type-check": "vue-tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:types": "vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json",
-    "build:lib": "npm run type-check && npm run build:types && vite build",
+    "build:types": "vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json && node scripts/finalize-types.mjs",
+    "build:lib": "npm run type-check && vite build && npm run build:types && npm run audit:package",
     "build:demo": "vite build --config vite.demo.config.ts",
     "build": "npm run build:lib && npm run build:demo",
     "audit:portability": "node scripts/portability-audit.mjs",
     "audit:sfc": "node scripts/sfc-syntax-audit.mjs",
     "test:e2e": "playwright test",
-    "verify:release": "npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e"
+    "verify:release": "npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e",
+    "audit:package": "node scripts/package-audit.mjs"
   },
   "peerDependencies": {
     "vue": ">=3.5.43 <4",

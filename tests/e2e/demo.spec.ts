@@ -14,6 +14,11 @@ test('demo keeps a stable content height and preserves column controls', async (
   const left = page.getByTitle('左冻结 有效期至')
   const right = page.getByTitle('右冻结 有效期至')
   await left.scrollIntoViewIfNeeded()
+  // Like legacy, desktop freeze actions become interactive only on row hover/focus.
+  const row = page.getByTestId('column-panel').locator('.bt-column-popup__row').filter({ has: page.getByRole('checkbox', { name: '显示有效期至', exact: true }) })
+  await row.hover()
+  await expect(row.locator('.bt-column-popup__pins')).toHaveCSS('opacity', '1')
+  await expect(row.locator('.bt-column-popup__pins')).toHaveCSS('pointer-events', 'auto')
   await expect(left).toHaveAttribute('aria-pressed','false')
   await left.click()
   await expect(left).toHaveAttribute('aria-pressed','true')

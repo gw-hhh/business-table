@@ -1,6 +1,7 @@
 import type {CSSProperties,VNodeChild} from 'vue'
 import type {ColumnConfig,ColumnTextStyle,RowData,SortConfig,UserColumnConfig} from '../types'
 import {getColumnWidthBounds} from '../config/columns'
+import {fontFamilyCss} from '../config/font-families'
 
 export interface ColumnSettingsContext {
   columns:ColumnConfig[]
@@ -16,8 +17,8 @@ export interface ColumnSettingsContext {
 }
 export function columnTextCss(style?:ColumnTextStyle):CSSProperties {
   if(!style)return {}
-  const {fontSize,align,...rest}=style
-  return {...rest,...(fontSize===undefined?{}:{fontSize:fontSize+'px'}),...(align===undefined?{}:{textAlign:align})}
+  const {fontSize,align,fontFamily,...rest}=style
+  return {...rest,...(fontFamily===undefined?{}:{fontFamily:fontFamilyCss(fontFamily)}),...(fontSize===undefined?{}:{fontSize:fontSize+'px'}),...(align===undefined?{}:{textAlign:align})}
 }
 export function editableColumnWidth(column:ColumnConfig):number {
   if(column.width!==undefined)return column.width
