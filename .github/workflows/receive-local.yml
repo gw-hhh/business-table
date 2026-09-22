@@ -1,0 +1,62 @@
+name: receive-verified-local-source
+on:
+  push:
+    branches: [feature/visual-parity-refinement]
+    paths: [.github/workflows/receive-local.yml]
+permissions:
+  contents: read
+jobs:
+  receive:
+    if: github.repository == 'gw-hhh/business-table' && github.ref == 'refs/heads/feature/visual-parity-refinement'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Restore exact locally reviewed tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = e9902d71ce2ad9feaf3049b807d49c596b016450
+          cat .delivery-transfer/part{0,1,2,3,4} > /tmp/source.patch.xz
+          echo '160bf1bbce6d4df1bd4d38e8edc919ff718a459f1886f41fdcc065ddbd21efdf  /tmp/source.patch.xz' | sha256sum -c -
+          xz -dc /tmp/source.patch.xz > /tmp/source.patch
+          echo '466db721db63399ec472d32f7ad5946c2c4474d3df82859efc951ac6123cbc1c  /tmp/source.patch' | sha256sum -c -
+          git apply --index --whitespace=nowarn /tmp/source.patch
+          git rm -r .delivery-transfer .github/workflows/receive-local.yml
+          test "$(git write-tree)" = f0bc4606d37560c53e2fe3a47288ddcbce7fe597
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: recover delivered refinements and tested reliability and column-rule modules' -m 'Exact local tree f0bc4606d37560c53e2fe3a47288ddcbce7fe597. Temporary transfer files removed. This is a development checkpoint, not a complete legacy parity release.'
+          git push origin HEAD:refs/heads/feature/visual-parity-refinement
+          echo "SOURCE_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "Restored source: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Full gate on restored source
+        run: pnpm run verify:release
+      - name: Package verified outputs
+        run: |
+          mkdir -p delivery
+          pnpm pack --pack-destination delivery
+          git archive --format=zip --output=delivery/source.zip HEAD
+          (cd demo-dist && zip -qr ../delivery/demo-dist.zip .)
+          printf '%s\n' "$SOURCE_COMMIT" > delivery/SOURCE-COMMIT.txt
+          sha256sum delivery/* > delivery/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recovered-source-verification
+          path: |
+            delivery/
+            test-results/
+          retention-days: 14
