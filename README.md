@@ -36,6 +36,8 @@ npx pnpm@10.17.1 run dev -- --host 127.0.0.1
 
 当前最高优先级规范为 [Master Handoff](docs/BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md)。它描述最终目标，当前实现范围以迁移矩阵及本批验收记录为准。
 
+本轮基于 `feature/config-runtime` 的字体、图标、列宽、菜单和手机可读性修复见 [UI 精修矩阵与验收记录](docs/CONFIG-RUNTIME-UI-PARITY.md)。该记录不代表旧版所有功能已完成迁移。
+
 ## Release gate
 
 `npm run verify:release` 必须同时通过 portability audit、SFC audit、vue-tsc、Vitest、组件库构建、Demo 构建和 Playwright Chromium E2E，才允许从 development 合并 main。
