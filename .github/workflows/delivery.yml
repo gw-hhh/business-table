@@ -1,0 +1,59 @@
+name: delivery
+on:
+  push:
+    branches: [feature/visual-parity-refinement]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: delivery-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Preserve exact source before verification
+        run: |
+          mkdir -p /tmp/source-evidence
+          git bundle create /tmp/source-evidence/repository.bundle --all
+          git archive --format=zip --output=/tmp/source-evidence/source.zip HEAD
+          git rev-parse HEAD > /tmp/source-evidence/COMMIT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-source-${{ github.sha }}
+          path: /tmp/source-evidence/
+          retention-days: 14
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Full release gate
+        run: |
+          mkdir -p delivery
+          set -o pipefail
+          pnpm run verify:release 2>&1 | tee delivery/Release-Gate.log
+      - name: Package verified products
+        run: |
+          pnpm pack --pack-destination delivery
+          git archive --format=zip --output=delivery/source.zip HEAD
+          (cd demo-dist && zip -qr ../delivery/demo-production.zip .)
+          (cd dist && zip -qr ../delivery/component-dist.zip .)
+          git rev-parse HEAD > delivery/COMMIT.txt
+          sha256sum delivery/* > delivery/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: delivery-${{ github.sha }}
+          path: |
+            delivery/
+            test-results/
+          retention-days: 30
