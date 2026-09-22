@@ -22,7 +22,8 @@ test('narrow tables keep project data readable and restore desktop frozen column
   await table.getByRole('button', { name: '更多操作 Q20260914-0181', exact: true }).first().click()
   await expect(page.getByRole('menu').getByRole('menuitem', { name: '删除', exact: true })).toBeInViewport()
   await page.keyboard.press('Escape')
-  await page.setViewportSize({ width: 1440, height: 900 })
+  // A wide container that still overflows makes VXE's fixed overlays observable.
+  await page.setViewportSize({ width: 900, height: 900 })
   await expect(fixed).toHaveCount(2)
   await page.getByTestId('column-settings').click()
   await expect(page.getByTestId('column-panel').getByTitle('左冻结 报价编号', { exact: true })).toHaveAttribute('aria-pressed', 'true')

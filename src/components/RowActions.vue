@@ -4,7 +4,7 @@ import type {Action,RowData} from '../types'
 import TableIcon from './TableIcon.vue'
 import ActionMenuItems from './ActionMenuItems.vue'
 import './action-menu.css'
-const props=defineProps<{context:{actions:Action<T>[];rowId:(row:T)=>string;reportError:(cause:unknown)=>void}}>()
+const props=defineProps<{context:{fixed?:'right'|false;actions:Action<T>[];rowId:(row:T)=>string;reportError:(cause:unknown)=>void}}>()
 const currentRow=shallowRef<T|null>(null),trigger=shallowRef<HTMLElement>(),menu=ref<HTMLElement>()
 const menuPosition=ref({left:'0px',top:'0px',maxHeight:'0px'}),flip=ref(false)
 const actions=computed(()=>[...props.context.actions].sort((a,b)=>(a.order??0)-(b.order??0)))
@@ -61,7 +61,7 @@ onMounted(()=>{document.addEventListener('pointerdown',outside);window.addEventL
 onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',onScroll);window.removeEventListener('scroll',onScroll,true)})
 </script>
 <template>
-  <vxe-column v-if="actions.length" title="操作" width="195" fixed="right" class-name="bt__action-column">
+  <vxe-column v-if="actions.length" title="操作" width="195" :fixed="context.fixed===false?undefined:'right'" class-name="bt__action-column">
     <template #default="{row}">
       <div class="bt__actions">
         <button v-for="action in list(row,'inline')" :key="action.id" :disabled="disabled(action,row)" :class="{danger:action.danger}" @click="run(action,row)">{{action.label}}</button>

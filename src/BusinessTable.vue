@@ -10,9 +10,12 @@ import FeatureHost from './components/FeatureHost.vue'
 import CellRenderer from './components/CellRenderer'
 import TableIcon from './components/TableIcon.vue'
 import {columnTextCss as textStyle} from './components/settingsTypes'
+import {useNarrowTable} from './presentation/useNarrowTable'
 const props=withDefaults(defineProps<{tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default'})
 const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]]}>()
 const slots=useSlots()
+const tableElement=ref<HTMLElement>()
+const narrow=useNarrowTable(tableElement)
 const rows=ref<T[]>([]),total=ref(0),page=ref(props.pagination?.page??1),pageSize=ref(props.pagination?.pageSize??20),keyword=ref(''),sorts=ref<SortConfig[]>([]),filters=ref<FilterConfig[]>([]),activeView=ref<string|null>(null),busy=ref(false),error=ref('')
 const config=ref<TableConfig>(props.config??makeConfig(props.tableKey,props.columns))
 const viewColumns=ref<Record<string,UserColumnConfig>>({})
@@ -199,7 +202,7 @@ function resetSettingsEntry(){
   if(context)context.openMode='quick'
 }
 function rowActionsContext(details:{allowedItems?:string[]}){
-  return reactive({get actions(){return props.actionProvider?.(details)??props.actions??[]},rowId,reportError(cause:unknown){report({code:'RuntimeExtensionError',path:'rowActions',message:cause instanceof Error?cause.message:String(cause)})}})
+  return reactive({get fixed(){return narrow.value?false:'right' as const},get actions(){return props.actionProvider?.(details)??props.actions??[]},rowId,reportError(cause:unknown){report({code:'RuntimeExtensionError',path:'rowActions',message:cause instanceof Error?cause.message:String(cause)})}})
 }
 defineExpose({reload:()=>load(),setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>hosts.get(name)?.getContext()})
 watch([()=>props.config,()=>props.pagination?.pageSize,()=>props.pagination?.pageSizeOptions],()=>{
@@ -228,7 +231,7 @@ onMounted(async()=>{
 onBeforeUnmount(()=>{disposed=true;requestSequence++;activeController?.abort()})
 </script>
 <template>
-<section class="bt" :class="{'bt--fill':fill,['bt--'+density]:true}" data-business-table :aria-busy="Boolean(loading||busy)">
+<section ref="tableElement" class="bt" :class="{'bt--narrow':narrow,'bt--fill':fill,['bt--'+density]:true}" data-business-table :aria-busy="Boolean(loading||busy)">
   <div v-if="error" class="bt__error" role="alert">{{error}}</div>
   <slot name="before"/>
   <header v-if="hasHeaderFeatures||slots['toolbar-start']||slots['toolbar-end']" :class="{'bt__bar':showHeader||slots['toolbar-start']||slots['toolbar-end']}" :style="!showHeader&&!slots['toolbar-start']&&!slots['toolbar-end']?{display:'contents'}:undefined">
@@ -248,11 +251,11 @@ onBeforeUnmount(()=>{disposed=true;requestSequence++;activeController?.abort()})
   <div class="bt__viewport">
   <vxe-table :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:true,keyField:rowKey}">
     <template #loading><div v-if="loading||busy" class="bt__loading" role="status" aria-label="加载中">加载中…</div></template>
-    <vxe-column v-if="selection" width="42" fixed="left" class-name="bt__select-cell">
+    <vxe-column v-if="selection" width="42" :fixed="narrow?undefined:'left'" class-name="bt__select-cell">
       <template #header><input type="checkbox" aria-label="选择当前页" :checked="allSelected" :indeterminate="someSelected" @change="event=>selectPage((event.target as HTMLInputElement).checked)"></template>
       <template #default="{row}"><input type="checkbox" :aria-label="'选择 '+rowId(row)" :checked="selected.has(rowId(row))" @change="event=>selectRow(row,(event.target as HTMLInputElement).checked)"></template>
     </vxe-column>
-    <vxe-column v-for="c in resolvedColumns" :key="c.id" :field="c.field" :title="c.title" :width="c.width" :min-width="c.minWidth??120" :fixed="c.fixed||undefined" :align="c.align??'left'" :header-align="c.headerStyle?.align??c.align??'left'" :sortable="false">
+    <vxe-column v-for="c in resolvedColumns" :key="c.id" :field="c.field" :title="c.title" :width="c.width" :min-width="c.minWidth??120" :fixed="narrow?undefined:c.fixed||undefined" :align="c.align??'left'" :header-align="c.headerStyle?.align??c.align??'left'" :sortable="false">
       <template #header><button v-if="c.sortable" class="bt__sort" :class="{'is-sorted':sorts[0]?.field===c.field}" :style="textStyle(c.headerStyle)" @click="sort(c)"><span>{{c.title}}</span><span class="bt__sort-mark">{{sorts[0]?.field===c.field?(sorts[0]?.order==='asc'?'↑':'↓'):'↑↓'}}</span></button><span v-else :style="textStyle(c.headerStyle)">{{c.title}}</span></template>
       <template #default="{row}"><div class="bt__cell-content" :style="textStyle(c.cellStyle)"><slot name="cell" :row="row" :column="c" :value="getValue(row,c.field)" :text="displayValue(getValue(row,c.field),c)"><CellRenderer v-if="cellRenderer&&c.renderer" :value="getValue(row,c.field)" :row="row" :column="c" :renderer="cellRenderer" @diagnostic="report"/><span v-else-if="c.valueMap" class="bt-tag" :style="{color:mapStyle(getValue(row,c.field),c.valueMap)?.color,background:mapStyle(getValue(row,c.field),c.valueMap)?.background}">{{displayValue(getValue(row,c.field),c)}}</span><span v-else>{{displayValue(getValue(row,c.field),c)}}</span></slot></div></template>
     </vxe-column>
