@@ -1,0 +1,42 @@
+name: refinement-review
+on:
+  push:
+    branches: [feature/visual-parity-refinement]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Package isolated review workspace
+        run: |
+          mkdir -p /tmp/refinement-review
+          git rev-parse HEAD > /tmp/refinement-review/COMMIT.txt
+          git archive --format=tar HEAD > /tmp/refinement-review/source.tar
+          tar -czf /tmp/refinement-review/dependencies.tgz node_modules
+          tar -czf /tmp/refinement-review/chromium.tgz -C "$HOME/.cache" ms-playwright
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refinement-review-workspace
+          path: /tmp/refinement-review/
+          retention-days: 1
+      - name: Full release gate
+        run: pnpm run verify:release
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: refinement-review-results
+          path: test-results/
+          retention-days: 7
