@@ -6,7 +6,7 @@ export interface NumberRule extends NumberFormat {
   scale?: 1 | 1000 | 10000 | 100000000
   sign?: 'auto' | 'always' | 'accounting'
 }
-export interface MappingItem extends ValueMapItem { border?: string; icon?: string }
+export interface MappingItem extends ValueMapItem { id?: string; border?: string; icon?: string }
 export interface MappingConfig {
   enabled: boolean
   type: 'text' | 'number' | 'boolean'
@@ -21,6 +21,7 @@ export interface ContentDisplay {
   emptyText?: string
   description?: string
   copyable?: boolean
+  link?: boolean
   secondaryField?: string
   showSecondary?: boolean
   dateFormat?: 'iso' | 'slash' | 'cn'

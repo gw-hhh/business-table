@@ -76,3 +76,30 @@ export function collectFilterOptions(rows: readonly RowData[], column: ColumnCon
   }
   return [...values.values()]
 }
+
+/** Validate a persisted query independently of labels and current display formats. */
+export function readFilter(input: unknown, fields?: ReadonlySet<string>): FilterConfig | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const value = input as Record<string, unknown>
+  if (typeof value.field !== 'string' || !value.field || value.field.length > 160 || fields && !fields.has(value.field)) return null
+  if (typeof value.operator !== 'string' || !Object.hasOwn(operatorLabels, value.operator)) return null
+  const primitive = (item: unknown): boolean => item === null || ['string','boolean'].includes(typeof item) || typeof item === 'number' && Number.isFinite(item)
+  const raw = value.value
+  if (!(raw === undefined || primitive(raw) || Array.isArray(raw) && raw.length <= 200 && raw.every(primitive))) return null
+  const operator = value.operator as FilterConfig['operator']
+  if (['in','notIn','between'].includes(operator) && !Array.isArray(raw)) return null
+  if (operator === 'between' && (raw as unknown[]).length !== 2) return null
+  const filter: FilterConfig = { field: value.field, operator, value: raw === undefined ? null : Array.isArray(raw) ? [...raw] : raw }
+  if (typeof value.unitFactor === 'number' && Number.isFinite(value.unitFactor) && value.unitFactor > 0 && value.unitFactor <= 1e8) filter.unitFactor = value.unitFactor
+  return filter
+}
+export function readFilterGroup(input: unknown, fields?: ReadonlySet<string>, depth = 0): FilterGroup | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || depth > 8) return undefined
+  const value = input as Record<string, unknown>
+  if (!['and','or'].includes(String(value.logic)) || !Array.isArray(value.rules)) return undefined
+  const rules = value.rules.slice(0, 30).flatMap(item => {
+    const parsed = item && typeof item === 'object' && 'rules' in item ? readFilterGroup(item, fields, depth + 1) : readFilter(item, fields)
+    return parsed ? [parsed] : []
+  })
+  return { logic: value.logic as 'and' | 'or', rules }
+}

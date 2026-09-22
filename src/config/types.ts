@@ -1,3 +1,4 @@
+import type {PresentationDelta,TablePresentation} from '../features/presentation/model'
 import type { ColumnConfig, FixedSide, UserColumnConfig } from '../types'
 import type { ConfigDiagnostic } from './diagnostics'
 
@@ -24,6 +25,7 @@ export interface ColumnDefinition extends ColumnConfig {
 }
 export type ConfigurableColumn = ColumnConfig & { configurable?: ColumnCapabilities }
 export interface TableDefinition {
+  presentation?:PresentationDelta
   schemaVersion: 3
   tableKey: string
   rowKey?: string
@@ -33,6 +35,7 @@ export interface TableDefinition {
   pagination?: { pageSize?: number; pageSizeOptions?: number[] }
 }
 export interface PreferenceV2 {
+  presentation?:PresentationDelta
   kind: 'business-table-preference'
   schemaVersion: 2
   tableKey: string
@@ -40,6 +43,7 @@ export interface PreferenceV2 {
   pageSize?: number
 }
 export interface PreferenceV3 {
+  presentation?:PresentationDelta
   kind: 'business-table-preference'
   schemaVersion: 3
   tableKey: string
@@ -53,6 +57,8 @@ export interface ResolveConfigurationInput {
   viewColumns?: unknown
 }
 export interface ResolvedConfiguration {
+  presentation:TablePresentation
+  basePresentation:TablePresentation
   columns: ConfigurableColumn[]
   baseColumns: ConfigurableColumn[]
   preference: PreferenceV3 | null

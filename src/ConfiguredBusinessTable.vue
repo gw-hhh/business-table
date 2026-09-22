@@ -40,6 +40,7 @@ const config = computed<TableConfig>(() => ({
   schemaVersion: 1,
   tableKey: props.definition.tableKey,
   columns: resolved.value.preference?.columns ?? {},
+  presentation:resolved.value.preference?.presentation,
   pageSize: resolved.value.pageSize,
 }))
 const pagination = computed(() => ({
@@ -76,6 +77,7 @@ function changeConfig(next: TableConfig) {
     resolved.value.baseColumns,
     next,
     resolved.value.basePageSize,
+    resolved.value.basePresentation,
   ))
 }
 
@@ -107,6 +109,7 @@ defineExpose({
     :title="definition.title"
     :columns="resolved.baseColumns"
     :config="config"
+    :presentation="resolved.basePresentation"
     :pagination="pagination"
     :features="features"
     :remote-features="remoteFeatures"

@@ -1,9 +1,21 @@
+import type {TablePresentation,ToolDefinition} from '../features/presentation/model'
+import type {SettingsCommit} from '../features/settings/session'
+import type {Action} from '../types'
 import type {CSSProperties,VNodeChild} from 'vue'
 import type {ColumnConfig,ColumnTextStyle,RowData,SortConfig,UserColumnConfig} from '../types'
 import {getColumnWidthBounds} from '../config/columns'
 import {fontFamilyCss} from '../config/font-families'
 
 export interface ColumnSettingsContext {
+  tableKey?:string
+  presentation?:TablePresentation
+  basePresentation?:TablePresentation
+  actions?:Action[]
+  tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]}
+  pageSizeOptions?:number[]
+  selectedColumnId?:string
+  initialTab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar'
+  commit?:(change:SettingsCommit)=>Promise<void>
   columns:ColumnConfig[]
   baseColumns?:ColumnConfig[]
   previewRows?:RowData[]

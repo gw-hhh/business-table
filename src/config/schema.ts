@@ -1,3 +1,4 @@
+import {resolvePresentation,presentationDelta,defaultPresentation,type TablePresentation} from '../features/presentation/model'
 import { z } from 'zod'
 import {ruleFieldSchemas} from '../features/columns/schema'
 import type { TableConfig } from '../types'
@@ -90,7 +91,8 @@ export function parsePreference(input: unknown, tableKey: string, report?: Diagn
     }
     current = { kind, schemaVersion: 3, tableKey, columns, ...(pageSize === undefined ? {} : { pagination: { pageSize } }) }
   }
-  if (current.schemaVersion === 2) return { kind, schemaVersion: 3, tableKey, columns: current.columns, ...(current.pageSize === undefined ? {} : { pagination: { pageSize: current.pageSize } }) }
+  if(own(value,'presentation')!==undefined)current.presentation=presentationDelta(resolvePresentation(own(value,'presentation')))
+  if (current.schemaVersion === 2) return {...(current.presentation?{presentation:current.presentation}:{}), kind, schemaVersion: 3, tableKey, columns: current.columns, ...(current.pageSize === undefined ? {} : { pagination: { pageSize: current.pageSize } }) }
   return current
 }
 
@@ -172,12 +174,14 @@ export function resolveConfiguration(input: ResolveConfigurationInput, report?: 
   let columns: ConfigurableColumn[] = []
   let pagination = { pageSize: 20, pageSizeOptions: [20, 50, 100] }
   let tableKey = ''
+  let presentation=defaultPresentation()
   if (local) {
     // Deliberately project the envelope. A broad parse/spread would read disabled Feature getters.
     const envelope = definitionEnvelope.safeParse({ schemaVersion: own(local, 'schemaVersion'), tableKey: own(local, 'tableKey') })
     if (envelope.success) {
       tableKey = envelope.data.tableKey
       columns = parseColumns(own(local, 'columns'), collect)
+      if(own(local,'presentation')!==undefined)presentation=resolvePresentation(own(local,'presentation'),presentation)
       pagination = parsePagination(own(local, 'pagination'), pagination, 'definition.pagination', collect)
     } else issue(collect, 'definition', '表格定义版本或标识无效。')
   }
@@ -186,23 +190,27 @@ export function resolveConfiguration(input: ResolveConfigurationInput, report?: 
     if (remote) {
       const scoped: DiagnosticReporter = diagnostic => collect({ ...diagnostic, path: `remoteOverride.${diagnostic.path}` })
       columns = applyColumnPatches(columns, own(remote, 'columns'), scoped)
+      if(own(remote,'presentation')!==undefined)presentation=resolvePresentation(own(remote,'presentation'),presentation)
       pagination = parsePagination(own(remote, 'pagination'), pagination, 'remoteOverride.pagination', collect)
     }
   }
   const baseColumns = columns
+  presentation={...presentation,appearance:{...presentation.appearance,pageSize:pagination.pageSize}}
+  const basePresentation=presentation
   const basePageSize = pagination.pageSize
   const parsedPreference = tableKey ? parsePreference(input.preference, tableKey, collect) : null
   let preference: PreferenceV3 | null = null
   if (parsedPreference) {
+    if(parsedPreference.presentation)presentation=resolvePresentation(parsedPreference.presentation,presentation)
     columns = applyColumnPatches(columns, parsedPreference.columns, diagnostic => collect({ ...diagnostic, path: `preference.${diagnostic.path}` }))
     pagination = parsePagination(parsedPreference.pagination, pagination, 'preference.pagination', collect)
-    preference = createPreferenceDelta(tableKey, baseColumns, { schemaVersion: 1, tableKey, columns: parsedPreference.columns, pageSize: pagination.pageSize }, basePageSize)
+    preference = createPreferenceDelta(tableKey, baseColumns, { schemaVersion: 1, tableKey, columns: parsedPreference.columns, pageSize: pagination.pageSize, presentation:presentationDelta(presentation,basePresentation) }, basePageSize,basePresentation)
   }
   columns = applyColumnPatches(columns, input.viewColumns, diagnostic => collect({ ...diagnostic, path: `view.${diagnostic.path}` }))
-  return { columns, baseColumns, preference, basePageSize, ...pagination, diagnostics }
+  return { columns, baseColumns, preference, basePageSize, presentation,basePresentation,...pagination, diagnostics }
 }
 
-export function createPreferenceDelta(tableKey: string, baseColumns: ConfigurableColumn[], config: TableConfig, pageSize = 20): PreferenceV3 {
+export function createPreferenceDelta(tableKey: string, baseColumns: ConfigurableColumn[], config: TableConfig, pageSize = 20, basePresentation:TablePresentation=defaultPresentation()): PreferenceV3 {
   const columns: Record<string, UserColumnConfig> = Object.create(null)
   const result: PreferenceV3 = { kind, schemaVersion: 3, tableKey, columns }
   const current = applyColumnPatches(baseColumns, config.columns)
@@ -223,5 +231,6 @@ export function createPreferenceDelta(tableKey: string, baseColumns: Configurabl
   })
   const size = parsePageSize(config.pageSize, 'preference.pagination.pageSize')
   if (size !== undefined && size !== pageSize) result.pagination = { pageSize: size }
+  if(config.presentation){const delta=presentationDelta(resolvePresentation(config.presentation,basePresentation),basePresentation);if(Object.keys(delta).length)result.presentation=delta}
   return result
 }

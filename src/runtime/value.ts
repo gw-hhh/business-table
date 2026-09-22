@@ -41,3 +41,17 @@ export function typedKey(value: unknown): string {
   if (typeof value === 'number' && Object.is(value, -0)) return 'number:-0'
   return `${typeof value}:${String(value)}`
 }
+
+export function withValue(row:RowData,path:string,value:unknown):RowData {
+  const output=cloneData(row),keys=path.split('.')
+  let target=output
+  keys.forEach((key,index)=>{
+    if(index===keys.length-1)Object.defineProperty(target,key,{value,enumerable:true,writable:true,configurable:true})
+    else {
+      const current=Object.hasOwn(target,key)?target[key]:undefined
+      if(current===null||typeof current!=='object'||Array.isArray(current))Object.defineProperty(target,key,{value:Object.create(null),enumerable:true,writable:true,configurable:true})
+      target=target[key] as RowData
+    }
+  })
+  return output
+}

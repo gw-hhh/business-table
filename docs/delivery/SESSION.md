@@ -1,0 +1,31 @@
+# Full legacy migration / delivery — 2026-09-22
+
+Source of truth: docs/BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md; reference/legacy-v3.1/quotation-manager-v3.1/index.html, final cascading styles, V3-README and 3.1 README; user screenshots and explicit complete-migration request. Final Spec/Execution Brief not present; do not invent their content.
+
+Repository source: 79110eb -> 407464a (permanent delivery workflow). Feature remains feature/visual-parity-refinement, a descendant of config-runtime@550efb2. No main/development mutation before acceptance. Latest explicit user request authorizes pushing all modifications and producing runnable deliverables without intermediate approval questions.
+
+Previous full-parity source was not archived with the three logs. Existing remote checkpoint has reliable persistence/pagination/package fixes and pure column/filter/rich-document models, but not five settings pages or data tools. Treat them as missing until genuinely implemented/tested here. Both previous refinement branches' product changes are reconciled into this branch; original branches remain unchanged.
+
+Evidence at start: GitHub delivery 35709130995 on 407464a SUCCESS; local base 169/169 unit tests; reconciled refinement branches 187/187. Dependencies/Chromium from verified artifacts and existing frozen lockfile, no version upgrades. Local workspace /mnt/data/business-table-work.
+
+## Execution plan (inline, no approval pause)
+
+- [x] Verify exact source / baseline, retain initial gate and reconcile refinement-only files.
+- [ ] A. Unified presentation data, view deltas, session commit contract, shared cell rendering; model and component tests first.
+- [ ] B. Five complete settings tabs and column rules; shared draft and side-effect-free preview; same reference layout and control labels.
+- [ ] C. Header menus/filtering, composite queries, condition marks, groups, comparisons, cell ranges, history; lazy feature boundaries.
+- [ ] D. CSV/XLSX/templated workbook exports and schemes, safe rich editor and backup migrations; independent output reader tests.
+- [ ] E. Enumerate original entry points and run whole operational/visual comparison at multiple widths; fix uncovered failure paths.
+- [ ] F. Run complete local gate, real packed-consumer checks and reference integrity; push all source, verify final remote gate, package source/component/demo/evidence.
+
+## Cross-cutting invariants
+
+Definition/Capability is authoritative; hidden is not permission. Local disabled feature cannot be enabled remotely. OFF must not load heavy UI or detailed config. Schema data never executes JS or templates. Stable IDs for columns, actions, tools, views. Base query, column filters and advanced group remain distinct. Draft changes are isolated, saves serialized, failure stays open and retryable. Preview shares cell interpretation but cannot invoke business actions. Large remote datasets require adapters, not fetching everything. Original 145 reference files remain byte-identical. Only actual tests + reachable UI + saved configuration qualify as complete; no disabled-placeholder pages.
+
+## Review focus
+
+Multiple instances and tableKey switch while async work is pending; invalid/stale backup/view IDs and narrowed capabilities; data-empty and all-actions-hidden states; nested modal/popup focus and 320px boundaries; display precision versus typed export and unsafe rich paste/formula text.
+
+## Foundation checkpoint
+
+Actual new code: typed presentation data and Action/Tool layout resolution; reusable shared cell renderer; safe rich-editor model/UI; unified 5-page settings session with validation/draft preservation; view preference helpers; standalone useTableRuntime for query/selection/config/commit, separate column filters and full-source adapters. Reconciled the separate UI-parity branch without overriding reliability changes. Added tests first; individual RED/GREEN records retained in delivery-evidence. Latest full Vitest 220/220 and vue-tsc PASS. Five-page components mounted and regressions passed; full browser / complete feature integration remains pending, not a production release.

@@ -6,43 +6,26 @@ import type {ColumnSettingsContext} from './settingsTypes'
 import TableIcon from './TableIcon.vue'
 import ColumnSettingsDrawer from './ColumnSettingsDrawer.vue'
 import './column-settings.css'
+import '../features/settings/settings-pages.css'
+import {cloneData} from '../runtime/value'
+import {resolvePresentation} from '../features/presentation/model'
+import {columnDifference,validateSettings,settingsFields,settingsValue} from '../features/settings/session'
 
 const props=defineProps<{context:ColumnSettingsContext}>()
-const copy=(columns:ColumnConfig[])=>columns.map(column=>({...column,headerStyle:column.headerStyle?{...column.headerStyle}:undefined,cellStyle:column.cellStyle?{...column.cellStyle}:undefined}))
+const copy=(columns:ColumnConfig[])=>cloneData(columns)
 const original=copy(props.context.columns)
 const originalSorts=(props.context.sorts??[]).map(sort=>({...sort}))
 const sortDraft=ref(originalSorts.map(sort=>({...sort})))
 const draft=ref(copy(original)),drawer=ref(props.context.openMode==='drawer'),panel=ref<HTMLElement>()
 const saving=ref(false),error=ref(''),draggedId=ref<string>()
-const fields=['title','visible','width','fixed','align','sortable','headerStyle','cellStyle'] as const
-function value(column:ColumnConfig,key:typeof fields[number]){
-  if(key==='visible')return column.visible??true
-  if(key==='fixed')return column.fixed??false
-  if(key==='align')return column.align??'left'
-  if(key==='sortable')return column.sortable??false
-  if(key==='headerStyle'||key==='cellStyle')return column[key]??{}
-  return column[key]
-}
-function equal(a:unknown,b:unknown){
-  if(a===b)return true
-  if(!a||!b||typeof a!=='object'||typeof b!=='object')return false
-  const aa=a as Record<string,unknown>,bb=b as Record<string,unknown>
-  return Object.keys({...aa,...bb}).every(key=>aa[key]===bb[key])
-}
-const patches=computed(()=>{
-  const result:Record<string,UserColumnConfig>=Object.create(null)
-  draft.value.forEach((column,index)=>{
-    const source=original.find(item=>item.id===column.id)!
-    const patch:Record<string,unknown>={}
-    fields.forEach(key=>{if(!equal(value(column,key),value(source,key)))patch[key]=value(column,key)})
-    if(index!==original.findIndex(item=>item.id===column.id))patch.order=index
-    const guarded=guardColumnPatch(source,patch)
-    if(Object.keys(guarded).length)result[column.id]=guarded
-  })
-  return result
-})
+const fields=settingsFields
+const value=settingsValue
+const presentationDraft=ref(resolvePresentation(props.context.presentation))
+const originalPresentation=resolvePresentation(props.context.presentation)
+const patches=computed(()=>columnDifference(original,draft.value))
+const issues=computed(()=>validateSettings(draft.value))
 const sortsDirty=computed(()=>!!props.context.setSorts&&JSON.stringify(sortDraft.value)!==JSON.stringify(originalSorts))
-const dirty=computed(()=>Object.keys(patches.value).length>0||sortsDirty.value)
+const dirty=computed(()=>Object.keys(patches.value).length>0||sortsDirty.value||JSON.stringify(presentationDraft.value)!==JSON.stringify(originalPresentation))
 const togglable=computed(()=>draft.value.filter(column=>isColumnCapabilityEnabled(column,'visible')))
 const allVisible=computed(()=>togglable.value.every(column=>column.visible!==false))
 const someVisible=computed(()=>togglable.value.some(column=>column.visible!==false)&&!allVisible.value)
@@ -94,17 +77,29 @@ function reset(id?:string){
 }
 async function apply(){
   if(saving.value)return
+  if(issues.value.length){error.value=issues.value[0]!.message;return}
   saving.value=true;error.value=''
   try{
     const changes=patches.value
+    if(props.context.commit){await props.context.commit({columns:cloneData(changes),sorts:cloneData(sortDraft.value),presentation:cloneData(presentationDraft.value)})}
+    else {
     if(Object.keys(changes).length){
       if(props.context.apply)await props.context.apply(changes)
       else for(const [id,change] of Object.entries(changes))await props.context.patch(id,change)
     }
     if(sortsDirty.value)await props.context.setSorts?.(sortDraft.value.map(sort=>({...sort})))
+    }
     props.context.close()
   }catch(cause){error.value=cause instanceof Error?cause.message:'设置保存失败，请重试。'}
   finally{saving.value=false}
+}
+function restoreBackup(input:{columns?:Record<string,UserColumnConfig>;sorts?:typeof sortDraft.value;presentation?:unknown}){
+  for(const [id,change] of Object.entries(input.columns??{}))patch(id,change)
+  const order=input.columns??{}
+  const movable=draft.value.filter(column=>isColumnCapabilityEnabled(column,'order')).sort((a,b)=>(order[a.id]?.order??draft.value.indexOf(a))-(order[b.id]?.order??draft.value.indexOf(b)))
+  let position=0;draft.value=draft.value.map(column=>isColumnCapabilityEnabled(column,'order')?movable[position++]!:column)
+  if(input.sorts)sortDraft.value=cloneData(input.sorts).filter(sort=>draft.value.some(column=>column.field===sort.field&&column.sortable))
+  if(input.presentation)presentationDraft.value=resolvePresentation(input.presentation)
 }
 function cancel(){if(!saving.value)props.context.close()}
 function outside(event:PointerEvent){
@@ -118,7 +113,7 @@ onMounted(()=>{previousFocus=document.activeElement as HTMLElement;document.addE
 onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(previousFocus?.isConnected)previousFocus.focus()})
 </script>
 <template>
-  <ColumnSettingsDrawer v-if="drawer" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="sortDraft=$event" @reset-sorts="sortDraft=originalSorts.map(sort=>({...sort}))" @apply="apply" @cancel="cancel" @move="move" />
+  <ColumnSettingsDrawer v-if="drawer" :table-key="context.tableKey" :presentation="presentationDraft" :base-presentation="context.basePresentation" :actions="context.actions??[]" :tools="context.tools??{page:[],table:[]}" :page-sizes="context.pageSizeOptions" :issues="issues" :changes="patches" :initial-column-id="context.selectedColumnId" :initial-tab="context.initialTab" @presentation="presentationDraft=$event" @restore="restoreBackup" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="sortDraft=$event" @reset-sorts="sortDraft=originalSorts.map(sort=>({...sort}))" @apply="apply" @cancel="cancel" @move="move" />
   <aside v-else ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel">
     <div class="bt-column-popup__all"><label><input type="checkbox" aria-label="显示全部列" :checked="allVisible" :indeterminate="someVisible" :disabled="!togglable.length" @change="all(($event.target as HTMLInputElement).checked)">全部</label></div>
     <div class="bt-column-popup__list">
@@ -132,8 +127,8 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(prev
         <div class="bt-column-popup__moves"><button v-for="offset in [-1,1]" :key="offset" type="button" class="bt-settings-icon" :aria-label="(offset<0?'上移 ':'下移 ')+column.title" :disabled="!moveTarget(column.id,offset)" @click="moveStep(column.id,offset)"><TableIcon :name="offset<0?'chevron-up':'chevron-down'" :size="12" /></button></div>
       </div>
     </div>
-    <p v-if="error" class="bt-settings-error" role="alert">{{error}}</p>
+    <p v-if="error||issues.length" class="bt-settings-error" role="alert">{{error||issues[0]?.message}}</p>
     <button class="bt-column-popup__more bt-settings-text" @click="drawer=true"><TableIcon name="settings" :size="14" />更多设置</button>
-    <footer class="bt-column-popup__footer"><button class="bt-settings-text bt-settings-muted" @click="reset()">恢复默认</button><span></span><button class="bt-settings-text" :disabled="saving" @click="cancel">取消</button><button class="bt-settings-text" :disabled="saving" @click="apply">{{saving?'保存中…':'确认'}}</button></footer>
+    <footer class="bt-column-popup__footer"><button class="bt-settings-text bt-settings-muted" @click="reset()">恢复默认</button><span></span><button class="bt-settings-text" :disabled="saving" @click="cancel">取消</button><button class="bt-settings-text" :disabled="saving||issues.length>0" @click="apply">{{saving?'保存中…':'确认'}}</button></footer>
   </aside>
 </template>
