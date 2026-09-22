@@ -97,10 +97,84 @@ async function applyView(view: QuotationView) {
 type MenuName = 'page' | 'views' | 'density' | 'sort' | null
 const menu = ref<MenuName>(null)
 let menuTrigger: HTMLElement | null = null
-function toggleMenu(name: MenuName, event: Event) { menuTrigger = event.currentTarget as HTMLElement; menu.value = menu.value === name ? null : name }
-function closeMenu(restoreFocus = false) { menu.value = null; if (restoreFocus) menuTrigger?.focus() }
-function dismissMenus(event: PointerEvent) { if (!(event.target instanceof Element) || !event.target.closest('.q-menu-anchor')) closeMenu() }
-function keyboard(event: KeyboardEvent) { if (event.key === 'Escape' && menu.value) { event.preventDefault(); closeMenu(true) } }
+function menuElement() {
+  return menuTrigger?.closest('.q-menu-anchor')?.querySelector<HTMLElement>('[role="menu"]') ?? null
+}
+function menuItems() {
+  return Array.from(menuElement()?.querySelectorAll<HTMLButtonElement>('[role="menuitem"], [role="menuitemradio"]') ?? [])
+    .filter(item => !item.disabled && item.getAttribute('aria-disabled') !== 'true')
+}
+function positionPopup() {
+  if (!menu.value) return
+  const anchor = menuTrigger?.closest<HTMLElement>('.q-menu-anchor')
+  const popup = anchor?.querySelector<HTMLElement>('.q-popup')
+  const width = document.documentElement.clientWidth, height = document.documentElement.clientHeight
+  if (!anchor || !popup || !width || !height) return
+  // Start from the CSS anchor on every resize; use clientWidth, excluding the scrollbar.
+  popup.style.left = ''; popup.style.right = ''; popup.style.top = ''
+  popup.style.maxWidth = `${Math.max(0, width - 16)}px`
+  popup.style.maxHeight = `${Math.max(0, height - 16)}px`
+  popup.style.overflow = 'auto'
+  const rect = popup.getBoundingClientRect(), origin = anchor.getBoundingClientRect()
+  const left = Math.max(8, Math.min(rect.left, width - rect.width - 8))
+  const top = Math.max(8, Math.min(rect.top, height - rect.height - 8))
+  popup.style.left = `${left - origin.left}px`
+  popup.style.right = 'auto'
+  popup.style.top = `${top - origin.top}px`
+}
+async function toggleMenu(name: MenuName, event: Event) {
+  if (menu.value === name) { closeMenu(); return }
+  menuTrigger = event.currentTarget as HTMLElement
+  menu.value = name
+  await nextTick()
+  if (menu.value !== name) return
+  positionPopup()
+  menuItems()[0]?.focus()
+}
+function openMenuFromKey(name: MenuName, event: KeyboardEvent) {
+  if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || !['ArrowDown', 'ArrowUp'].includes(event.key)) return
+  event.preventDefault(); event.stopPropagation()
+  menuTrigger = event.currentTarget as HTMLElement
+  menu.value = name
+  void nextTick(() => {
+    if (menu.value !== name) return
+    positionPopup()
+    const items = menuItems()
+    items[event.key === 'ArrowUp' ? items.length - 1 : 0]?.focus()
+  })
+}
+function closeMenu(restoreFocus = true) { menu.value = null; if (restoreFocus && menuTrigger?.isConnected) menuTrigger.focus() }
+function dismissMenus(event: PointerEvent) { if (!(event.target instanceof Element) || !event.target.closest('.q-menu-anchor')) closeMenu(false) }
+function isTabStop(element: HTMLElement) {
+  if (element.tabIndex < 0 || element.matches(':disabled,[aria-disabled="true"]')) return false
+  for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
+    const style = getComputedStyle(parent)
+    if (parent.hidden || parent.inert || style.display === 'none' || style.visibility === 'hidden') return false
+  }
+  return true
+}
+function keyboard(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing || !menu.value) return
+  if (event.key === 'Escape') { event.preventDefault(); closeMenu(); return }
+  const popup = menuElement()
+  if (!popup || !(event.target instanceof Node) || !popup.contains(event.target)) return
+  if (event.key === 'Tab') {
+    // Move past the trigger in the page's tab order, never into an item being removed.
+    const stops = Array.from(document.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[tabindex]'))
+      .filter(element => !popup.contains(element) && isTabStop(element))
+    const index = menuTrigger ? stops.indexOf(menuTrigger) : -1
+    const next = index >= 0 ? stops[index + (event.shiftKey ? -1 : 1)] : undefined
+    event.preventDefault(); closeMenu(false); (next ?? menuTrigger)?.focus()
+    return
+  }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return
+  const items = menuItems(), index = items.indexOf(document.activeElement as HTMLButtonElement)
+  if (!items.length) return
+  event.preventDefault()
+  const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+    : (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length
+  items[next]?.focus()
+}
 function viewSnapshot() {
   const columns = Object.fromEntries((table.value?.getState().columns ?? quotationColumns).map((column, order) => [column.id, { title: column.title, visible: column.visible !== false, order, width: column.width, fixed: column.fixed ?? false, align: column.align ?? 'left', sortable: column.sortable, headerStyle: column.headerStyle, cellStyle: column.cellStyle }]))
   return { keyword: query.value.keyword ?? '', filters: query.value.filters, sorts: query.value.sorts, columns }
@@ -160,8 +234,8 @@ const actions: Action<Quotation>[] = [
   { id: 'export', label: '导出本条', position: 'more', icon: 'download', separator: true, children: [{ id: 'export-csv', label: '导出 CSV', handler: row => exportCsv([row], row.id) }, { id: 'export-json', label: '导出 JSON', handler: row => backup([row], row.id) }] },
   { id: 'delete', label: '删除', position: 'more', icon: 'trash', danger: true, separator: true, handler: row => deleteQuotations([row]) },
 ]
-onMounted(async () => { document.addEventListener('pointerdown', dismissMenus); document.addEventListener('keydown', keyboard); await nextTick(); if (currentView.value) await applyView(currentView.value) })
-onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus); document.removeEventListener('keydown', keyboard); clearTimeout(toastTimer) })
+onMounted(async () => { document.addEventListener('pointerdown', dismissMenus); document.addEventListener('keydown', keyboard); window.addEventListener('resize', positionPopup); await nextTick(); if (currentView.value) await applyView(currentView.value) })
+onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus); document.removeEventListener('keydown', keyboard); window.removeEventListener('resize', positionPopup); clearTimeout(toastTimer) })
 </script>
 
 <template>
@@ -171,7 +245,7 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus
       <div class="q-header-actions">
         <button class="q-user q-quiet" type="button" title="本地演示用户" @click="helpVisible = true"><span class="q-avatar">林</span><span>林予安</span><TableIcon name="info" :size="14"/></button>
         <button class="q-btn" type="button" @click="downloadTemplate"><TableIcon name="file"/>模板下载</button><button class="q-btn" type="button" @click="exportCsv()"><TableIcon name="download"/>导出</button><button class="q-btn q-primary" type="button" @click="showQuotation('new')"><TableIcon name="plus"/>新增报价</button>
-        <div class="q-menu-anchor"><button class="q-icon-btn" type="button" aria-label="更多页面操作" :aria-expanded="menu === 'page'" aria-haspopup="menu" @click="toggleMenu('page', $event)"><TableIcon name="more"/></button><div v-if="menu === 'page'" class="q-popup q-page-menu" role="menu" aria-label="更多页面操作"><button role="menuitem" @click="backup()"><TableIcon name="download"/>备份报价数据（JSON）</button><button role="menuitem" @click="closeMenu(); restoreInput?.click()"><TableIcon name="upload"/>恢复报价备份</button><div class="q-menu-separator"/><button role="menuitem" @click="resetExamples"><TableIcon name="refresh"/>恢复示例数据</button><button role="menuitem" @click="closeMenu(); helpVisible = true"><TableIcon name="info"/>使用说明</button></div></div>
+        <div class="q-menu-anchor"><button class="q-icon-btn" type="button" aria-label="更多页面操作" :aria-expanded="menu === 'page'" aria-haspopup="menu" @click="toggleMenu('page', $event)" @keydown="openMenuFromKey('page', $event)"><TableIcon name="more"/></button><div v-if="menu === 'page'" class="q-popup q-page-menu" role="menu" aria-label="更多页面操作"><button role="menuitem" tabindex="-1" @click="backup()"><TableIcon name="download"/>备份报价数据（JSON）</button><button role="menuitem" tabindex="-1" @click="closeMenu(); restoreInput?.click()"><TableIcon name="upload"/>恢复报价备份</button><div class="q-menu-separator"/><button role="menuitem" tabindex="-1" @click="resetExamples"><TableIcon name="refresh"/>恢复示例数据</button><button role="menuitem" tabindex="-1" @click="closeMenu(); helpVisible = true"><TableIcon name="info"/>使用说明</button></div></div>
       </div>
     </header>
 
@@ -192,7 +266,7 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus
         </form>
       </template>
       <template #toolbar-start>
-        <div class="q-table-title"><div class="q-menu-anchor"><button class="q-view-switch" type="button" aria-label="保存与切换视图" :aria-expanded="menu === 'views'" aria-haspopup="dialog" @click="toggleMenu('views', $event)"><TableIcon name="bookmark" :size="13"/><span>{{ currentView?.name ?? '全部报价' }}</span><TableIcon name="chevron-down" :size="12"/></button>
+        <div class="q-table-title"><h2>报价列表</h2><span class="q-toolbar-divider" aria-hidden="true"/><div class="q-menu-anchor"><button class="q-view-switch" type="button" aria-label="保存与切换视图" :aria-expanded="menu === 'views'" aria-haspopup="dialog" @click="toggleMenu('views', $event)"><TableIcon name="bookmark" :size="13"/><span>{{ currentView?.name ?? '全部报价' }}</span><TableIcon name="chevron-down" :size="12"/></button>
           <div v-if="menu === 'views'" class="q-popup q-view-menu" role="dialog" aria-label="我的视图"><header><strong>我的视图</strong><span>{{ views.length }} / 50</span></header><p class="q-view-hint">保存查询和表格设置；标为默认后，重新打开时自动应用。</p>
             <div class="q-view-list"><div v-for="(view, index) in views" :key="view.id" class="q-view-row" :class="{ 'is-current': activeView === view.id }"><TableIcon name="grip" :size="13"/><button class="q-view-name" type="button" @click="applyView(view)">{{ view.name }}<span v-if="view.isDefault" class="q-default-tag">默认</span></button><div class="q-view-tools"><button class="q-icon-btn" :class="{ 'is-active': view.isDefault }" :title="`设为默认 ${view.name}`" :aria-pressed="!!view.isDefault" @click="setDefaultView(view.id)"><TableIcon name="star" :size="12"/></button><button class="q-icon-btn" :title="`重命名 ${view.name}`" :disabled="view.id === 'all'" @click="editView(view)"><TableIcon name="edit" :size="12"/></button><button class="q-icon-btn" :title="`上移 ${view.name}`" :disabled="index === 0" @click="moveView(index, -1)"><TableIcon name="chevron-up" :size="12"/></button><button class="q-icon-btn" :title="`下移 ${view.name}`" :disabled="index === views.length - 1" @click="moveView(index, 1)"><TableIcon name="chevron-down" :size="12"/></button><button class="q-icon-btn" :title="`删除 ${view.name}`" :disabled="view.id === 'all'" @click="deleteView(view)"><TableIcon name="trash" :size="12"/></button></div></div></div>
             <footer><button class="q-btn q-text" @click="saveCurrentView">更新当前视图</button><button class="q-btn q-primary" :disabled="views.length >= 50" @click="editView()"><TableIcon name="plus" :size="14"/>另存为视图</button></footer>
@@ -200,7 +274,7 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus
       </template>
       <template #toolbar-end>
         <button class="q-icon-btn" :class="{ 'is-active': selectionVisible }" type="button" title="批量操作" :aria-pressed="selectionVisible" @click="selectionVisible = !selectionVisible; table?.clearSelection()"><TableIcon name="batch"/></button><button class="q-icon-btn" :class="{ 'is-active': searchVisible }" type="button" title="查询条件" :aria-pressed="searchVisible" @click="searchVisible = !searchVisible"><TableIcon name="search"/></button><button class="q-icon-btn" type="button" title="刷新" @click="refresh"><TableIcon name="refresh"/></button>
-        <div class="q-menu-anchor"><button class="q-icon-btn" type="button" title="行高密度" :aria-expanded="menu === 'density'" @click="toggleMenu('density', $event)"><TableIcon name="density"/></button><div v-if="menu === 'density'" class="q-popup q-density-menu" role="menu" aria-label="行高密度"><button v-for="option in ([{ id: 'compact', label: '紧凑' }, { id: 'default', label: '标准' }, { id: 'comfortable', label: '舒适' }] as const)" :key="option.id" role="menuitemradio" :aria-checked="density === option.id" @click="density = option.id; closeMenu()"><TableIcon v-if="density === option.id" name="check"/><span v-else class="q-icon-space"/>{{ option.label }}</button></div></div>
+        <div class="q-menu-anchor"><button class="q-icon-btn" type="button" title="行高密度" :aria-expanded="menu === 'density'" aria-haspopup="menu" @click="toggleMenu('density', $event)" @keydown="openMenuFromKey('density', $event)"><TableIcon name="density"/></button><div v-if="menu === 'density'" class="q-popup q-density-menu" role="menu" aria-label="行高密度"><button v-for="option in ([{ id: 'compact', label: '紧凑' }, { id: 'default', label: '标准' }, { id: 'comfortable', label: '舒适' }] as const)" :key="option.id" role="menuitemradio" tabindex="-1" :aria-checked="density === option.id" @click="density = option.id; closeMenu()"><TableIcon v-if="density === option.id" name="check"/><span v-else class="q-icon-space"/>{{ option.label }}</button></div></div>
         <div class="q-menu-anchor"><button class="q-icon-btn" :class="{ 'is-active': query.sorts.length }" type="button" title="排序规则" :aria-expanded="menu === 'sort'" @click="toggleMenu('sort', $event)"><TableIcon name="sort"/></button><div v-if="menu === 'sort'" class="q-popup q-sort-menu" role="dialog" aria-label="排序规则"><strong>排序规则</strong><label>排序字段<select v-model="sortField"><option v-for="column in quotationColumns.filter(column => column.sortable)" :key="column.id" :value="column.field">{{ column.title }}</option></select></label><label>排序方式<select v-model="sortOrder"><option value="asc">升序</option><option value="desc">降序</option></select></label><footer><button class="q-btn q-text" @click="table?.setQuery({ sorts: [] }); closeMenu()">清除排序</button><button class="q-btn q-primary" @click="applySort">应用</button></footer></div></div>
       </template>
       <template #toolbar-after><button class="q-icon-btn" type="button" title="筛选条件摘要" :aria-pressed="chipsVisible" @click="chipsVisible = !chipsVisible"><TableIcon name="filter"/></button></template>

@@ -35,14 +35,14 @@ export function makeExampleQuotations(): Quotation[] {
   ]
 }
 export const quotationColumns: ColumnConfig<Quotation>[] = [
-  { id: 'id', field: 'id', title: '报价编号', width: 316, fixed: 'left', sortable: true, configurable: { visible: false, order: true, rename: true, align: true, width: true, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
-  { id: 'name', field: 'name', title: '项目名称 / 客户', minWidth: 264, sortable: true, configurable: { visible: true, order: true, rename: true, align: true, width: { enabled: true, min: 180, max: 640 }, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
+  { id: 'id', field: 'id', title: '报价编号', width: 194, minWidth: 170, fixed: 'left', sortable: true, configurable: { visible: false, order: true, rename: true, align: true, width: true, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
+  { id: 'name', field: 'name', title: '项目名称 / 客户', minWidth: 280, sortable: true, configurable: { visible: true, order: true, rename: true, align: true, width: { enabled: true, min: 180, max: 640 }, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
   { id: 'customer', field: 'customer', title: '客户', visible: false, width: 180 },
-  { id: 'amount', field: 'amount', title: '含税金额（元）', type: 'number', width: 138, align: 'right', sortable: true, numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true } },
-  { id: 'status', field: 'status', title: '状态', width: 268, sortable: true },
+  { id: 'amount', field: 'amount', title: '含税金额（元）', type: 'number', width: 180, minWidth: 138, align: 'right', sortable: true, numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true } },
+  { id: 'status', field: 'status', title: '状态', width: 112, minWidth: 102, sortable: true },
   { id: 'owner', field: 'owner', title: '负责人', width: 120, sortable: true },
   { id: 'region', field: 'region', title: '大区', visible: false, width: 140 },
-  { id: 'date', field: 'date', title: '有效期至', width: 138, sortable: true },
+  { id: 'date', field: 'date', title: '有效期至', width: 136, minWidth: 120, sortable: true },
   { id: 'createdAt', field: 'createdAt', title: '创建日期', visible: false, width: 140, sortable: true },
 ]
 export function makeQuotationQuery(search: QuotationSearch): { keyword: string; filters: FilterConfig[]; sorts: SortConfig[] } {

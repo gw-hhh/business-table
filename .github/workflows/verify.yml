@@ -18,16 +18,6 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Package isolated verification inputs
-        run: |
-          mkdir -p /tmp/parity-inputs
-          git archive --format=tar HEAD > /tmp/parity-inputs/source.tar
-          tar -czf /tmp/parity-inputs/dependencies.tgz node_modules
-      - uses: actions/upload-artifact@v4
-        with:
-          name: config-runtime-verification-inputs
-          path: /tmp/parity-inputs/
-          retention-days: 1
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Full release gate

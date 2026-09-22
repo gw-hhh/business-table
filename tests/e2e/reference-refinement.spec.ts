@@ -48,6 +48,7 @@ for (const width of [1440, 390]) {
     await page.goto('/')
     await standardState(page)
     const current = await measure(page, false)
+    await page.mouse.move(0, 0)
     await page.screenshot({ path: info.outputPath(`vue-${width}.png`), fullPage: true })
     await info.attach('measured-styles', { body: JSON.stringify({ reference, current }, null, 2), contentType: 'application/json' })
     console.log('PARITY_STYLES', width, JSON.stringify({ reference, current }))
