@@ -18,6 +18,13 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Package locked verification dependencies
+        run: tar -czf /tmp/business-table-dependencies.tgz node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: locked-verification-dependencies
+          path: /tmp/business-table-dependencies.tgz
+          retention-days: 1
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Full release gate
