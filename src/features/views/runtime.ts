@@ -16,17 +16,23 @@ const object = (input: unknown): Record<string, unknown> => input && typeof inpu
 function snapshot(input: unknown): ViewSnapshot {
   const value = object(input), result: ViewSnapshot = {}
   if (typeof value.keyword === 'string') result.keyword = value.keyword.slice(0, 1000)
-  if (Array.isArray(value.filters)) result.filters = value.filters.slice(0, 60).flatMap(item => { const parsed = readFilter(item); return parsed ? [parsed] : [] })
-  if (Array.isArray(value.columnFilters)) result.columnFilters = value.columnFilters.slice(0, 60).flatMap(item => { const parsed = readFilter(item); return parsed ? [parsed] : [] })
-  if (Array.isArray(value.sorts)) {
+  for (const key of ['filters', 'columnFilters'] as const) {
+    const rules = value[key]
+    if (rules === undefined) continue
+    if (!Array.isArray(rules) || rules.length > 60) throw new Error('视图查询条件无效。')
+    result[key] = rules.map(item => { const parsed = readFilter(item); if (!parsed) throw new Error('视图查询条件无效。'); return parsed })
+  }
+  if (value.sorts !== undefined) {
+    if (!Array.isArray(value.sorts) || value.sorts.length > 30) throw new Error('视图排序无效。')
     const seen = new Set<string>()
-    result.sorts = value.sorts.slice(0, 30).flatMap(item => {
+    result.sorts = value.sorts.map(item => {
       const entry = object(item)
-      if (typeof entry.field !== 'string' || !entry.field || seen.has(entry.field) || !['asc','desc'].includes(String(entry.order))) return []
-      seen.add(entry.field); return [{ field: entry.field, order: entry.order as 'asc' | 'desc' }]
+      if (typeof entry.field !== 'string' || !readFilter({ field: entry.field, operator: 'empty', value: null }) || seen.has(entry.field) || !['asc','desc'].includes(String(entry.order))) throw new Error('视图排序无效。')
+      seen.add(entry.field); return { field: entry.field, order: entry.order as 'asc' | 'desc' }
     })
   }
   const group = readFilterGroup(value.filterGroup)
+  if (value.filterGroup !== undefined && !group) throw new Error('视图组合筛选无效。')
   if (group) result.filterGroup = group
   if (value.columns && typeof value.columns === 'object' && !Array.isArray(value.columns)) {
     result.columns = Object.create(null)
@@ -61,6 +67,15 @@ export function readViews(input: unknown, tableKey: string): ViewConfig[] {
     hasDefault ||= isDefault
     return { id: view.id, name: view.name.trim(), ...snapshot(view), ...(view.isSystem === true ? { isSystem: true } : {}), ...(view.isReadOnly === true ? { isReadOnly: true } : {}), ...(isDefault ? { isDefault: true } : {}) }
   })
+}
+/** Query layers retain distinct ownership; an absent group equals an intentionally empty root. */
+export function viewQueryEquals(left: ViewSnapshot, right: ViewSnapshot): boolean {
+  const query = (value: ViewSnapshot) => {
+    const parsed = snapshot(value)
+    return { keyword: parsed.keyword ?? '', filters: parsed.filters ?? [], columnFilters: parsed.columnFilters ?? [],
+      filterGroup: parsed.filterGroup?.rules.length ? parsed.filterGroup : null, sorts: parsed.sorts ?? [] }
+  }
+  return JSON.stringify(query(left)) === JSON.stringify(query(right))
 }
 /** The UI and headless consumers share these transactional view operations. */
 export function createViewsRuntime(options: ViewsOptions) {

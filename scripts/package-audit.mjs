@@ -26,11 +26,16 @@ try {
   writeFileSync(join(workspace, 'package.json'), JSON.stringify({ type: 'module' }))
   writeFileSync(join(workspace, 'consumer.ts'), `
     import { h } from 'vue'
-    import { BusinessTable, type ColumnConfig, createRegistry } from '${pkg.name}'
+    import { BusinessTable, ConfiguredBusinessTable, type ColumnConfig, type FilterState, type FiltersContext, type FilterGroup, type FilterPlanPersistence, createRegistry } from '${pkg.name}'
     const columns: ColumnConfig<{id:string}>[] = [{id:'id', field:'id', title:'编号'}]
     const table = h(BusinessTable, {columns, data:[{id:'1'}]})
     const registry = createRegistry<{id:string}>()
-    export { table, registry }
+    const group: FilterGroup = {logic:'and', rules:[{field:'id', operator:'eq', value:'1'}]}
+    const state: FilterState = {columnFilters:[], filterGroup:group}
+    const plans: FilterPlanPersistence = {load: async () => null, save: async (_tableKey, _envelope) => {}}
+    const configured = h(ConfiguredBusinessTable, {definition:{schemaVersion:3,tableKey:'independent',columns,features:{filters:true}},filterPlanPersistence:plans,data:[{id:'1'}]})
+    function applyFilter(context: FiltersContext) { return context.apply(state) }
+    export { table, configured, registry, applyFilter }
   `)
   writeFileSync(join(workspace, 'tsconfig.json'), JSON.stringify({ compilerOptions: {
     target: 'ES2023', module: 'ESNext', moduleResolution: 'Bundler', strict: true,

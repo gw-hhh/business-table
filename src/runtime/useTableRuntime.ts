@@ -4,12 +4,14 @@ import type {ConfigDiagnostic} from '../config/diagnostics'
 import {applyFilters,applySorts,makeConfig,mergeColumns,patchColumn} from '../core'
 import {applyColumnPatches,guardColumnPatch} from '../config/columns'
 import {createPreferenceDelta,parsePreference} from '../config/schema'
-import {defaultColumnFilter,matchesFilterGroup,collectFilterOptions,type FilterOption,type FilterGroup} from '../features/filters/model'
+import {defaultColumnFilter,compileFilterGroup,collectFilterOptions,type FilterOption,type FilterGroup} from '../features/filters/model'
 import {defaultPresentation,resolvePresentation,presentationDelta,type PresentationDelta} from '../features/presentation/model'
 import {validateSettings,type SettingsCommit} from '../features/settings/session'
 import {normalizePagination,clampPage} from './pagination'
 import {withDeadline} from './deadline'
 import {cloneData,getValue} from './value'
+import {guardFilterState,type FilterState} from './filter-state'
+import {readFilterGroup} from './filter'
 
 export interface TableRuntimeInput<T extends RowData> {
   readonly tableKey?:string;readonly rowKey?:string;readonly columns:ColumnConfig<T>[];readonly data?:T[]
@@ -68,7 +70,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   function filterLocal(data:readonly T[],request:Query):T[]{
     let result=[...data]
     if(request.keyword){const search=request.keyword.toLocaleLowerCase();result=result.filter(row=>resolvedColumns.value.filter(column=>column.kind!=='actions').some(column=>String(getValue(row,column.field)??'').toLocaleLowerCase().includes(search)))}
-    result=applyFilters(result,request.filters).filter(row=>matchesFilterGroup(row,request.filterGroup))
+    result=applyFilters(result,request.filters).filter(compileFilterGroup(request.filterGroup))
     return applySorts(result,request.sorts,allResolvedColumns.value)
   }
   function validPage(request:Query,count:number){return clampPage(request.page,Math.max(1,Math.ceil(count/request.pageSize)))}
@@ -130,14 +132,18 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   }
   async function patch(id:string,change:UserColumnConfig){return applyPatches({[id]:change})}
   async function setQuery(change:QueryChange){
+    if(change.filterGroup!==undefined&&!readFilterGroup(change.filterGroup))throw new Error('组合筛选配置无效。')
     const base:Query={...query.value,filters:filters.value,...change,page:1},snapshot=copyQuery(base)
     keyword.value=snapshot.keyword??'';searchDraft.value=keyword.value;filters.value=snapshot.filters;sorts.value=snapshot.sorts;activeView.value=snapshot.viewId??null;filterGroup.value=snapshot.filterGroup;page.value=1
     clearSelection();await load()
   }
-  async function setColumnFilters(next:FilterConfig[]){
-    const columns=new Map(allResolvedColumns.value.map(column=>[column.field,column]))
-    columnFilters.value=cloneData(next).filter(filter=>{const column=columns.get(filter.field);return column&&defaultColumnFilter(column).enabled&&defaultColumnFilter(column).operators.includes(filter.operator)})
+  async function setFilterState(next:FilterState){
+    const accepted=guardFilterState(next,allResolvedColumns.value)
+    columnFilters.value=accepted.columnFilters;filterGroup.value=accepted.filterGroup
     page.value=1;clearSelection();await load()
+  }
+  async function setColumnFilters(next:FilterConfig[]){
+    await setFilterState({columnFilters:next,filterGroup:filterGroup.value})
   }
   function search(){keyword.value=searchDraft.value;page.value=1;clearSelection();void load()}
   function goPage(next:number){page.value=clampPage(next,pages.value);void load()}
@@ -193,6 +199,9 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     return result
   }
   async function optionsFor(column:ColumnConfig,search='',signal?:AbortSignal):Promise<FilterOption[]>{
+    const resolved=allResolvedColumns.value.find(item=>item.id===column.id&&item.field===column.field)
+    if(!resolved||!defaultColumnFilter(resolved).enabled)throw new Error('筛选字段已不可用。')
+    column=resolved
     const settings=defaultColumnFilter(column)
     let result:FilterOption[]
     if(settings.source==='manual')result=cloneData(settings.options)
@@ -222,7 +231,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;keyword.value='';searchDraft.value='';filters.value=[];columnFilters.value=[];filterGroup.value=undefined;sorts.value=[];activeView.value=null;clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;preferenceController.abort();controller?.abort();commitListeners.clear()})
-  const commands={reload:()=>load(),setQuery,setColumnFilters,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,goPage,readRows,optionsFor,sort}
+  const commands={reload:()=>load(),setQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,goPage,readRows,optionsFor,sort}
   return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,search,changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createViewsRuntime, readViews } from '../src/features/views/runtime'
+import { createViewsRuntime, readViews, viewQueryEquals } from '../src/features/views/runtime'
 
 describe('shared view runtime', () => {
+  it('compares independent search, column and combined query layers with stable field order', () => {
+    const left = { filters: [{field:'name',operator:'eq' as const,value:'甲'}], columnFilters:[{field:'amount',operator:'gt' as const,value:10}], filterGroup: {logic:'or' as const,rules:[{field:'name',operator:'contains' as const,value:'甲'}]} }
+    expect(typeof viewQueryEquals).toBe('function')
+    expect(viewQueryEquals(left, JSON.parse(JSON.stringify(left)))).toBe(true)
+    expect(viewQueryEquals(left, {...left,columnFilters:[]})).toBe(false)
+    expect(viewQueryEquals(left, {...left,filterGroup:undefined})).toBe(false)
+    expect(viewQueryEquals({}, {filters:[],columnFilters:[],sorts:[],keyword:'',filterGroup:{logic:'and',rules:[]}})).toBe(true)
+  })
   it('keeps layout for the system all view and clears query state', async () => {
     const apply = vi.fn(async (_value:unknown) => {})
     const runtime = createViewsRuntime({ tableKey: 'a', initial: [{id:'all',name:'全部',isSystem:true},{id:'mine',name:'我的',filters:[{field:'status',operator:'eq',value:1}]}], apply })

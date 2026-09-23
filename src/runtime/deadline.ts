@@ -1,5 +1,5 @@
-/** A deadline is used only for optional preferences, never for authorization definitions. */
-export function withDeadline<T>(operation: (signal: AbortSignal) => Promise<T>, timeoutMs: number, parent?: AbortSignal): Promise<T> {
+/** Bound optional reads (preferences/options), never authorization definitions. */
+export function withDeadline<T>(operation: (signal: AbortSignal) => Promise<T>, timeoutMs: number, parent?: AbortSignal, timeoutMessage = '个人设置读取超时，已使用默认设置。'): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const controller = new AbortController()
     let settled = false
@@ -17,7 +17,7 @@ export function withDeadline<T>(operation: (signal: AbortSignal) => Promise<T>, 
     const delay = Number.isFinite(timeoutMs) && timeoutMs >= 0 ? timeoutMs : 3000
     const timer = setTimeout(() => finish(() => {
       controller.abort()
-      reject(new Error('个人设置读取超时，已使用默认设置。'))
+      reject(new Error(timeoutMessage))
     }), delay)
     parent?.addEventListener('abort', abort, { once: true })
     if (parent?.aborted) { abort(); return }

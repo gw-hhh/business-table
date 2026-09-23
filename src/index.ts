@@ -15,3 +15,9 @@ export {ConfiguredBusinessTable}
 export*from'./types';export*from'./core';export*from'./persistence';export{BusinessTable}
 export const BusinessTablePlugin:Plugin={install(app:App){app.use(VxeUITable);app.component('BusinessTable',BusinessTable);app.component('ConfiguredBusinessTable',ConfiguredBusinessTable)}}
 export default BusinessTablePlugin
+
+export type { FilterGroup } from './runtime/filter'
+export type { FilterState } from './runtime/filter-state'
+export type { FiltersContext } from './features/filters/context'
+export type { FilterPlan, FilterPlansEnvelope, FilterPlanPersistence } from './features/filters/plans'
+export type { ViewSnapshot } from './features/views/runtime'

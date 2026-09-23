@@ -1,4 +1,7 @@
-import type { ColumnConfig, FilterConfig, Query, SortConfig, UserColumnConfig, ViewConfig } from '../../src/types'
+import { applyFilters, applySorts } from '../../src/core'
+import { compileFilterGroup } from '../../src/runtime/filter'
+import { readViews, type ViewSnapshot } from '../../src/features/views/runtime'
+import type { ColumnConfig, FilterConfig, Query, SortConfig, ViewConfig } from '../../src/types'
 
 export interface Quotation extends Record<string, unknown> {
   id: string
@@ -37,13 +40,13 @@ export function makeExampleQuotations(): Quotation[] {
 export const quotationColumns: ColumnConfig<Quotation>[] = [
   { id: 'id', field: 'id', title: '报价编号', width: 194, minWidth: 170, fixed: 'left', sortable: true, configurable: { visible: false, order: true, rename: true, align: true, width: true, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
   { id: 'name', field: 'name', title: '项目名称 / 客户', minWidth: 280, sortable: true, configurable: { visible: true, order: true, rename: true, align: true, width: { enabled: true, min: 180, max: 640 }, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
-  { id: 'customer', field: 'customer', title: '客户', visible: false, width: 180 },
+  { id: 'customer', field: 'customer', type: 'enum', title: '客户', visible: false, width: 180 },
   { id: 'amount', field: 'amount', title: '含税金额（元）', type: 'number', width: 180, minWidth: 138, align: 'right', sortable: true, numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true } },
-  { id: 'status', field: 'status', title: '状态', width: 112, minWidth: 102, sortable: true },
-  { id: 'owner', field: 'owner', title: '负责人', width: 120, sortable: true },
-  { id: 'region', field: 'region', title: '大区', visible: false, width: 140 },
-  { id: 'date', field: 'date', title: '有效期至', width: 136, minWidth: 120, sortable: true },
-  { id: 'createdAt', field: 'createdAt', title: '创建日期', visible: false, width: 140, sortable: true },
+  { id: 'status', field: 'status', type: 'enum', title: '状态', width: 112, minWidth: 102, sortable: true },
+  { id: 'owner', field: 'owner', type: 'enum', title: '负责人', width: 120, sortable: true },
+  { id: 'region', field: 'region', type: 'enum', title: '大区', visible: false, width: 140 },
+  { id: 'date', field: 'date', type: 'date', title: '有效期至', width: 136, minWidth: 120, sortable: true },
+  { id: 'createdAt', field: 'createdAt', type: 'date', title: '创建日期', visible: false, width: 140, sortable: true },
 ]
 export function makeQuotationQuery(search: QuotationSearch): { keyword: string; filters: FilterConfig[]; sorts: SortConfig[] } {
   const filters: FilterConfig[] = []
@@ -56,27 +59,10 @@ export function makeQuotationQuery(search: QuotationSearch): { keyword: string; 
 }
 export function filterQuotations(rows: Quotation[], query: Query): Quotation[] {
   const keyword = query.keyword?.trim().toLocaleLowerCase()
-  const result = rows.filter(row => (!keyword || [row.id, row.name, row.customer].some(value => value.toLocaleLowerCase().includes(keyword))) && query.filters.every(filter => {
-    const value = row[filter.field]
-    switch (filter.operator) {
-      case 'eq': return value === filter.value
-      case 'contains': return String(value ?? '').includes(String(filter.value ?? ''))
-      case 'in': return Array.isArray(filter.value) && filter.value.includes(value)
-      case 'gt': return String(value ?? '') > String(filter.value ?? '')
-      case 'gte': return String(value ?? '') >= String(filter.value ?? '')
-      case 'lt': return String(value ?? '') < String(filter.value ?? '')
-      case 'lte': return String(value ?? '') <= String(filter.value ?? '')
-    }
-  }))
-  return result.sort((a, b) => {
-    for (const sort of query.sorts) {
-      const first = a[sort.field] ?? '', second = b[sort.field] ?? ''
-      const direction = sort.order === 'asc' ? 1 : -1
-      if (first !== second) return (first < second ? -1 : 1) * direction
-    }
-    return 0
-  })
+  const searched = keyword ? rows.filter(row => [row.id, row.name, row.customer].some(value => value.toLocaleLowerCase().includes(keyword))) : rows
+  return applySorts(applyFilters(searched, query.filters).filter(compileFilterGroup(query.filterGroup)), query.sorts, quotationColumns)
 }
+
 export function createQuotationDraft(source: Quotation | undefined, rows: Quotation[], now = new Date()): Quotation {
   const day = now.toISOString().slice(0, 10)
   const prefix = `Q${day.replaceAll('-', '')}-`
@@ -120,21 +106,11 @@ export function parseQuotationBackup(text: string): Quotation[] {
     return normalized
   })
 }
-export function updateSavedView(views: QuotationView[], id: string, snapshot: { keyword?: string; filters: FilterConfig[]; sorts: SortConfig[]; columns?: Record<string, UserColumnConfig> }): QuotationView[] {
+export function updateSavedView(views: QuotationView[], id: string, snapshot: ViewSnapshot): QuotationView[] {
   return views.map(view => view.id === id ? { ...view, ...JSON.parse(JSON.stringify(snapshot)) } : view)
 }
 export function parseQuotationViews(text: string): QuotationView[] {
-  const views: unknown = JSON.parse(text)
-  const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
-  if (!Array.isArray(views) || !views.length || views.length > 50) throw new Error('视图数据无效')
-  const ids = new Set<string>()
-  for (const view of views) {
-    if (!isObject(view) || typeof view.id !== 'string' || !view.id || typeof view.name !== 'string' || !view.name.trim() || (view.keyword !== undefined && typeof view.keyword !== 'string')) throw new Error('视图数据无效')
-    if (ids.has(view.id)) throw new Error('视图编号重复')
-    ids.add(view.id)
-    if (!Array.isArray(view.filters) || view.filters.some(filter => !isObject(filter) || typeof filter.field !== 'string' || !['eq', 'contains', 'in', 'gt', 'gte', 'lt', 'lte'].includes(String(filter.operator)) || (filter.operator === 'in' && !Array.isArray(filter.value)))) throw new Error('视图查询条件无效')
-    if (!Array.isArray(view.sorts) || view.sorts.some(sort => !isObject(sort) || typeof sort.field !== 'string' || !['asc', 'desc'].includes(String(sort.order)))) throw new Error('视图排序无效')
-    if (view.columns !== undefined && (!isObject(view.columns) || Object.values(view.columns).some(column => !isObject(column)))) throw new Error('视图列设置无效')
-  }
-  return views as QuotationView[]
+  const views = readViews(text, 'quotation.demo.visual')
+  if (!views.length) throw new Error('视图数据无效')
+  return views
 }

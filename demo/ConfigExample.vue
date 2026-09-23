@@ -19,12 +19,12 @@ const definition:TableDefinition={
     {id:'status',field:'status',title:'状态',width:140,valueMap:[{value:'已确认',label:'已确认',color:'#067647',background:'#ecfdf3'},{value:'草稿',label:'草稿',color:'#475467',background:'#f2f4f7'}],configurable:{visible:true,width:true}},
   ],
   features:{
-    search:true,toolbar:true,
+    search:true,toolbar:true,filters:true,
     columnSettings:{enabled:true,mode:mode==='custom'?'custom':mode==='headless'?'headless':'default',get details(){detailsReads.value=++settingsReadCount;return {label:'列设置'}}},
     rowActions:{enabled:true,details:{allowedItems:['view','delete']}},
   },
 }
-const remoteOverride=mode==='off'?{features:{columnSettings:{enabled:false}}}:undefined
+const remoteOverride=mode==='off'?{features:{columnSettings:{enabled:false},filters:{enabled:false}}}:undefined
 const preference=ref<unknown>(null)
 function recordPreference(next:PreferenceV3){delta.value=next}
 async function activateHeadless(){headlessContext.value=await table.value?.activateFeature('columnSettings') as typeof headlessContext.value}

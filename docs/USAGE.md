@@ -13,3 +13,50 @@
 搜索、排序、切换 View 和修改每页条数都会回到第 1 页，每次操作只发起一次查询。本地数据减少时页码收敛到最后有效页，空数据使用第 1 / 1 页。远程返回的 total 如果使当前页越界，组件会自动补查最后有效页。
 
 组件内置加载提示与 `aria-busy`，不要求宿主额外注册 VXE Loading 组件。表格使用内容自然高度；如需固定高度或虚拟滚动，应另外设计明确的高度配置，不能在无固定高度的自适应父容器中使用 VXE `height="auto"`。
+
+## 列筛选、组合筛选与方案
+
+筛选为显式开启的组件能力，不在默认基础表格里初始化编辑器：
+
+```vue
+<BusinessTable
+  table-key="tenant-user.assets"
+  :columns="columns"
+  :data="rows"
+  :features="{ filters: true }"
+/>
+```
+
+列的 `type` 决定默认编辑器；`filterable: false` 禁用该列筛选。`column.filter` 可声明 `type`（text/number/date/single/multi/boolean）、`source`（data/mapping/manual/remote）、`operators`、`search`、`counts`、`options`。稳定 `column.id` 用于能力白名单，条件中的 `field` 对应数据字段。关闭的 Feature 不读取详情、不创建编辑器状态、不加载筛选 UI。
+
+默认 UI 包含表头列筛选、组合筛选、独立条件标签和方案管理。也支持 `filters: { enabled: true, mode: 'custom' }` 配合 `filters` slot，或者 `mode: 'headless'` 后通过 `activateFeature('filters')` 取得 `FiltersContext`。`openFilters(columnId?)` 打开列或组合编辑器；`setFilterState({ columnFilters, filterGroup })` 作为受校验的 Runtime 命令，不需要在业务页面另存一份正式筛选状态。
+
+基础查询、列条件与组合条件互相独立，最终同时生效。为兼容现有 Provider，`Query.filters` 已包含基础条件与列条件，**不要再把 `Query.columnFilters` 合并执行一次**；`Query.columnFilters` 用于表达该层快照。`Query.filterGroup` 是递归 `{ logic: 'and' | 'or', rules: (FilterConfig | FilterGroup)[] }`，服务端需按组逻辑处理，并对字段、操作符和访问权限再次验证。金额/百分比条件中的 value 已转换为原值，不要根据显示格式重复换算。
+
+候选项优先使用 `DataSource.options(column, query, { search, signal })`；手工/映射源直接按配置取值。数据源没有 `options` 时，data 源使用 `readAll(query, { limit, signal })` 读取完整数据（上限 10000），不会用当前页替代全集。`options` 返回 `{ value: string | number | boolean | null, label: string, count?: number }[]`，原值类型必须保留。
+
+有 tableKey 时默认按表格隔离保存在 LocalStorage；需要账号隔离时使用包含租户与用户范围的 tableKey，或传入业务适配器。`filter-plan-persistence` 同时支持 BusinessTable 与 ConfiguredBusinessTable，传 `null` 隐藏方案管理，只保留筛选：
+
+```ts
+import type { FilterPlanPersistence, FilterPlansEnvelope } from '@company/business-table'
+
+const filterPlanPersistence: FilterPlanPersistence = {
+  async load(tableKey, options) {
+    const response = await fetch(`/api/table/filter-plans?key=${encodeURIComponent(tableKey)}`, {
+      signal: options?.signal,
+    })
+    if (!response.ok) throw new Error('筛选方案读取失败，请重试。')
+    return await response.json() as FilterPlansEnvelope | null
+  },
+  async save(tableKey, value) {
+    const response = await fetch(`/api/table/filter-plans?key=${encodeURIComponent(tableKey)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value),
+    })
+    if (!response.ok) throw new Error('筛选方案保存失败，请重试。')
+  },
+}
+```
+
+适配器存储完整 `FilterPlansEnvelope`；读取返回 null 表示暂无方案。读取失败不会被当作空数据覆盖保存；保存失败不会关闭编辑窗口。后端还需处理账号鉴权以及多客户端版本冲突，不能把前端写队列作为跨客户端互斥。
+
+本次验证范围及未完成的完整迁移项见 [FILTER-MIGRATION-ACCEPTANCE.md](FILTER-MIGRATION-ACCEPTANCE.md)。

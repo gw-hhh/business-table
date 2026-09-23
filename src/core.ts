@@ -1,9 +1,14 @@
 import type{ColumnConfig,FilterConfig,NumberFormat,RowData,SortConfig,TableConfig,UserColumnConfig,ValueMapItem}from'./types'
 import {applyColumnPatches} from './config/columns'
-export function getValue(row:RowData,path:string){return path.split('.').reduce<unknown>((v,k)=>v&&typeof v==='object'?(v as RowData)[k]:undefined,row)}
+import {getValue} from './runtime/value'
+import {compileFilter} from './runtime/filter'
+export {getValue}
 export function displayValue(value:unknown,column:ColumnConfig){if(value==null||value==='')return column.emptyText??'—';const mapped=column.valueMap?.find(x=>Object.is(x.value,value));if(mapped)return mapped.label;if(column.type==='number'||column.type==='currency'||column.type==='percent')return formatNumber(Number(value),column.numberFormat??{style:column.type==='currency'?'currency':column.type==='percent'?'percent':'decimal'});return String(value)}
 export function formatNumber(value:number,f:NumberFormat={}){if(!Number.isFinite(value))return'—';const style=f.style??'decimal';const normalized=style==='percent'&&f.percentBase==='percent'?value/100:value;return`${f.prefix??''}${new Intl.NumberFormat('zh-CN',{style,currency:style==='currency'?(f.currency??'CNY'):undefined,useGrouping:f.useGrouping??true,minimumFractionDigits:f.minimumFractionDigits,maximumFractionDigits:Math.max(f.minimumFractionDigits??0,f.maximumFractionDigits??(style==='currency'?2:style==='percent'?2:20))}).format(normalized)}${f.suffix??''}`}
-export function applyFilters<T extends RowData>(rows:T[],filters:FilterConfig[]){return rows.filter(row=>filters.every(f=>{const v=getValue(row,f.field),q=f.value;switch(f.operator){case'eq':return Object.is(v,q);case'contains':return String(v??'').toLowerCase().includes(String(q??'').toLowerCase());case'in':return Array.isArray(q)&&q.some(x=>Object.is(x,v));case'gt':return Number(v)>Number(q);case'gte':return Number(v)>=Number(q);case'lt':return Number(v)<Number(q);case'lte':return Number(v)<=Number(q)}}))}
+export function applyFilters<T extends RowData>(rows:readonly T[],filters:readonly FilterConfig[]):T[]{
+  const predicates=filters.map(filter=>compileFilter(filter))
+  return rows.filter(row=>predicates.every(test=>test(row)))
+}
 export function applySorts<T extends RowData>(rows:T[],sorts:SortConfig[],columns:readonly ColumnConfig[]=[]){
   const empty=(value:unknown)=>value===null||value===undefined||value===''
   return [...rows].sort((a,b)=>{

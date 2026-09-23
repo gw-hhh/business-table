@@ -9,7 +9,7 @@ export interface FeatureDeclaration {
   details?: {label?: string; allowedItems?: string[]}
 }
 export type FeatureConfig = boolean | FeatureDeclaration
-export type TableFeatures = Partial<Record<'title' | 'search' | 'views' | 'toolbar' | 'columnSettings' | 'rowActions', FeatureConfig>>
+export type TableFeatures = Partial<Record<'title' | 'search' | 'views' | 'toolbar' | 'columnSettings' | 'rowActions' | 'filters', FeatureConfig>>
 export interface ResolvedFeature {enabled:boolean; mode:FeatureRenderMode; loadStrategy:FeatureLoadStrategy}
 function record(value:unknown):Record<string,unknown>|undefined {
   return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:undefined

@@ -7,6 +7,7 @@ import type { TableFeatures } from './config/features'
 import { createPreferenceDelta, resolveConfiguration } from './config/schema'
 import type { PreferenceV3, TableDefinition } from './config/types'
 import { createRegistry, resolveRenderer, resolveRowActions, type RuntimeRegistry } from './runtime/registry'
+import type { FilterPlanPersistence } from './features/filters/plans'
 import type { ColumnConfig, DataSource, Query, RowData, TableConfig, ViewConfig } from './types'
 
 const props = defineProps<{
@@ -17,6 +18,7 @@ const props = defineProps<{
   dataSource?: DataSource<T>
   registry?: RuntimeRegistry<T>
   views?: ViewConfig[]
+  filterPlanPersistence?: FilterPlanPersistence | null
   loading?: boolean
 }>()
 const emit = defineEmits<{
@@ -116,6 +118,7 @@ defineExpose({
     :data="data"
     :data-source="dataSource"
     :views="views"
+    :filter-plan-persistence="filterPlanPersistence"
     :loading="loading"
     :action-provider="actionProvider"
     :cell-renderer="renderCell"

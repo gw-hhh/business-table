@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { BusinessTable, createLocalStoragePersistence, displayValue, type Action, type ColumnConfig, type DataSource, type Query, type RowData, type ViewConfig } from '../src'
+import { BusinessTable, createLocalStoragePersistence, displayValue, type Action, type ColumnConfig, type DataSource, type FilterConfig, type Query, type RowData, type ViewConfig, type ViewSnapshot } from '../src'
 import TableIcon from '../src/components/TableIcon.vue'
+import { viewQueryEquals } from '../src/features/views/runtime'
 import QuotationDialog from './quotation/QuotationDialog.vue'
 import { createQuotationDraft, emptySearch, filterQuotations, makeExampleQuotations, makeQuotationQuery, parseQuotationBackup, parseQuotationViews, quotationColumns, quotationStatuses, saveQuotation, serializeQuotationBackup, updateSavedView, type Quotation, type QuotationSearch, type QuotationView } from './quotation/model'
 import './quotation.css'
@@ -38,11 +39,11 @@ const query = ref<Query>({ page: 1, pageSize: 100, ...makeQuotationQuery(emptySe
 const filteredRows = computed(() => filterQuotations(quotations.value, query.value))
 const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; clearSelection: () => void }>()
+const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns; searchFilters: FilterConfig[] }; clearSelection: () => void; viewSnapshot: () => ViewSnapshot }>()
 const persistence = createLocalStoragePersistence(), columnsModified = ref(false)
 let savedColumns = ''
 async function columnsChanged() { await nextTick(); columnsModified.value = JSON.stringify(table.value?.getState().columns ?? []) !== savedColumns }
-const features = { title: false, search: false, views: false, toolbar: false, columnSettings: true }
+const features = { title: false, search: false, views: false, toolbar: false, columnSettings: true, filters: true }
 function previewCell(value: unknown, row: RowData, column: ColumnConfig) {
   const style = { fontSize: `${column.cellStyle?.fontSize ?? 14}px` }
   if (column.id === 'name') return h('div', { class: 'q-project-cell', style }, [h('span', String(row.name ?? '')), h('small', String(row.customer ?? ''))])
@@ -50,12 +51,12 @@ function previewCell(value: unknown, row: RowData, column: ColumnConfig) {
   if (column.id === 'status') return h('span', { class: ['q-status', { '草稿': 'q-status--draft', '已转合同': 'q-status--contract', '评审中': 'q-status--review', '已批准': 'q-status--approved', '已关闭': 'q-status--closed' }[String(value)]], style }, [h('i'), String(value ?? '')])
   return displayValue(value, column)
 }
-const source: DataSource<Quotation> = { async query(request) { const result = filterQuotations(quotations.value, request); rowCount.value = result.length; return { rows: result.slice((request.page - 1) * request.pageSize, request.page * request.pageSize), total: result.length } } }
+const source: DataSource<Quotation> = { async readAll(request) { return filterQuotations(quotations.value, request) }, async query(request) { const result = filterQuotations(quotations.value, request); rowCount.value = result.length; return { rows: result.slice((request.page - 1) * request.pageSize, request.page * request.pageSize), total: result.length } } }
 const customers = computed(() => [...new Set(quotations.value.map(row => row.customer))]), owners = computed(() => [...new Set(quotations.value.map(row => row.owner))]), regions = computed(() => [...new Set(quotations.value.map(row => row.region))])
 const filters = computed(() => {
   const result: { field: string; text: string }[] = []
   if (query.value.keyword) result.push({ field: 'keyword', text: `关键词：${query.value.keyword}` })
-  for (const filter of query.value.filters) {
+  for (const filter of table.value?.getState().searchFilters ?? query.value.filters) {
     const title = ({ customer: '客户', status: '状态', owner: '负责人', region: '大区', createdAt: '创建日期' } as Record<string, string>)[filter.field] ?? filter.field
     const value = Array.isArray(filter.value) ? filter.value.join(' / ') : String(filter.value)
     result.push({ field: filter.field + (filter.operator === 'gte' ? ':from' : filter.operator === 'lte' ? ':to' : ''), text: `${title}：${filter.operator === 'gte' ? '从 ' : filter.operator === 'lte' ? '至 ' : ''}${value}` })
@@ -65,7 +66,7 @@ const filters = computed(() => {
 const queryPending = computed(() => JSON.stringify(search) !== JSON.stringify(appliedSearch.value))
 const viewModified = computed(() => {
   const view = currentView.value
-  return !!view && (JSON.stringify(view.filters ?? []) !== JSON.stringify(query.value.filters) || JSON.stringify(view.sorts ?? []) !== JSON.stringify(query.value.sorts) || (view.keyword ?? '') !== (query.value.keyword ?? '') || columnsModified.value)
+  return !!view && (!viewQueryEquals(view, table.value?.viewSnapshot() ?? query.value) || columnsModified.value)
 })
 const searchError = ref('')
 async function submitSearch() {
@@ -78,7 +79,7 @@ async function removeFilter(field: string) {
   const key = field === 'createdAt:from' ? 'from' : field === 'createdAt:to' ? 'to' : field
   if (key in search) search[key as keyof QuotationSearch] = ''
   appliedSearch.value = { ...search }
-  await table.value?.setQuery(field === 'keyword' ? { keyword: '' } : { filters: query.value.filters.filter(filter => `${filter.field}${filter.operator === 'gte' ? ':from' : filter.operator === 'lte' ? ':to' : ''}` !== field) })
+  await table.value?.setQuery(field === 'keyword' ? { keyword: '' } : { filters: (table.value?.getState().searchFilters ?? query.value.filters).filter(filter => `${filter.field}${filter.operator === 'gte' ? ':from' : filter.operator === 'lte' ? ':to' : ''}` !== field) })
 }
 function persistData() { try { localStorage.setItem(dataKey, serializeQuotationBackup(quotations.value)) } catch { toast('浏览器无法保存数据，请及时备份。') } }
 function persistViews() { try { localStorage.setItem(viewKey, JSON.stringify(views.value)) } catch { toast('浏览器无法保存视图。') } }
@@ -175,9 +176,8 @@ function keyboard(event: KeyboardEvent) {
     : (index + (event.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length
   items[next]?.focus()
 }
-function viewSnapshot() {
-  const columns = Object.fromEntries((table.value?.getState().columns ?? quotationColumns).map((column, order) => [column.id, { title: column.title, visible: column.visible !== false, order, width: column.width, fixed: column.fixed ?? false, align: column.align ?? 'left', sortable: column.sortable, headerStyle: column.headerStyle, cellStyle: column.cellStyle }]))
-  return { keyword: query.value.keyword ?? '', filters: query.value.filters, sorts: query.value.sorts, columns }
+function viewSnapshot(): ViewSnapshot {
+  return table.value?.viewSnapshot() ?? { keyword: '', filters: [], columnFilters: [], sorts: [], columns: {} }
 }
 function saveCurrentView() { views.value = updateSavedView(views.value, activeView.value, viewSnapshot()); savedColumns = JSON.stringify(table.value?.getState().columns ?? []); columnsModified.value = false; persistViews(); closeMenu(); toast('已更新当前视图') }
 function setDefaultView(id: string) { views.value = views.value.map(view => ({ ...view, isDefault: view.id === id })); persistViews() }

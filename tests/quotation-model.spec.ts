@@ -52,6 +52,14 @@ describe('quotation demo product interactions', () => {
     expect(views[1]!.filters).toEqual([])
   })
 
+  it('uses the shared view codec for column and nested group filters without losing the original search', () => {
+    const original = [{ id: 'complex', name: '组合视图', keyword: '', filters: [{ field: 'customer', operator: 'eq', value: '澄川水务' }], sorts: [],
+      columnFilters: [{ field: 'amount', operator: 'between', value: [70000, 250000], unitFactor: 1 }],
+      filterGroup: { logic: 'or', rules: [{ field: 'name', operator: 'starts', value: '化学' }, { logic: 'and', rules: [{ field: 'status', operator: 'in', value: ['已转合同'] }] }] } }]
+    expect(parseQuotationViews(JSON.stringify(original))).toEqual(original)
+    const invalid = [{ ...original[0], filterGroup: { logic: 'or', rules: [{ field: 'name', operator: 'eval', value: 'x' }] } }]
+    expect(() => parseQuotationViews(JSON.stringify(invalid))).toThrow()
+  })
   it('rejects damaged saved views before a nested filter can crash the page', () => {
     const views = [{ id: 'customer', name: '客户专属', filters: [{ field: 'customer', operator: 'eq', value: '澄川水务' }], sorts: [{ field: 'id', order: 'desc' }] }]
     expect(parseQuotationViews(JSON.stringify(views))).toEqual(views)

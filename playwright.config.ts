@@ -6,7 +6,7 @@ export default defineConfig({
   use: { browserName: 'chromium', trace: 'retain-on-failure', launchOptions: { ignoreDefaultArgs: ['--hide-scrollbars'] } },
   projects: [
     { name: 'chromium-dev', use: { baseURL: 'http://127.0.0.1:4173' } },
-    { name: 'chromium-preview', testMatch: ['demo.spec.ts','configuration.spec.ts','visual-parity.spec.ts','text-style.spec.ts','settings-refinement.spec.ts'], use: { baseURL: 'http://127.0.0.1:4174' } }
+    { name: 'chromium-preview', testMatch: ['demo.spec.ts','configuration.spec.ts','visual-parity.spec.ts','text-style.spec.ts','settings-refinement.spec.ts','filter-migration.spec.ts'], use: { baseURL: 'http://127.0.0.1:4174' } }
   ],
   webServer: [
     { command: 'npm run dev -- --host 127.0.0.1 --port 4173 --strictPort', url: 'http://127.0.0.1:4173', reuseExistingServer: false, timeout: 120000 },

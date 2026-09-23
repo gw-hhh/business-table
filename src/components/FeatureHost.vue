@@ -7,7 +7,7 @@ import TableIcon from './TableIcon.vue'
 
 const props=defineProps<{
   local:unknown;remote?:unknown;defaultStrategy?:FeatureLoadStrategy;entryLabel?:string;entryIcon?:string;testId?:string
-  createContext:(details:{label?:string;allowedItems?:string[]},controls:{close:()=>void;isActive:()=>boolean})=>C
+  createContext:(details:{label?:string;allowedItems?:string[]},controls:{close:()=>void;isActive:()=>boolean})=>C|Promise<C>
   loader:()=>Promise<{default:Component}>
 }>()
 const emit=defineEmits<{diagnostic:[ConfigDiagnostic];entry:[]}>()
@@ -61,7 +61,7 @@ function resetController(){
         const refreshedGeneration=generation
         void activate().then(()=>{if(generation===refreshedGeneration)active.value=wasActive})
       },{flush:'sync'})
-      const context=props.createContext(details,{close,isActive:()=>generation===currentGeneration&&gate.value.enabled})
+      const context=await props.createContext(details,{close,isActive:()=>generation===currentGeneration&&gate.value.enabled})
       const component=mode==='default'?markRaw((await props.loader()).default):undefined
       return {value:{context,component}}
     },
