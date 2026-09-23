@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
 import { BusinessTable, createLocalStoragePersistence, displayValue, type Action, type ColumnConfig, type DataSource, type FilterConfig, type Query, type RowData, type SearchContext, type ViewConfig, type ViewSnapshot } from '../src'
 import TableIcon from '../src/components/TableIcon.vue'
+import ToolStrip from '../src/features/toolbar/ToolStrip.vue'
+import { defaultPresentation, type TablePresentation, type ToolDefinition } from '../src/features/presentation/model'
+import type { SettingsDefinition } from '../src/features/settings/policy'
 import { viewQueryEquals } from '../src/features/views/runtime'
 import QuotationDialog from './quotation/QuotationDialog.vue'
 import { createQuotationDraft, filterQuotations, makeExampleQuotations, parseQuotationBackup, parseQuotationViews, quotationColumns, quotationSearchDefinition, quotationStatuses, saveQuotation, serializeQuotationBackup, updateSavedView, type Quotation, type QuotationView } from './quotation/model'
@@ -38,12 +41,17 @@ const query = ref<Query>({ page: 1, pageSize: 100, keyword: '', filters: [], sor
 const filteredRows = computed(() => filterQuotations(quotations.value, query.value))
 const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns; searchFilters: FilterConfig[] }; getRuntime: () => { searchContext: () => SearchContext }; clearSelection: () => void; viewSnapshot: () => ViewSnapshot }>()
+const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns; searchFilters: FilterConfig[] }; getRuntime: () => { searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; viewSnapshot: () => ViewSnapshot }>()
 const currentSearch = () => table.value?.getRuntime().searchContext()
 const persistence = createLocalStoragePersistence(), columnsModified = ref(false)
 let savedColumns = ''
 async function columnsChanged() { await nextTick(); columnsModified.value = JSON.stringify(table.value?.getState().columns ?? []) !== savedColumns }
 const features = { title: false, search: { enabled: true, mode: 'headless' as const }, views: false, toolbar: false, columnSettings: true, filters: true }
+const settingsDefinition: SettingsDefinition = {
+  pages: { columns: true, sorts: true, actions: true, appearance: true, toolbar: true },
+  columnSections: { basic: true, content: true, number: true, filter: true, mapping: true, template: true, trial: true },
+}
+const toolbarLayout = computed(() => table.value?.getRuntime().presentation.value.toolbar ?? defaultPresentation().toolbar)
 function previewCell(value: unknown, row: RowData, column: ColumnConfig) {
   const style = { fontSize: `${column.cellStyle?.fontSize ?? 14}px` }
   if (column.id === 'name') return h('div', { class: 'q-project-cell', style }, [h('span', String(row.name ?? '')), h('small', String(row.customer ?? ''))])
@@ -233,6 +241,25 @@ async function restoreBackup(event: Event) {
 function resetExamples() { closeMenu(); confirmation.value = { title: '恢复示例数据', text: '将用初始示例替换当前报价数据。继续前请确认已备份。', action: async () => { quotations.value = makeExampleQuotations(); persistData(); table.value?.clearSelection(); await refresh(); toast('示例数据已恢复') } } }
 const helpVisible = ref(false), sortField = ref('id'), sortOrder = ref<'asc' | 'desc'>('desc')
 async function applySort() { await table.value?.setQuery({ sorts: [{ field: sortField.value, order: sortOrder.value }] }); closeMenu() }
+const tools = computed<{ page: ToolDefinition[]; table: ToolDefinition[] }>(() => ({
+  page: [
+    { id: 'template', label: '模板下载', icon: 'file', handler: downloadTemplate },
+    { id: 'export', label: '导出', icon: 'download', handler: () => exportCsv() },
+    { id: 'add', label: '新增报价', icon: 'plus', variant: 'primary', fixed: true, handler: () => showQuotation('new') },
+    { id: 'backup', label: '备份报价数据（JSON）', icon: 'download', position: 'more', handler: () => backup() },
+    { id: 'restore', label: '恢复报价备份', icon: 'upload', position: 'more', handler: () => restoreInput.value?.click() },
+    { id: 'examples', label: '恢复示例数据', icon: 'refresh', position: 'more', separator: true, handler: resetExamples },
+    { id: 'help', label: '使用说明', icon: 'info', position: 'more', handler: () => { helpVisible.value = true } },
+  ],
+  table: [
+    { id: 'selection', label: '批量操作', icon: 'batch', display: 'icon', active: selectionVisible.value, handler: () => { selectionVisible.value = !selectionVisible.value; table.value?.clearSelection() } },
+    { id: 'search', label: '查询条件', icon: 'search', display: 'icon', active: searchVisible.value, handler: () => { searchVisible.value = !searchVisible.value } },
+    { id: 'reload', label: '刷新', icon: 'refresh', display: 'icon', handler: refresh },
+    { id: 'density', label: '行高密度', icon: 'density', display: 'icon', handler: event => toggleMenu('density', event) },
+    { id: 'sort', label: '排序规则', icon: 'sort', display: 'icon', active: query.value.sorts.length > 0, handler: event => toggleMenu('sort', event) },
+    { id: 'chips', label: '筛选条件摘要', icon: 'filter', display: 'icon', active: chipsVisible.value, handler: () => { chipsVisible.value = !chipsVisible.value } },
+  ],
+}))
 const actions: Action<Quotation>[] = [
   { id: 'view', label: '查看', handler: row => showQuotation('view', row) }, { id: 'edit', label: '修改', handler: row => showQuotation('edit', row) },
   { id: 'copy', label: '复制为草稿', position: 'more', icon: 'copy', handler: copyQuotation }, { id: 'copy-id', label: '复制编号', position: 'more', icon: 'copy', handler: copyId },
@@ -249,12 +276,11 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus
       <div><nav class="q-breadcrumb" aria-label="面包屑">销售管理 <span>/</span> 报价管理</nav><div class="q-title-row"><span class="q-page-symbol"><TableIcon name="file" :size="19"/></span><h1>报价管理</h1><span class="q-local-badge">本地演示</span></div></div>
       <div class="q-header-actions">
         <button class="q-user q-quiet" type="button" title="本地演示用户" @click="helpVisible = true"><span class="q-avatar">林</span><span>林予安</span><TableIcon name="info" :size="14"/></button>
-        <button class="q-btn" type="button" @click="downloadTemplate"><TableIcon name="file"/>模板下载</button><button class="q-btn" type="button" @click="exportCsv()"><TableIcon name="download"/>导出</button><button class="q-btn q-primary" type="button" @click="showQuotation('new')"><TableIcon name="plus"/>新增报价</button>
-        <div class="q-menu-anchor"><button class="q-icon-btn" type="button" aria-label="更多页面操作" :aria-expanded="menu === 'page'" aria-haspopup="menu" @click="toggleMenu('page', $event)" @keydown="openMenuFromKey('page', $event)"><TableIcon name="more"/></button><div v-if="menu === 'page'" class="q-popup q-page-menu" role="menu" aria-label="更多页面操作"><button role="menuitem" tabindex="-1" @click="backup()"><TableIcon name="download"/>备份报价数据（JSON）</button><button role="menuitem" tabindex="-1" @click="closeMenu(); restoreInput?.click()"><TableIcon name="upload"/>恢复报价备份</button><div class="q-menu-separator"/><button role="menuitem" tabindex="-1" @click="resetExamples"><TableIcon name="refresh"/>恢复示例数据</button><button role="menuitem" tabindex="-1" @click="closeMenu(); helpVisible = true"><TableIcon name="info"/>使用说明</button></div></div>
+        <ToolStrip :tools="tools.page" :layout="toolbarLayout.page" :gap="toolbarLayout.gap" more-label="更多页面操作" button-class="q-btn" icon-button-class="q-icon-btn" menu-class="q-popup q-page-menu" style="--bt-tool-menu-width:250px" />
       </div>
     </header>
 
-    <BusinessTable ref="table" class="q-main-card" :features="features" :search-definition="searchDefinition" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :preview-cell="previewCell" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 100, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @config-change="columnsChanged" @selection-change="selectedRows = $event">
+    <BusinessTable ref="table" class="q-main-card" :features="features" :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :preview-cell="previewCell" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 100, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @config-change="columnsChanged" @selection-change="selectedRows = $event">
       <template #before="{ search: searchContext }">
         <form v-if="searchVisible && searchContext" class="q-search-panel" aria-label="报价查询" @submit.prevent="submitSearch">
           <div class="q-search-grid">
@@ -278,11 +304,15 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus
           </div></div><span v-if="viewModified" class="q-modified">未保存</span><span class="q-count">{{ rowCount }}</span><div v-if="selectedRows.length" class="q-selection"><span>已选 <strong>{{ selectedRows.length }}</strong> 条</span><button class="q-link" @click="exportCsv(selectedRows)">批量导出</button><button class="q-link q-danger" @click="deleteQuotations(selectedRows)">批量删除</button><button class="q-link" @click="table?.clearSelection()">清空</button></div></div>
       </template>
       <template #toolbar-end>
-        <button class="q-icon-btn" :class="{ 'is-active': selectionVisible }" type="button" title="批量操作" :aria-pressed="selectionVisible" @click="selectionVisible = !selectionVisible; table?.clearSelection()"><TableIcon name="batch"/></button><button class="q-icon-btn" :class="{ 'is-active': searchVisible }" type="button" title="查询条件" :aria-pressed="searchVisible" @click="searchVisible = !searchVisible"><TableIcon name="search"/></button><button class="q-icon-btn" type="button" title="刷新" @click="refresh"><TableIcon name="refresh"/></button>
-        <div class="q-menu-anchor"><button class="q-icon-btn" type="button" title="行高密度" :aria-expanded="menu === 'density'" aria-haspopup="menu" @click="toggleMenu('density', $event)" @keydown="openMenuFromKey('density', $event)"><TableIcon name="density"/></button><div v-if="menu === 'density'" class="q-popup q-density-menu" role="menu" aria-label="行高密度"><button v-for="option in ([{ id: 'compact', label: '紧凑' }, { id: 'default', label: '标准' }, { id: 'comfortable', label: '舒适' }] as const)" :key="option.id" role="menuitemradio" tabindex="-1" :aria-checked="density === option.id" @click="density = option.id; closeMenu()"><TableIcon v-if="density === option.id" name="check"/><span v-else class="q-icon-space"/>{{ option.label }}</button></div></div>
-        <div class="q-menu-anchor"><button class="q-icon-btn" :class="{ 'is-active': query.sorts.length }" type="button" title="排序规则" :aria-expanded="menu === 'sort'" @click="toggleMenu('sort', $event)"><TableIcon name="sort"/></button><div v-if="menu === 'sort'" class="q-popup q-sort-menu" role="dialog" aria-label="排序规则"><strong>排序规则</strong><label>排序字段<select v-model="sortField"><option v-for="column in quotationColumns.filter(column => column.sortable)" :key="column.id" :value="column.field">{{ column.title }}</option></select></label><label>排序方式<select v-model="sortOrder"><option value="asc">升序</option><option value="desc">降序</option></select></label><footer><button class="q-btn q-text" @click="table?.setQuery({ sorts: [] }); closeMenu()">清除排序</button><button class="q-btn q-primary" @click="applySort">应用</button></footer></div></div>
+        <ToolStrip :tools="tools.table" :layout="toolbarLayout.table" :gap="toolbarLayout.gap" more-label="更多表格工具" button-class="q-btn" icon-button-class="q-icon-btn">
+          <template #tool-density="{tool,invoke,inMenu}">
+            <div class="q-menu-anchor"><button :class="tool.display==='icon'?'q-icon-btn':'q-btn'" type="button" :title="tool.label" :aria-label="tool.label" :role="inMenu?'menuitem':undefined" :tabindex="inMenu?-1:undefined" :disabled="tool.disabled===true" :aria-expanded="menu === 'density'" aria-haspopup="menu" @click="invoke($event,true)" @keydown="openMenuFromKey('density', $event)"><TableIcon v-if="tool.display!=='text'" :name="tool.icon??'density'"/><span v-if="tool.display!=='icon'">{{tool.label}}</span></button><div v-if="menu === 'density'" class="q-popup q-density-menu" role="menu" aria-label="行高密度"><button v-for="option in ([{ id: 'compact', label: '紧凑' }, { id: 'default', label: '标准' }, { id: 'comfortable', label: '舒适' }] as const)" :key="option.id" role="menuitemradio" tabindex="-1" :aria-checked="density === option.id" @click="density = option.id; closeMenu()"><TableIcon v-if="density === option.id" name="check"/><span v-else class="q-icon-space"/>{{ option.label }}</button></div></div>
+          </template>
+          <template #tool-sort="{tool,invoke,inMenu}">
+            <div class="q-menu-anchor"><button :class="[tool.display==='icon'?'q-icon-btn':'q-btn',{'is-active':tool.active}]" type="button" :title="tool.label" :aria-label="tool.label" :role="inMenu?'menuitem':undefined" :tabindex="inMenu?-1:undefined" :disabled="tool.disabled===true" :aria-expanded="menu === 'sort'" @click="invoke($event,true)"><TableIcon v-if="tool.display!=='text'" :name="tool.icon??'sort'"/><span v-if="tool.display!=='icon'">{{tool.label}}</span></button><div v-if="menu === 'sort'" class="q-popup q-sort-menu" role="dialog" aria-label="排序规则"><strong>排序规则</strong><label>排序字段<select v-model="sortField"><option v-for="column in quotationColumns.filter(column => column.sortable)" :key="column.id" :value="column.field">{{ column.title }}</option></select></label><label>排序方式<select v-model="sortOrder"><option value="asc">升序</option><option value="desc">降序</option></select></label><footer><button class="q-btn q-text" @click="table?.setQuery({ sorts: [] }); closeMenu()">清除排序</button><button class="q-btn q-primary" @click="applySort">应用</button></footer></div></div>
+          </template>
+        </ToolStrip>
       </template>
-      <template #toolbar-after><button class="q-icon-btn" type="button" title="筛选条件摘要" :aria-pressed="chipsVisible" @click="chipsVisible = !chipsVisible"><TableIcon name="filter"/></button></template>
       <template #after-toolbar><div v-if="chipsVisible && (filters.length || queryPending)" class="q-filter-summary"><span v-for="filter in filters" :key="filter.field" class="q-filter-chip"><span>{{ filter.text }}</span><button type="button" :aria-label="`移除${filter.text}`" @click="removeFilter(filter.field)"><TableIcon name="close" :size="12"/></button></span><button v-if="filters.length" class="q-btn q-text" type="button" @click="resetSearch">清除条件</button><span v-if="queryPending" class="q-pending">条件已修改，点击查询生效</span></div></template>
       <template #cell="{ row, column, text }"><button v-if="column.id === 'id'" class="q-link q-id-link" type="button" @click="showQuotation('view', row)">{{ text }}</button><div v-else-if="column.id === 'name'" class="q-project-cell"><span>{{ row.name }}</span><small>{{ row.customer }}</small></div><span v-else-if="column.id === 'status'" class="q-status" :class="{ 'q-status--draft': row.status === '草稿', 'q-status--contract': row.status === '已转合同', 'q-status--review': row.status === '评审中', 'q-status--approved': row.status === '已批准', 'q-status--closed': row.status === '已关闭' }"><i/>{{ row.status }}</span><span v-else>{{ text }}</span></template>
       <template #summary="{ total, page, pageSize }"><div class="q-result-summary"><span>共 {{ total }} 条 · 第 {{ total ? (page - 1) * pageSize + 1 : 0 }}–{{ Math.min(page * pageSize, total) }} 条</span><span class="q-summary-divider">·</span><span>筛选合计 <strong>￥{{ money(totalAmount) }}</strong></span></div></template>

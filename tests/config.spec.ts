@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyColumnPatches, getColumnWidthBounds, guardColumnPatch, isColumnCapabilityEnabled } from '../src/config/columns'
+import { applyColumnPatches, getColumnCapabilityAccess, getColumnWidthBounds, guardColumnPatch, isColumnCapabilityEnabled } from '../src/config/columns'
 import { createPreferenceDelta, parsePreference, resolveConfiguration } from '../src/config/schema'
 import type { ConfigDiagnostic } from '../src/config/diagnostics'
 import type { ColumnCapabilities, ColumnDefinition, TableDefinition } from '../src/config/types'
@@ -56,6 +56,39 @@ describe('column capability guard', () => {
     const column = { id: 'x', field: 'x', title: 'X', minWidth: 250, configurable: { width: { enabled: true, max: 180 } } }
     expect(guardColumnPatch(column, { width: 250 })).toEqual({})
     expect(getColumnWidthBounds(column)).toEqual({ min: 250, max: 180 })
+  })
+
+  it('distinguishes an omitted control from an explicit read-only control after schema parsing', () => {
+    const local = definition([{ id: 'Name', field: 'name', title: '名称', configurable: {
+      width: { enabled: true, disabled: true, min: 100, max: 200 },
+      fixed: { enabled: true, visible: false, allowedValues: [false, 'left'] },
+      rename: { enabled: true, disabled: true },
+      align: true,
+      mapping: { enabled: false },
+    } }])
+    const result = resolveConfiguration({ definition: local })
+    const column = result.baseColumns[0]!
+    expect(result.diagnostics).toEqual([])
+    expect(getColumnCapabilityAccess(column, 'width')).toEqual({ visible: true, disabled: true })
+    expect(getColumnCapabilityAccess(column, 'rename')).toEqual({ visible: true, disabled: true })
+    expect(getColumnCapabilityAccess(column, 'align')).toEqual({ visible: true, disabled: false })
+    for (const field of ['fixed', 'visible', 'mapping'] as const) expect(getColumnCapabilityAccess(column, field)).toEqual({ visible: false, disabled: false })
+    expect(getColumnWidthBounds(column)).toEqual({ min: 100, max: 200 })
+    expect(guardColumnPatch(column, { title: '新名称', width: 180, fixed: 'left', align: 'right' })).toEqual({ align: 'right' })
+    expect(local.columns[0]!.configurable!.width).toEqual({ enabled: true, disabled: true, min: 100, max: 200 })
+  })
+
+  it('restores and preserves valid saved values for controls declared read-only', () => {
+    const local = definition([{ id: 'Name', field: 'name', title: '名称', width: 160, configurable: {
+      width: { enabled: true, disabled: true, min: 100, max: 240 },
+      rename: { enabled: true, disabled: true },
+      align: true,
+    } }])
+    const saved = preference({ Name: { width: 220, title: '已保存名称' } })
+    const result = resolveConfiguration({ definition: local, preference: saved })
+    expect(result.columns[0]).toMatchObject({ title: '已保存名称', width: 220 })
+    expect(result.preference?.columns).toEqual({ Name: { width: 220, title: '已保存名称' } })
+    expect(guardColumnPatch(result.columns[0]!, { width: 240, title: '禁止修改', align: 'right' })).toEqual({ align: 'right' })
   })
 })
 

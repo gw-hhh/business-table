@@ -5,8 +5,10 @@ import type {CSSProperties,VNodeChild} from 'vue'
 import type {ColumnConfig,ColumnTextStyle,RowData,SortConfig,UserColumnConfig} from '../types'
 import {getColumnWidthBounds} from '../config/columns'
 import {fontFamilyCss} from '../config/font-families'
+import type {SettingsPolicy} from '../features/settings/policy'
 
 export interface ColumnSettingsContext {
+  settingsPolicy?:SettingsPolicy
   tableKey?:string
   presentation?:TablePresentation
   basePresentation?:TablePresentation

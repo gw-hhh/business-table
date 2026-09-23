@@ -50,9 +50,9 @@ export function makeExampleQuotations(): Quotation[] {
     { id: 'Q20260912-0013', name: '储罐安全网监测 · 013', customer: '林越科技', amount: 229350, status: '已转合同', owner: '纪远', region: '华中大区', date: '2026-11-14', createdAt: '2026-09-12', notes: '' },
   ]
 }
-export const quotationColumns: ColumnConfig<Quotation>[] = [
-  { id: 'id', field: 'id', title: '报价编号', width: 194, minWidth: 170, fixed: 'left', sortable: true, configurable: { visible: false, order: true, rename: true, align: true, width: true, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
-  { id: 'name', field: 'name', title: '项目名称 / 客户', minWidth: 280, sortable: true, configurable: { visible: true, order: true, rename: true, align: true, width: { enabled: true, min: 180, max: 640 }, fixed: true, sortable: true, headerStyle: true, cellStyle: true } },
+const baseQuotationColumns: ColumnConfig<Quotation>[] = [
+  { id: 'id', field: 'id', title: '报价编号', width: 194, minWidth: 170, fixed: 'left', sortable: true },
+  { id: 'name', field: 'name', title: '项目名称 / 客户', minWidth: 280, sortable: true },
   { id: 'customer', field: 'customer', type: 'enum', title: '客户', visible: false, width: 180 },
   { id: 'amount', field: 'amount', title: '含税金额（元）', type: 'number', width: 180, minWidth: 138, align: 'right', sortable: true, numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true } },
   { id: 'status', field: 'status', type: 'enum', title: '状态', width: 112, minWidth: 102, sortable: true },
@@ -61,6 +61,11 @@ export const quotationColumns: ColumnConfig<Quotation>[] = [
   { id: 'date', field: 'date', type: 'date', title: '有效期至', width: 136, minWidth: 120, sortable: true },
   { id: 'createdAt', field: 'createdAt', type: 'date', title: '创建日期', visible: false, width: 140, sortable: true },
 ]
+export const quotationColumns: ColumnConfig<Quotation>[] = baseQuotationColumns.map(column => ({ ...column, configurable: {
+  visible: true, order: true, rename: true, align: true, width: true, fixed: true, sortable: true,
+  headerStyle: true, cellStyle: true, content: true, format: true, mapping: true, template: true, filter: true, trial: true,
+  ...(column.id === 'name' ? { width: { enabled: true, min: 180, max: 640 } } : {}),
+} }))
 export function makeQuotationQuery(search: QuotationSearch): { keyword: string; filters: FilterConfig[]; sorts: SortConfig[] } {
   const filters: FilterConfig[] = []
   for (const field of ['customer', 'status', 'region', 'owner'] as const) {

@@ -11,5 +11,5 @@ it('uses the legacy column proportions instead of widening the ID and status col
   expect(columns.status.minWidth).toBe(102)
   expect(columns.owner.width).toBe(120)
   expect(columns.date.width).toBe(136)
-  expect(columns.id.configurable?.visible).toBe(false)
+  expect(columns.id.configurable?.visible).toBe(true)
 })

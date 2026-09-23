@@ -8,6 +8,7 @@ import {resolveConfiguration} from '../src/config/schema'
 import {displayValue} from '../src/core'
 import type {TableDefinition} from '../src/config/types'
 import type {ColumnConfig,UserColumnConfig,Query} from '../src/types'
+import {fullSettingsDefinition} from './fixtures/settings'
 const definition=():TableDefinition=>({schemaVersion:3,tableKey:'regression',columns:[{id:'id',field:'id',title:'编号',width:100,configurable:{width:true}}],pagination:{pageSize:20,pageSizeOptions:[20,50,100]}})
 const stubs={'vxe-table':{props:['data'],template:'<div><slot/></div>'},'vxe-column':{props:['field','width'],template:'<div :data-width="width"><slot :row="{id:1}"/></div>'}}
 const wrappers:VueWrapper[]=[],errors:unknown[]=[]
@@ -50,7 +51,7 @@ it('revokes a row action when an activated remote allowlist is narrowed in place
 })
 
 it('revokes retained headless context mutations when feature is disabled or unmounted',async()=>{
-  const d=definition();d.features={columnSettings:{enabled:true,mode:'headless'}}
+  const d=definition();d.settings=fullSettingsDefinition();d.features={columnSettings:{enabled:true,mode:'headless'}}
   const w=mountTable({definition:d})
   const context=await (w.vm as unknown as Exposed).activateFeature('columnSettings')
   await w.setProps({definition:{...d,features:{columnSettings:false}}})
@@ -117,6 +118,7 @@ it('isolates failing action predicates while retaining healthy and disabled acti
 it('disables forbidden fixed sides while allowing the permitted side and unpin',async()=>{
   const d=definition()
   d.columns[0]!.configurable={fixed:{enabled:true,allowedValues:['left',false]}}
+  d.settings=fullSettingsDefinition()
   d.features={columnSettings:true}
   const w=mountTable({definition:d})
   await w.get('[data-testid="column-settings"]').trigger('click')

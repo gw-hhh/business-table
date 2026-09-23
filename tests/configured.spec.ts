@@ -26,8 +26,9 @@ const definition = (): TableDefinition => ({
   schemaVersion: 3,
   tableKey: 'configured-assets',
   rowKey: 'id',
+  settings: { pages: { columns: true }, columnSections: { basic: true } },
   columns: [
-    { id: 'id', field: 'id', title: '编号', default: { visible: true, width: 100, fixed: 'left' }, configurable: { visible: false, fixed: false, width: { enabled: true, min: 80, max: 180 } } },
+    { id: 'id', field: 'id', title: '编号', default: { visible: true, width: 100, fixed: 'left' }, configurable: { visible: { enabled: true, disabled: true }, fixed: { enabled: true, disabled: true }, width: { enabled: true, min: 80, max: 180 } } },
     { id: 'name', field: 'name', title: '名称', width: 160, configurable: { visible: true, width: true } },
   ],
 })
@@ -68,7 +69,7 @@ describe('ConfiguredBusinessTable', () => {
   it('keeps locked columns checked and left fixed while allowing a width delta without mutating inputs', async () => {
     const input = definition()
     input.features = { columnSettings: true }
-    const preference = { kind: 'business-table-preference', schemaVersion: 3, tableKey: input.tableKey, columns: { id: { visible: false, fixed: false, width: 120 } } }
+    const preference = { kind: 'business-table-preference', schemaVersion: 3, tableKey: input.tableKey, columns: { id: { visible: true, fixed: 'left', width: 120 } } }
     const original = JSON.stringify({ input, preference })
     const wrapper = mountConfigured({ definition: input, preference })
     await settle()
@@ -171,6 +172,44 @@ describe('ConfiguredBusinessTable', () => {
     expect(wrapper.text()).toContain('A001')
     expect(details).not.toHaveBeenCalled()
     expect(get).not.toHaveBeenCalled()
+  })
+
+  it('provides registered actions and both tool regions to the configured settings context', async () => {
+    const input = definition()
+    input.settings = { pages: { actions: true, toolbar: true } }
+    input.features = { columnSettings: { enabled: true, mode: 'headless' }, rowActions: { enabled: true, details: { allowedItems: ['edit'] } } }
+    const registry = createRegistry<Row>()
+    const edit = vi.fn(), add = vi.fn(), reload = vi.fn()
+    registry.register('rowAction', 'edit', { id: 'edit', label: '编辑', handler: edit })
+    const tools = { page: [{ id: 'add', label: '新增', handler: add }], table: [{ id: 'reload', label: '刷新', handler: reload }] }
+    const wrapper = mountConfigured({ definition: input, registry, tools })
+    await settle()
+    const context = await (wrapper.vm as any).activateFeature('columnSettings')
+    expect(context.settingsPolicy.pages.actions).toEqual({ visible: true, disabled: false })
+    expect(context.tools).toEqual(tools)
+    expect(context.actions).toHaveLength(1)
+    expect(context.actions[0]).toMatchObject({ id: 'edit', label: '编辑' })
+    await context.actions[0].handler({ id: 'A001', name: '水表' })
+    expect(edit).toHaveBeenCalledWith({ id: 'A001', name: '水表' })
+    expect(context.tools.page[0].handler).toBe(add)
+    expect(context.tools.table[0].handler).toBe(reload)
+  })
+
+  it('narrows an open settings context with remote declarations without enabling undeclared pages', async () => {
+    const input = definition()
+    input.settings = { pages: { columns: true, appearance: true }, columnSections: { basic: true } }
+    input.features = { columnSettings: { enabled: true, mode: 'headless' } }
+    const wrapper = mountConfigured({ definition: input })
+    await settle()
+    const context = await (wrapper.vm as any).activateFeature('columnSettings')
+    await wrapper.setProps({ remoteOverride: { settings: { pages: { appearance: { disabled: true }, toolbar: true }, columnSections: { basic: false } } } })
+    await settle()
+    expect(context.settingsPolicy.pages.appearance).toEqual({ visible: true, disabled: true })
+    expect(context.settingsPolicy.pages.toolbar).toEqual({ visible: false, disabled: false })
+    expect(context.settingsPolicy.columnSections.basic).toEqual({ visible: false, disabled: false })
+    await context.patch('name', { width: 280 })
+    expect(wrapper.get('[data-column="name"]').attributes('data-width')).toBe('160')
+    expect(wrapper.emitted('preferenceChange')).toBeUndefined()
   })
 
   it('defers enabled row action details and registration lookup until interaction activation', async () => {

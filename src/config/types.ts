@@ -2,22 +2,25 @@ import type {PresentationDelta,TablePresentation} from '../features/presentation
 import type { ColumnConfig, FixedSide, UserColumnConfig } from '../types'
 import type { SearchDefinition } from '../features/search/model'
 import type { ConfigDiagnostic } from './diagnostics'
+import type { ControlConfig, ControlDeclaration } from './access'
+import type { SettingsDefinition } from '../features/settings/policy'
 
 export interface ColumnCapabilities {
-  content?:boolean
-  format?:boolean
-  mapping?:boolean
-  template?:boolean
-  filter?:boolean
-  visible?: boolean
-  order?: boolean
-  rename?: boolean
-  align?: boolean
-  sortable?: boolean
-  headerStyle?: boolean
-  cellStyle?: boolean
-  width?: boolean | { enabled: boolean; min?: number; max?: number }
-  fixed?: boolean | { enabled: boolean; allowedValues?: FixedSide[] }
+  content?:ControlConfig
+  format?:ControlConfig
+  mapping?:ControlConfig
+  template?:ControlConfig
+  filter?:ControlConfig
+  trial?:ControlConfig
+  visible?: ControlConfig
+  order?: ControlConfig
+  rename?: ControlConfig
+  align?: ControlConfig
+  sortable?: ControlConfig
+  headerStyle?: ControlConfig
+  cellStyle?: ControlConfig
+  width?: boolean | (ControlDeclaration & { min?: number; max?: number })
+  fixed?: boolean | (ControlDeclaration & { allowedValues?: FixedSide[] })
 }
 export interface ColumnDefinition extends ColumnConfig {
   access?: boolean
@@ -34,6 +37,7 @@ export interface TableDefinition {
   columns: ColumnDefinition[]
   features?: Record<string, unknown>
   search?: SearchDefinition
+  settings?: SettingsDefinition
   pagination?: { pageSize?: number; pageSizeOptions?: number[] }
 }
 export interface PreferenceV2 {

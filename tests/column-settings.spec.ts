@@ -1,3 +1,4 @@
+import {allColumnCapabilities,fullSettingsPolicy} from './fixtures/settings'
 import {afterEach, describe, expect, it} from 'vitest'
 import {flushPromises, mount, type VueWrapper} from '@vue/test-utils'
 import {reactive} from 'vue'
@@ -11,11 +12,11 @@ afterEach(()=>wrappers.splice(0).forEach(wrapper=>wrapper.unmount()))
 function setup(openMode:'quick'|'drawer'='quick') {
   const applied: Record<string, UserColumnConfig>[]=[]
   const columns:ColumnConfig[]=[
-    {id:'id',field:'id',title:'编号',fixed:'left',width:180,configurable:{visible:false,fixed:false,order:false}},
-    {id:'name',field:'name',title:'项目',width:220,sortable:true},
-    {id:'customer',field:'customer',title:'客户',width:150,visible:false},
+    {id:'id',field:'id',title:'编号',fixed:'left',width:180,configurable:{visible:{enabled:true,disabled:true},fixed:{enabled:true,disabled:true},order:{enabled:true,disabled:true}}},
+    {id:'name',field:'name',title:'项目',width:220,sortable:true,configurable:{...allColumnCapabilities}},
+    {id:'customer',field:'customer',title:'客户',width:150,visible:false,configurable:{...allColumnCapabilities}},
   ]
-  const context=reactive({columns,baseColumns:columns,openMode,previewRows:[{id:'A1',name:'计量改造',customer:'澄川水务'}],closeCount:0,
+  const context=reactive({settingsPolicy:fullSettingsPolicy(),columns,baseColumns:columns,openMode,previewRows:[{id:'A1',name:'计量改造',customer:'澄川水务'}],closeCount:0,
     close(){context.closeCount++},
     async patch(id:string,patch:UserColumnConfig){applied.push({[id]:patch})},
     async apply(patches:Record<string,UserColumnConfig>){applied.push(patches)},
@@ -100,7 +101,7 @@ describe('column settings draft',()=>{
     expect(applied).toEqual([])
   })
   it('shows a valid width for flexible columns whose minimum exceeds the default',()=>{
-    const wrapper=mount(ColumnSettings,{props:{context:{columns:[{id:'name',field:'name',title:'名称',minWidth:264}],openMode:'drawer',async patch(){},close(){}}},global:{stubs:{Teleport:true}}})
+    const wrapper=mount(ColumnSettings,{props:{context:{settingsPolicy:fullSettingsPolicy(),columns:[{id:'name',field:'name',title:'名称',minWidth:264,configurable:{...allColumnCapabilities}}],openMode:'drawer',async patch(){},close(){}}},global:{stubs:{Teleport:true}}})
     wrappers.push(wrapper)
     expect((wrapper.get('input[aria-label="列宽（px）"]').element as HTMLInputElement).value).toBe('264')
     expect((wrapper.get('input[aria-label="名称列宽"]').element as HTMLInputElement).value).toBe('264')
@@ -124,9 +125,9 @@ describe('serializable column text presentation',()=>{
 
 describe('settings sorting draft',()=>{
   function sorting(){
-    const columns:ColumnConfig[]=[{id:'id',field:'id',title:'编号',sortable:true},{id:'name',field:'name',title:'名称',sortable:true}]
+    const columns:ColumnConfig[]=[{id:'id',field:'id',title:'编号',sortable:true,configurable:{...allColumnCapabilities}},{id:'name',field:'name',title:'名称',sortable:true,configurable:{...allColumnCapabilities}}]
     const saves:SortConfig[][]=[]
-    const context=reactive({columns,openMode:'drawer' as const,sorts:[{field:'id',order:'desc'}] as SortConfig[],previewRows:[{id:'B2',name:'Beta'},{id:'A1',name:'Alpha'}],closeCount:0,
+    const context=reactive({settingsPolicy:fullSettingsPolicy(),columns,openMode:'drawer' as const,sorts:[{field:'id',order:'desc'}] as SortConfig[],previewRows:[{id:'B2',name:'Beta'},{id:'A1',name:'Alpha'}],closeCount:0,
       close(){context.closeCount++},async patch(){},async setSorts(next:SortConfig[]){saves.push(next)},
     })
     const wrapper=mount(ColumnSettings,{props:{context},global:{stubs:{Teleport:true}}})

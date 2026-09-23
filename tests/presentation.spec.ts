@@ -5,9 +5,10 @@ import BusinessTable from '../src/BusinessTable.vue'
 const wrappers: VueWrapper[] = []
 afterEach(() => wrappers.splice(0).forEach(wrapper => wrapper.unmount()))
 const data = [{id:'A',name:'Alpha',status:'draft'},{id:'B',name:'Beta',status:'sent'}]
+const settingsDefinition = {pages:{columns:true},columnSections:{basic:true}}
 function create(extra: Record<string, unknown> = {}) {
   const wrapper = mount(BusinessTable, {
-    props: {columns:[{id:'id',field:'id',title:'编号'},{id:'name',field:'name',title:'名称'}], data, ...extra},
+    props: {columns:[{id:'id',field:'id',title:'编号',configurable:{visible:true,width:true}},{id:'name',field:'name',title:'名称',configurable:{visible:true,rename:true,width:true}}], data, ...extra},
     global: {stubs:{
       'vxe-table': {props:['data'], template:'<div><slot /></div>'},
       'vxe-column': {props:['field'], template:'<div :data-field="field"><slot name="header"/><slot :row="{id:\'A\',name:\'Alpha\',status:\'draft\'}"/></div>'},
@@ -46,9 +47,9 @@ describe('presentation controls keep public state independent of VXE', () => {
   })
 
   it('a bulk settings commit saves once and enforces every column capability', async () => {
-    const wrapper=create({features:{columnSettings:{enabled:true,mode:'headless'}},columns:[
+    const wrapper=create({settingsDefinition,features:{columnSettings:{enabled:true,mode:'headless'}},columns:[
       {id:'id',field:'id',title:'编号',fixed:'left',configurable:{width:{enabled:true,min:100,max:300}}},
-      {id:'name',field:'name',title:'名称'},
+      {id:'name',field:'name',title:'名称',configurable:{rename:true}},
     ]})
     await flushPromises()
     const context=await (wrapper.vm as any).activateFeature('columnSettings')
@@ -60,7 +61,7 @@ describe('presentation controls keep public state independent of VXE', () => {
   })
 
   it('the quick entry opens quick settings after the full drawer was closed',async()=>{
-    const wrapper=create({features:{columnSettings:true}})
+    const wrapper=create({settingsDefinition,features:{columnSettings:true}})
     const api=wrapper.vm as any
     await api.openColumnSettings('drawer');await flushPromises()
     const context=api.getFeatureContext('columnSettings')
@@ -90,7 +91,7 @@ describe('presentation controls keep public state independent of VXE', () => {
     expect(wrapper.emitted('selectionChange')?.at(-1)).toEqual([[{...data[0],name:'Updated'}]])
   })
   it('editing an applied view starts from its visible state and overrides only edited fields',async()=>{
-    const wrapper=create({features:{columnSettings:{enabled:true,mode:'headless'}}})
+    const wrapper=create({settingsDefinition,features:{columnSettings:{enabled:true,mode:'headless'}}})
     await flushPromises()
     const api=wrapper.vm as any
     const view={id:'custom',name:'自定义',columns:{name:{title:'视图名称',width:260}}}

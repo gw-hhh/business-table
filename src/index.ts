@@ -23,3 +23,6 @@ export type { FilterPlan, FilterPlansEnvelope, FilterPlanPersistence } from './f
 export type { ViewSnapshot } from './features/views/runtime'
 export type { SearchDefinition, SearchItem, SearchOption, SearchValues } from './features/search/model'
 export type { SearchContext } from './runtime/query'
+export type { ControlConfig, ControlDeclaration, ControlAccess } from './config/access'
+export type { SettingsDefinition, SettingsPolicy, SettingsPage, ColumnSettingsSection } from './features/settings/policy'
+export type { ToolDefinition, ToolPreference, ToolbarLayout, TablePresentation, PresentationDelta } from './features/presentation/model'

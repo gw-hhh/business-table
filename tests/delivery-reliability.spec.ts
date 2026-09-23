@@ -3,6 +3,7 @@ import { defineComponent } from 'vue'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import BusinessTable from '../src/BusinessTable.vue'
 import { displayValue } from '../src/core'
+import {allColumnCapabilities,fullSettingsDefinition} from './fixtures/settings'
 
 const Grid = defineComponent({props:['data'], template:'<div><slot /></div>'})
 const Column = defineComponent({template:'<div><slot name="header" /></div>'})
@@ -19,7 +20,7 @@ afterEach(()=>{for(const wrapper of wrappers.splice(0))wrapper.unmount();documen
 
 it('AUDIT-01: rejected persistence must leave the real settings session open for retry',async()=>{
   const save=vi.fn(async()=>{throw new Error('写入失败')})
-  const wrapper=await setup({features:{columnSettings:true},persistence:{load:async()=>null,save}})
+  const wrapper=await setup({settingsDefinition:fullSettingsDefinition(),columns:[{id:'id',field:'id',title:'编号',width:180,sortable:true,configurable:{...allColumnCapabilities}},{id:'name',field:'name',title:'名称',width:200,configurable:{...allColumnCapabilities}}],features:{columnSettings:true},persistence:{load:async()=>null,save}})
   await wrapper.get('[data-testid="column-settings"]').trigger('click')
   await vi.waitFor(()=>expect(wrapper.find('[data-testid="column-panel"]').exists()).toBe(true))
   await wrapper.get('input[aria-label="显示名称"]').setValue(false)

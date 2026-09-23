@@ -14,6 +14,18 @@
 
 组件内置加载提示与 `aria-busy`，不要求宿主额外注册 VXE Loading 组件。表格使用内容自然高度；如需固定高度或虚拟滚动，应另外设计明确的高度配置，不能在无固定高度的自适应父容器中使用 VXE `height="auto"`。
 
+宿主重新渲染时，即使重新创建 pagination 对象或 pageSizeOptions 数组，只要分页默认值和可选项内容相同，组件会保留当前分页与已应用设置。实际改变默认每页条数或允许范围时，才按新配置重新校验。
+
+## 设置与工具
+
+先开启 `features.columnSettings`，再声明需要的设置：直接 `BusinessTable` 使用 `settingsDefinition`，`ConfiguredBusinessTable` 使用 `definition.settings`。设置页由 pages 声明，列模块由 columnSections 声明，具体可配置字段由 column.configurable 声明；列设置取三层交集。
+
+未配置、false、enabled:false 或 visible:false 都隐藏。true 表示显示并允许修改；`{enabled: true, disabled: true}` 表示显示只读。远端只能继续收窄。只读会拦截界面和设置命令的写入，但保留已有合法偏好与 View 值；应用设置不会自动保存命名 View。完整示例见 [配置入口](CONFIGURATION.md)。
+
+工具设置和真实按钮必须共用 `tools` 声明及 `presentation.toolbar` 布局。工具需有稳定 ID 和真实 handler；没有工具的区域不显示。报价 Demo 使用共享 ToolStrip，默认显式开放全部已实现设置；在工具栏页调整名称、顺序、位置和形式后，点击应用即可查看实际按钮变化。配置示例 `/?example=config&mode=readonly` 展示只读，`/?example=config&mode=unconfigured` 展示未配置时隐藏。
+
+列内“试算”用于给出一个临时原值，核对显示文本、导出值与 Excel 格式，不修改业务数据。BT-08 的计算字段和公式引擎仍未实施。
+
 ## 列筛选、组合筛选与方案
 
 筛选为显式开启的组件能力，不在默认基础表格里初始化编辑器：

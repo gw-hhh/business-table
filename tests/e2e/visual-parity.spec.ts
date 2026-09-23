@@ -102,7 +102,7 @@ test('quick columns uses a draft and preserves the paired freeze controls', asyn
   const panel = page.getByTestId('column-panel')
   await expectBox(panel, { width: 280 })
   await expect(panel.getByRole('checkbox', { name: '显示报价编号', exact: true })).toBeChecked()
-  await expect(panel.getByRole('checkbox', { name: '显示报价编号', exact: true })).toBeDisabled()
+  await expect(panel.getByRole('checkbox', { name: '显示报价编号', exact: true })).toBeEnabled()
 
   const left = panel.getByTitle('左冻结 项目名称 / 客户', { exact: true })
   const right = panel.getByTitle('右冻结 项目名称 / 客户', { exact: true })

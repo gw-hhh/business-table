@@ -1,4 +1,6 @@
 <script setup lang="ts">
-defineProps<{context:{refresh:()=>void}}>()
+import ToolStrip from '../features/toolbar/ToolStrip.vue'
+import type { ToolDefinition, ToolPreference } from '../features/presentation/model'
+defineProps<{context:{tools:readonly ToolDefinition[];layout:Record<string,ToolPreference>;gap:number}}>()
 </script>
-<template><button @click="context.refresh">刷新</button></template>
+<template><ToolStrip :tools="context.tools" :layout="context.layout" :gap="context.gap" /></template>

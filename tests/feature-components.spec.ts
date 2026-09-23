@@ -2,6 +2,7 @@ import {describe,it,expect,vi,afterEach} from 'vitest'
 import {mount,flushPromises,type VueWrapper} from '@vue/test-utils'
 import {h} from 'vue'
 import BusinessTable from '../src/BusinessTable.vue'
+import {allColumnCapabilities,fullSettingsDefinition} from './fixtures/settings'
 const wrappers:VueWrapper[]=[]
 afterEach(()=>wrappers.splice(0).forEach(w=>w.unmount()))
 const columns=[{id:'id',field:'id',title:'编号',width:180,fixed:'left' as const},{id:'name',field:'name',title:'名称'}]
@@ -24,7 +25,7 @@ describe('feature integration',()=>{
   })
   it('reads column settings details only on first interaction and reuses its context',async()=>{
     const details=vi.fn(()=>({label:'字段'}))
-    const w=table({features:{columnSettings:{enabled:true,get details(){return details()}}}})
+    const w=table({settingsDefinition:fullSettingsDefinition(),columns:columns.map(column=>({...column,configurable:{...allColumnCapabilities}})),features:{columnSettings:{enabled:true,get details(){return details()}}}})
     expect(details).not.toHaveBeenCalled()
     await w.get('[data-testid="column-settings"]').trigger('click')
     await vi.waitFor(()=>expect(w.find('[data-testid="column-panel"]').exists()).toBe(true))
@@ -34,6 +35,15 @@ describe('feature integration',()=>{
     await w.get('[data-testid="column-settings"]').trigger('click')
     expect(details).toHaveBeenCalledTimes(1)
   })
+  it('opens only the configured appearance page without an empty quick-column entry',async()=>{
+    const w=table({settingsDefinition:{pages:{appearance:true}},features:{columnSettings:true}})
+    await flushPromises()
+    expect(w.find('[data-testid="column-settings"]').exists()).toBe(false)
+    await w.get('[data-testid="table-settings"]').trigger('click')
+    await vi.waitFor(()=>expect(document.querySelector('[data-testid="settings-drawer"]')).not.toBeNull())
+    expect(document.querySelector('button[aria-label="列设置"]')).toBeNull()
+    expect(document.querySelector('button[aria-label="表格外观"]')).not.toBeNull()
+  })
   it('remote OFF does not read details or render settings and cannot enable search',async()=>{
     const w=table({features:{columnSettings:{enabled:true,get details():never{throw Error('must not read')}},search:false},remoteFeatures:{columnSettings:{enabled:false},search:{enabled:true}}})
     await flushPromises()
@@ -41,7 +51,7 @@ describe('feature integration',()=>{
     expect(w.find('.bt__search').exists()).toBe(false)
   })
   it('headless settings expose guarded state without rendering the default controls',async()=>{
-    const w=table({features:{columnSettings:{enabled:true,mode:'headless'}},columns:[{...columns[0],configurable:{width:{enabled:true,min:100,max:300}}}]})
+    const w=table({settingsDefinition:fullSettingsDefinition(),features:{columnSettings:{enabled:true,mode:'headless'}},columns:[{...columns[0],configurable:{width:{enabled:true,min:100,max:300}}}]})
     const api=w.vm as unknown as {activateFeature:(name:string)=>Promise<any>;getFeatureContext:(name:string)=>any}
     expect(w.find('[data-testid="column-settings"]').exists()).toBe(false)
     const context=await api.activateFeature('columnSettings')

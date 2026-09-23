@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import {ref} from 'vue'
-import {BusinessTable,ConfiguredBusinessTable,createRegistry,type ConfigDiagnostic,type TableDefinition,type PreferenceV3} from '../src'
-type Item={id:string;name:string;status:string}
+import {BusinessTable,ConfiguredBusinessTable,createRegistry,type ColumnCapabilities,type ConfigDiagnostic,type SettingsDefinition,type TableDefinition,type PreferenceV3} from '../src'
+type Item={id:string;name:string;status:string;amount:number}
 const mode=new URLSearchParams(location.search).get('mode')??'default'
-const rows:Item[]=[{id:'A-001',name:'传感器',status:'已确认'},{id:'A-002',name:'转换器',status:'草稿'}]
+const rows:Item[]=[{id:'A-001',name:'传感器',status:'已确认',amount:1280},{id:'A-002',name:'转换器',status:'草稿',amount:3600}]
 const message=ref(''),diagnostics=ref<ConfigDiagnostic[]>([]),detailsReads=ref(0),delta=ref<PreferenceV3>()
 let settingsReadCount=0
 const table=ref<{activateFeature:(name:'columnSettings')=>Promise<unknown>}>()
@@ -11,12 +11,35 @@ const headlessContext=ref<{columns:{id:string;title:string;width?:number}[];patc
 const registry=createRegistry<Item>({onDiagnostic:diagnostic=>diagnostics.value.push(diagnostic)})
 registry.register('rowAction','view',{id:'view',label:'查看',handler:row=>{message.value='查看 '+row.id}})
 registry.register('rowAction','delete',{id:'delete',label:'删除',position:'more',disabled:row=>row.status==='已确认',handler:row=>{message.value='删除 '+row.id}})
+const columnCapabilities:ColumnCapabilities={
+  visible:true,order:true,rename:true,align:true,width:true,fixed:true,sortable:true,
+  headerStyle:true,cellStyle:true,content:true,format:true,mapping:true,template:true,filter:true,trial:true,
+}
+const allSettings:SettingsDefinition={
+  pages:{columns:true,sorts:true,actions:true,appearance:true,toolbar:true},
+  columnSections:{basic:true,content:true,number:true,filter:true,mapping:true,template:true,trial:true},
+}
+const settingsExamples:Record<string,SettingsDefinition|undefined>={
+  readonly:{...allSettings,pages:{...allSettings.pages,appearance:{enabled:true,disabled:true}}},
+  unconfigured:undefined,
+}
+const descriptions:Record<string,string>={
+  default:'默认开放全部设置。可调整列、排序、操作按钮、表格外观和工具栏；选择金额列可查看数字格式。',
+  readonly:'编号的显示和冻结设置为只读，列宽仍可修改。表格外观也设为只读，其余设置可以编辑。',
+  unconfigured:'未声明设置模块，因此不显示列设置或表格设置入口。',
+  core:'仅提供列和数据，展示最简表格。',
+  custom:'使用自定义设置界面，通过通用设置入口调整列宽。',
+  headless:'通过按钮读取设置状态并调整列宽。',
+  off:'后台配置关闭列设置和组合筛选入口。',
+}
 const definition:TableDefinition={
   schemaVersion:3,tableKey:'configuration.example',title:'物料列表',
+  settings:Object.hasOwn(settingsExamples,mode)?settingsExamples[mode]:allSettings,
   columns:[
-    {id:'id',field:'id',title:'编号',width:180,minWidth:100,fixed:'left',configurable:{width:{enabled:true,min:120,max:260}}},
-    {id:'name',field:'name',title:'名称',width:220,configurable:{visible:true,rename:true,width:true,order:true,fixed:true,align:true}},
-    {id:'status',field:'status',title:'状态',width:140,valueMap:[{value:'已确认',label:'已确认',color:'#067647',background:'#ecfdf3'},{value:'草稿',label:'草稿',color:'#475467',background:'#f2f4f7'}],configurable:{visible:true,width:true}},
+    {id:'id',field:'id',title:'编号',width:180,minWidth:100,fixed:'left',sortable:true,configurable:{...columnCapabilities,width:{enabled:true,min:120,max:260},...(mode==='readonly'?{visible:{enabled:true,disabled:true},fixed:{enabled:true,disabled:true}}:{})}},
+    {id:'name',field:'name',title:'名称',width:220,sortable:true,configurable:{...columnCapabilities}},
+    {id:'status',field:'status',title:'状态',width:140,sortable:true,valueMap:[{value:'已确认',label:'已确认',color:'#067647',background:'#ecfdf3'},{value:'草稿',label:'草稿',color:'#475467',background:'#f2f4f7'}],configurable:{...columnCapabilities}},
+    {id:'amount',field:'amount',title:'金额',type:'number',width:160,sortable:true,align:'right',configurable:{...columnCapabilities}},
   ],
   features:{
     search:true,toolbar:true,filters:true,
@@ -31,16 +54,16 @@ async function activateHeadless(){headlessContext.value=await table.value?.activ
 </script>
 <template>
   <main class="config-demo">
-    <nav><a href="/">报价 Demo</a><a href="/?example=config">默认设置</a><a href="/?example=config&mode=core">最简表格</a><a href="/?example=config&mode=custom">自定义设置</a><a href="/?example=config&mode=headless">无默认界面</a><a href="/?example=config&mode=off">后台关闭设置</a></nav>
+    <nav><a href="/">报价 Demo</a><a href="/?example=config">全部设置</a><a href="/?example=config&mode=readonly">只读设置</a><a href="/?example=config&mode=unconfigured">未配置设置</a><a href="/?example=config&mode=core">最简表格</a><a href="/?example=config&mode=custom">自定义设置</a><a href="/?example=config&mode=headless">无默认界面</a><a href="/?example=config&mode=off">后台关闭设置</a></nav>
     <h1>配置与列权限示例</h1>
-    <p>编号保持显示并冻结在左侧，允许调整宽度。其余列按各自的配置开放。</p>
+    <p>{{descriptions[mode]??descriptions.default}}</p>
     <BusinessTable v-if="mode==='core'" :columns="definition.columns" :data="rows"/>
     <ConfiguredBusinessTable v-else ref="table" :definition="definition" :registry="registry" :data="rows" :preference="preference" :remote-override="remoteOverride" @diagnostic="diagnostics.push($event)" @preference-change="recordPreference">
       <template #column-settings="{context}">
         <aside class="bt__panel" data-testid="custom-settings">
           <h3>自定义字段设置</h3>
           <p>复用表格的列权限和偏好修改入口。</p>
-          <button @click="context.patch('id',{visible:false,fixed:false,width:240})">调整编号列宽</button>
+          <button @click="context.patch('id',{width:240})">调整编号列宽</button>
           <button @click="context.close()">关闭</button>
         </aside>
       </template>

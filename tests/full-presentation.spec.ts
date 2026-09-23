@@ -32,7 +32,7 @@ describe('presentation configuration is data and cannot change capabilities', ()
     expect(presentActions(actions, p.rowActions)).toEqual([])
   })
   it('preserves immutable toolbar entries and applies only registered ids', () => {
-    const tools = [{ id: 'settings', label: '表格设置', immutable: true }, { id: 'reload', label: '刷新' }]
+    const tools = [{ id: 'settings', label: '表格设置', immutable: true, handler: () => {} }, { id: 'reload', label: '刷新', handler: () => {} }]
     const p = resolvePresentation({ toolbar: { table: { settings: { position: 'hidden', fixed: false }, reload: { label: '刷新列表', position: 'more' } } } })
     const result = presentTools(tools, p.toolbar.table)
     expect(result[0]).toMatchObject({ id: 'settings', position: 'direct', fixed: true })

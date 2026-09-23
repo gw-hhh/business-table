@@ -3,7 +3,7 @@ import type {ColumnConfig,DataSource,FilterConfig,Pagination,Persistence,Query,R
 import type {ConfigDiagnostic} from '../config/diagnostics'
 import type {RuntimeRegistry} from './registry'
 import {applyFilters,applySorts,makeConfig,mergeColumns,patchColumn} from '../core'
-import {applyColumnPatches,guardColumnPatch} from '../config/columns'
+import {applyColumnPatches,guardColumnPatch,isColumnCapabilityEnabled} from '../config/columns'
 import {createPreferenceDelta,parsePreference} from '../config/schema'
 import {defaultColumnFilter,compileFilterGroup,collectFilterOptions,type FilterOption,type FilterGroup} from '../features/filters/model'
 import {defaultPresentation,resolvePresentation,presentationDelta,type PresentationDelta} from '../features/presentation/model'
@@ -13,6 +13,7 @@ import {withDeadline} from './deadline'
 import {cloneData,getValue} from './value'
 import {type FilterState} from './filter-state'
 import {useQueryRuntime,type QueryChange} from './query'
+import {getSettingsColumnFieldAccess,guardSettingsColumnPatch,guardSettingsCommit,resolveSettingsPolicy,type SettingsDefinition} from '../features/settings/policy'
 
 export interface TableRuntimeInput<T extends RowData> {
   readonly tableKey?:string;readonly rowKey?:string;readonly columns:ColumnConfig<T>[];readonly data?:T[]
@@ -20,6 +21,7 @@ export interface TableRuntimeInput<T extends RowData> {
   readonly persistence?:Persistence|null;readonly preferenceTimeoutMs?:number;readonly selection?:boolean
   readonly presentation?:PresentationDelta;readonly density?:'compact'|'default'|'comfortable'
   readonly searchDefinition?:unknown;readonly searchAllowedItems?:readonly string[];readonly registry?:RuntimeRegistry<T>
+  readonly settingsDefinition?:SettingsDefinition;readonly settingsOverride?:unknown
 }
 export interface TableRuntimeEvents<T extends RowData> {
   queryChange?:(query:Query)=>void;configChange?:(config:TableConfig)=>void;viewChange?:(id:string|null)=>void
@@ -33,6 +35,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   const rows=shallowRef<T[]>([]),total=ref(0),page=ref(initial.page),pageSize=ref(initial.pageSize)
   const busy=ref(false),error=ref('')
   const config=ref<TableConfig>(input.config?cloneData(input.config):makeConfig(key(),input.columns))
+  const settingsPolicy=computed(()=>resolveSettingsPolicy(input.settingsDefinition,input.settingsOverride))
   const viewColumns=ref<Record<string,UserColumnConfig>>({}),viewPresentation=ref<PresentationDelta>()
   const allowedPageSizes=computed(()=>normalizePagination(input.pagination).pageSizeOptions)
   const basePresentation=computed(()=>resolvePresentation(input.presentation,{...defaultPresentation(),appearance:{...defaultPresentation().appearance,density:input.density??'default',pageSize:normalizePagination(input.pagination).pageSize}}))
@@ -134,7 +137,29 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   }
   function acceptPatches(current:TableConfig,patches:Record<string,UserColumnConfig>){
     let next=current;const accepted:Record<string,UserColumnConfig>=Object.create(null)
-    for(const [id,change] of Object.entries(patches)){const column=input.columns.find(column=>column.id===id);if(!column)continue;const guarded=guardColumnPatch(column,change,report);if(Object.keys(guarded).length){accepted[id]=guarded;next=patchColumn(next,id,guarded)}}
+    for(const [id,change] of Object.entries(patches)){
+      const column=input.columns.find(column=>column.id===id);if(!column)continue
+      const guarded=input.settingsDefinition===undefined?guardColumnPatch(column,change,report):guardSettingsColumnPatch(column,change,settingsPolicy.value,report)
+      if(Object.keys(guarded).length){accepted[id]=guarded;next=patchColumn(next,id,guarded)}
+    }
+    if(Object.values(accepted).some(change=>Object.hasOwn(change,'order'))){
+      // Resolve saved positions first, then move editable columns only. Locked
+      // positions remain anchors even when a caller submits one order change.
+      const entries=allResolvedColumns.value.map((column,index)=>{
+        const access=getSettingsColumnFieldAccess(column,'order',settingsPolicy.value)
+        return {column,index,movable:input.settingsDefinition===undefined?isColumnCapabilityEnabled(column,'order'):access.visible&&!access.disabled}
+      })
+      const movable=entries.filter(entry=>entry.movable).sort((a,b)=>{
+        const left=accepted[a.column.id]?.order,right=accepted[b.column.id]?.order
+        return (left??a.index)-(right??b.index)||(left===undefined?1:0)-(right===undefined?1:0)||a.index-b.index
+      })
+      let offset=0
+      for(const entry of entries){
+        if(!entry.movable)continue
+        const id=movable[offset++]!.column.id,change={...accepted[id],order:entry.index}
+        accepted[id]=change;next=patchColumn(next,id,change)
+      }
+    }
     return {next,accepted}
   }
   async function applyPatches(patches:Record<string,UserColumnConfig>){
@@ -162,18 +187,30 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     page.value=1;void load()
   }
   async function applySettings(change:SettingsCommit){
-    const target=applyColumnPatches(allResolvedColumns.value,change.columns,report),issues=validateSettings(target)
-    if(issues.length)throw new Error(issues[0]!.message)
-    const prepared=resolvePresentation(change.presentation,basePresentation.value)
-    prepared.appearance.pageSize=normalizePagination({...input.pagination,pageSize:prepared.appearance.pageSize}).pageSize
-    const nextSorts=cloneData(change.sorts).filter(sort=>target.some(column=>column.field===sort.field&&column.sortable))
-    let accepted:Record<string,UserColumnConfig>={}
-    await saveConfig(current=>{const result=acceptPatches(current,change.columns);accepted=result.accepted;return {...result.next,pageSize:prepared.appearance.pageSize,presentation:presentationDelta(prepared,basePresentation.value)}},()=>{
-      for(const [id,patch] of Object.entries(accepted))releaseViewOverrides(id,patch)
-      viewPresentation.value=undefined;sorts.value=nextSorts;pageSize.value=prepared.appearance.pageSize;page.value=1
-      columnFilters.value=columnFilters.value.filter(rule=>{const column=target.find(column=>column.field===rule.field);return column&&defaultColumnFilter(column).enabled&&defaultColumnFilter(column).operators.includes(rule.operator)})
-    })
-    clearSelection();await load()
+    const requested=cloneData(change)
+    let committed=false,finish=()=>{}
+    await saveConfig(current=>{
+      // Recheck the complete transaction when its turn in the write queue starts.
+      const guarded=guardSettingsCommit(requested,{columns:allResolvedColumns.value,sorts:sorts.value,presentation:presentation.value},settingsPolicy.value,report)
+      if(!Object.keys(guarded.columns).length&&JSON.stringify(guarded.sorts)===JSON.stringify(sorts.value)&&JSON.stringify(guarded.presentation)===JSON.stringify(presentation.value))return current
+      const result=acceptPatches(current,guarded.columns)
+      const target=applyColumnPatches(allResolvedColumns.value,result.accepted,report),issues=validateSettings(target)
+      if(issues.length)throw new Error(issues[0]!.message)
+      const prepared=resolvePresentation(guarded.presentation,basePresentation.value)
+      prepared.appearance.pageSize=normalizePagination({...input.pagination,pageSize:prepared.appearance.pageSize}).pageSize
+      const changedSections=(['appearance','rowActions','toolbar'] as const).filter(key=>JSON.stringify(prepared[key])!==JSON.stringify(presentation.value[key]))
+      const presentationChange:PresentationDelta=Object.fromEntries(changedSections.map(key=>[key,prepared[key]]))
+      const pageSizeChanged=changedSections.includes('appearance')&&prepared.appearance.pageSize!==presentation.value.appearance.pageSize
+      const nextSorts=cloneData(guarded.sorts).filter(sort=>target.some(column=>column.field===sort.field&&column.sortable))
+      finish=()=>{
+        for(const [id,patch] of Object.entries(result.accepted))releaseViewOverrides(id,patch)
+        const remaining={...viewPresentation.value};for(const key of changedSections)delete remaining[key]
+        viewPresentation.value=Object.keys(remaining).length?remaining:undefined;sorts.value=nextSorts;if(pageSizeChanged)pageSize.value=prepared.appearance.pageSize;page.value=1
+        columnFilters.value=columnFilters.value.filter(rule=>{const column=target.find(column=>column.field===rule.field);return column&&defaultColumnFilter(column).enabled&&defaultColumnFilter(column).operators.includes(rule.operator)})
+      }
+      return {...result.next,...(pageSizeChanged?{pageSize:prepared.appearance.pageSize}:{}),presentation:presentationDelta(resolvePresentation(presentationChange,resolvePresentation(current.presentation,basePresentation.value)),basePresentation.value)}
+    },()=>{committed=true;finish()})
+    if(committed){clearSelection();await load()}
   }
   async function setPresentation(change:PresentationDelta){await applySettings({columns:{},sorts:sorts.value,presentation:resolvePresentation(change,presentation.value)})}
   async function applyView(view?:ViewConfig,searchKeyword?:string){
@@ -227,10 +264,17 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(disposed||epoch!==identity)return
     ready=true;void load()
   }
-  watch([()=>input.config,()=>input.pagination?.pageSize,()=>input.pagination?.pageSizeOptions],()=>{
-    config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns)
-    const next=normalizePagination({...input.pagination,pageSize:input.config?.pageSize??input.pagination?.pageSize}).pageSize
+  function updatePageSize(next:number){
     if(pageSize.value!==next){pageSize.value=next;page.value=1;void load()}
+  }
+  watch(()=>input.config,()=>{
+    config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns)
+    updatePageSize(normalizePagination({...input.pagination,pageSize:input.config?.pageSize??input.pagination?.pageSize}).pageSize)
+  })
+  // Inline pagination props may be recreated on every parent render. Only values
+  // affect pagination; neither new arrays nor changed sizes replace saved settings.
+  watch([()=>normalizePagination(input.pagination).pageSize,()=>normalizePagination(input.pagination).pageSizeOptions.join(',')],([next],[before])=>{
+    updatePageSize(normalizePagination({...input.pagination,pageSize:next!==before?next:pageSize.value}).pageSize)
   })
   watch([()=>input.dataSource,()=>input.data],([source],[previous])=>{if(source!==previous)page.value=1;if(source!==previous||!source)void load()},{deep:true})
   watch(()=>queryRuntime.searchSignature.value,signature=>{
@@ -241,6 +285,6 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;preferenceController.abort();controller?.abort();commitListeners.clear()})
   const commands={reload:()=>load(),setQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,goPage,readRows,optionsFor,sort}
-  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
+  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

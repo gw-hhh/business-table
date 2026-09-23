@@ -5,7 +5,7 @@ import type { TableConfig } from '../types'
 import type { UserColumnConfig } from '../types'
 import type { ConfigDiagnostic, DiagnosticReporter } from './diagnostics'
 import type { ColumnCapabilities, ConfigurableColumn, PreferenceV2, PreferenceV3, ResolveConfigurationInput, ResolvedConfiguration } from './types'
-import { applyColumnPatches, columnTextStyleSchema, guardColumnPatch, isColumnCapabilityEnabled, isRecord, own, parseColumnPatch } from './columns'
+import { applyColumnPatches, columnTextStyleSchema, guardColumnPatch, isColumnCapabilityApplicable, isRecord, own, parseColumnPatch } from './columns'
 
 const kind = 'business-table-preference' as const
 const positiveInteger = z.number().int().positive()
@@ -13,10 +13,12 @@ const fixed = z.union([z.literal(false), z.literal('left'), z.literal('right')])
 const definitionEnvelope = z.object({ schemaVersion: z.literal(3), tableKey: z.string().min(1) })
 const preferenceEnvelope = z.object({ schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]), tableKey: z.string().min(1) })
 const requiredColumn = z.object({ id: z.string().min(1), field: z.string().min(1), title: z.string() })
-const widthCapability = z.object({ enabled: z.boolean(), min: z.number().positive().optional(), max: z.number().positive().optional() })
+const controlFields = { enabled: z.boolean(), visible: z.boolean().optional(), disabled: z.boolean().optional() }
+const controlCapability = z.union([z.boolean(), z.object(controlFields)])
+const widthCapability = z.object({ ...controlFields, min: z.number().positive().optional(), max: z.number().positive().optional() })
   .refine(value => value.min === undefined || value.max === undefined || value.min <= value.max)
-const fixedCapability = z.object({ enabled: z.boolean(), allowedValues: z.array(fixed).optional() })
-const capabilitySchemas = { content:z.boolean(),format:z.boolean(),mapping:z.boolean(),template:z.boolean(),filter:z.boolean(), visible: z.boolean(), order: z.boolean(), rename: z.boolean(), align: z.boolean(), sortable:z.boolean(), headerStyle:z.boolean(), cellStyle:z.boolean(), width: z.union([z.boolean(), widthCapability]), fixed: z.union([z.boolean(), fixedCapability]) }
+const fixedCapability = z.object({ ...controlFields, allowedValues: z.array(fixed).optional() })
+const capabilitySchemas = { content:controlCapability,format:controlCapability,mapping:controlCapability,template:controlCapability,filter:controlCapability,trial:controlCapability,visible:controlCapability,order:controlCapability,rename:controlCapability,align:controlCapability,sortable:controlCapability,headerStyle:controlCapability,cellStyle:controlCapability,width:z.union([z.boolean(),widthCapability]),fixed:z.union([z.boolean(),fixedCapability]) }
 const optionalColumnSchemas = {
   ...ruleFieldSchemas,kind:z.enum(['data','actions']),
   type: z.enum(['text', 'number', 'currency', 'percent', 'date', 'enum', 'boolean']),
@@ -217,7 +219,7 @@ export function createPreferenceDelta(tableKey: string, baseColumns: Configurabl
   const positions = new Map(current.map((column, index) => [column.id, index]))
   baseColumns.forEach((column, index) => {
     const patch = isRecord(config.columns) ? own(config.columns, column.id) : undefined
-    const guarded = patch === undefined ? {} : guardColumnPatch(column, patch)
+    const guarded = patch === undefined ? {} : guardColumnPatch(column, patch, undefined, 'read')
     const delta: UserColumnConfig = {}
     const base: UserColumnConfig = { title: column.title, visible: column.visible ?? true, width: column.width, fixed: column.fixed ?? false, align: column.align ?? 'left', sortable:column.sortable??false, headerStyle:column.headerStyle??{}, cellStyle:column.cellStyle??{}, content:column.content,mapping:column.mapping,numberRule:column.numberRule,template:column.template,filter:column.filter,filterable:column.filterable,emptyText:column.emptyText,numberFormat:column.numberFormat,valueMap:column.valueMap }
     for (const key of Object.keys(guarded) as (keyof UserColumnConfig)[]) {
@@ -226,7 +228,7 @@ export function createPreferenceDelta(tableKey: string, baseColumns: Configurabl
       Object.defineProperty(delta, key, { value: guarded[key], enumerable: true, configurable: true, writable: true })
     }
     const order = positions.get(column.id)!
-    if (isColumnCapabilityEnabled(column, 'order') && order !== index) delta.order = order
+    if (isColumnCapabilityApplicable(column, 'order') && order !== index) delta.order = order
     if (Object.keys(delta).length) columns[column.id] = delta
   })
   const size = parsePageSize(config.pageSize, 'preference.pagination.pageSize')

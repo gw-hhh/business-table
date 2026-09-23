@@ -1,3 +1,4 @@
+import {allColumnCapabilities,fullSettingsPolicy} from './fixtures/settings'
 import {afterEach,beforeAll,afterAll,describe,expect,it} from 'vitest'
 import {mount,flushPromises,type VueWrapper} from '@vue/test-utils'
 import {reactive} from 'vue'
@@ -22,11 +23,11 @@ afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount());document.b
 function setup(mode:'drawer'|'quick'='drawer',lockedStyle=false){
   const saves:Record<string,UserColumnConfig>[]=[]
   const columns:ColumnConfig[]=[
-    {id:'id',field:'id',title:'编号',width:180,fixed:'left',configurable:{visible:false,fixed:false,order:false}},
-    {id:'name',field:'name',title:'名称',width:220,sortable:true,...(lockedStyle?{configurable:{headerStyle:false,cellStyle:true,rename:true}}:{})},
-    {id:'customer',field:'customer',title:'客户',visible:false,width:150},
+    {id:'id',field:'id',title:'编号',width:180,fixed:'left',configurable:{visible:{enabled:true,disabled:true},fixed:{enabled:true,disabled:true},order:{enabled:true,disabled:true}}},
+    {id:'name',field:'name',title:'名称',width:220,sortable:true,configurable:{...allColumnCapabilities,...(lockedStyle?{headerStyle:{enabled:true,disabled:true} as const}: {})}},
+    {id:'customer',field:'customer',title:'客户',visible:false,width:150,configurable:{...allColumnCapabilities}},
   ]
-  const context=reactive({columns,baseColumns:columns,openMode:mode,closeCount:0,previewRows:[{id:'A1',name:'项目甲',customer:'客户甲'}],close(){context.closeCount++},async patch(){},async apply(value:Record<string,UserColumnConfig>){saves.push(value)}})
+  const context=reactive({settingsPolicy:fullSettingsPolicy(),columns,baseColumns:columns,openMode:mode,closeCount:0,previewRows:[{id:'A1',name:'项目甲',customer:'客户甲'}],close(){context.closeCount++},async patch(){},async apply(value:Record<string,UserColumnConfig>){saves.push(value)}})
   const wrapper=mount(ColumnSettings,{props:{context},attachTo:document.body,global:{stubs:{Teleport:true}}})
   wrappers.push(wrapper)
   return {wrapper,context,saves}
@@ -35,7 +36,7 @@ const button=(w:VueWrapper,label:string)=>w.findAll('button').find(b=>b.text()==
 
 describe('legacy settings refinement',()=>{
   it('accepts only named font tokens and resolves a controlled CSS fallback stack',()=>{
-    const column={id:'name',field:'name',title:'名称'}
+    const column={id:'name',field:'name',title:'名称',configurable:{...allColumnCapabilities}}
     expect(guardColumnPatch(column,{cellStyle:{fontFamily:'yahei'}})).toEqual({cellStyle:{fontFamily:'yahei'}})
     expect(columnTextCss({fontFamily:'yahei'} as unknown as ColumnTextStyle).fontFamily).toContain('Microsoft YaHei')
     expect(guardColumnPatch(column,{cellStyle:{fontFamily:'url(https://bad.example/font)'}})).toEqual({})

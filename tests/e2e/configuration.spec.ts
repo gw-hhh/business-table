@@ -10,10 +10,35 @@ test('core-only entry never loads feature modules',async({page})=>{
   expect(featureRequests).toEqual([])
 })
 
-test('settings are loaded on click and locked controls remain visible',async({page})=>{
+test('the default example enables every available settings page and column section',async({page})=>{
+  await page.goto('/?example=config')
+  await page.getByTestId('column-settings').click()
+  await expect(page.getByRole('checkbox',{name:'显示编号',exact:true})).toBeEnabled()
+  await expect(page.getByTitle('左冻结 编号',{exact:true})).toBeEnabled()
+  await page.getByRole('button',{name:'更多设置',exact:true}).click()
+  const pages=page.getByRole('navigation',{name:'表格设置分类'})
+  await expect(pages.getByRole('button')).toHaveText(['列设置','排序规则','操作按钮','表格外观','工具栏'])
+  await page.getByRole('button',{name:'编辑列 金额',exact:true}).click()
+  const sections=page.getByRole('navigation',{name:'列设置内容'})
+  await expect(sections.getByRole('button')).toHaveText(['基本','内容','数字','筛选','映射','模板','试算'])
+  await expect(page.getByRole('slider',{name:'金额列宽',exact:true})).toBeEnabled()
+  await sections.getByRole('button',{name:'数字',exact:true}).click()
+  await expect(page.getByRole('checkbox',{name:'启用数字格式',exact:true})).toBeEnabled()
+  await pages.getByRole('button',{name:'操作按钮',exact:true}).click()
+  await expect(page.getByRole('textbox',{name:'查看按钮名称',exact:true})).toBeEnabled()
+  await pages.getByRole('button',{name:'表格外观',exact:true}).click()
+  await expect(page.getByRole('combobox',{name:'表格行高',exact:true})).toBeEnabled()
+  await pages.getByRole('button',{name:'工具栏',exact:true}).click()
+  await expect(page.getByRole('textbox',{name:'刷新工具名称',exact:true})).toBeEnabled()
+  await expect(page.getByRole('heading',{name:'表格工具栏',exact:true})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'页面工具栏',exact:true})).toHaveCount(0)
+  await expect(page.getByText('当前区域没有注册工具。',{exact:true})).toHaveCount(0)
+})
+
+test('settings are loaded on click and explicitly read-only controls remain visible',async({page})=>{
   const settingsRequests:string[]=[]
   page.on('request',request=>{if(/ColumnSettings/.test(request.url()))settingsRequests.push(request.url())})
-  await page.goto('/?example=config')
+  await page.goto('/?example=config&mode=readonly')
   await expect(page.locator('[data-business-table]')).toContainText('A-001')
   await expect(page.getByTestId('details-count')).toHaveText('设置详情读取次数：0')
   expect(settingsRequests).toEqual([])
@@ -24,6 +49,10 @@ test('settings are loaded on click and locked controls remain visible',async({pa
   await expect(page.getByTitle('左冻结 编号',{exact:true})).toHaveAttribute('aria-pressed','true')
   await expect(page.getByTitle('左冻结 编号',{exact:true})).toBeDisabled()
   await page.getByRole('button',{name:'更多设置',exact:true}).click()
+  await page.getByRole('navigation',{name:'表格设置分类'}).getByRole('button',{name:'表格外观',exact:true}).click()
+  await expect(page.getByRole('combobox',{name:'表格行高',exact:true})).toBeDisabled()
+  await expect(page.locator('.bt-settings-summary')).toContainText('只读')
+  await page.getByRole('navigation',{name:'表格设置分类'}).getByRole('button',{name:'列设置',exact:true}).click()
   await page.getByRole('button',{name:'编辑列 编号',exact:true}).click()
   const slider=page.getByRole('slider',{name:'编号列宽',exact:true})
   await expect(slider).toBeEnabled()
@@ -43,6 +72,18 @@ test('settings are loaded on click and locked controls remain visible',async({pa
   await expect(page.getByRole('status').filter({hasText:'查看 A-001'})).toBeVisible()
   await page.getByRole('button',{name:'更多操作 A-001',exact:true}).first().click()
   await expect(page.getByRole('menuitem',{name:'删除',exact:true})).toBeDisabled()
+})
+
+test('undeclared settings modules have no settings entry or empty placeholder',async({page})=>{
+  const requests:string[]=[]
+  page.on('request',request=>{if(/ColumnSettings/.test(request.url()))requests.push(request.url())})
+  await page.goto('/?example=config&mode=unconfigured')
+  await expect(page.locator('[data-business-table]')).toContainText('A-001')
+  await expect(page.getByTestId('column-settings')).toHaveCount(0)
+  await expect(page.getByTestId('table-settings')).toHaveCount(0)
+  await expect(page.getByTestId('details-count')).toHaveText('设置详情读取次数：0')
+  await expect(page.getByText('当前区域没有注册工具。',{exact:true})).toHaveCount(0)
+  expect(requests).toEqual([])
 })
 
 test('remote OFF bypasses settings details and module',async({page})=>{

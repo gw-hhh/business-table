@@ -3,6 +3,7 @@ import {mount,flushPromises,type VueWrapper} from '@vue/test-utils'
 import BusinessTable from '../src/BusinessTable.vue'
 import {defaultPresentation} from '../src/features/presentation/model'
 import type {Query} from '../src/types'
+import {allColumnCapabilities,fullSettingsDefinition} from './fixtures/settings'
 const wrappers:VueWrapper[]=[]
 function setup(overrides:Record<string,unknown>={}){
   const wrapper=mount(BusinessTable,{props:{tableKey:'full-runtime',columns:[{id:'name',field:'name',title:'名称',sortable:true},{id:'amount',field:'amount',title:'金额',type:'number',sortable:true}],data:[{id:'1',name:'甲',amount:10},{id:'2',name:'甲',amount:30},{id:'3',name:'乙',amount:40}],...overrides},global:{stubs:{'vxe-table':{props:['data'],template:'<div><span v-for="row in data" :key="row.id" class="row">{{row.id}}</span><slot/></div>'},'vxe-column':{template:'<div><slot name="header"/></div>'}}}}) as VueWrapper
@@ -11,7 +12,7 @@ function setup(overrides:Record<string,unknown>={}){
 afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount())})
 describe('table runtime state contracts',()=>{
   it('commits columns, appearance and sorting through one durable settings transaction',async()=>{
-    const save=vi.fn(async()=>{}),wrapper=setup({persistence:{load:async()=>null,save}});await flushPromises()
+    const save=vi.fn(async()=>{}),wrapper=setup({features:{columnSettings:true},settingsDefinition:fullSettingsDefinition(),columns:[{id:'name',field:'name',title:'名称',sortable:true,configurable:allColumnCapabilities},{id:'amount',field:'amount',title:'金额',type:'number',sortable:true,configurable:allColumnCapabilities}],persistence:{load:async()=>null,save}});await flushPromises()
     expect(typeof (wrapper.vm as any).applySettings).toBe('function')
     await (wrapper.vm as any).applySettings({columns:{name:{title:'新名称'}},sorts:[{field:'amount',order:'desc'}],presentation:{...defaultPresentation(),appearance:{...defaultPresentation().appearance,fontSize:18}}})
     expect(save).toHaveBeenCalledTimes(1)
@@ -27,6 +28,16 @@ describe('table runtime state contracts',()=>{
     await api.setColumnFilters([])
     expect(api.getState().rows.map((row:any)=>row.id)).toEqual(['1','2'])
     expect(api.getState().query.filters).toEqual([{field:'name',operator:'eq',value:'甲'}])
+  })
+  it('preserves saved settings when pagination props are recreated or their allowed sizes change',async()=>{
+    const wrapper=setup({features:{columnSettings:true},settingsDefinition:fullSettingsDefinition(),columns:[{id:'name',field:'name',title:'名称',configurable:allColumnCapabilities},{id:'amount',field:'amount',title:'金额',type:'number',configurable:allColumnCapabilities}],pagination:{pageSize:10,pageSizeOptions:[10,20]}});await flushPromises()
+    const api=wrapper.vm as any
+    await api.patch('name',{title:'已保存名称'})
+    await api.setPresentation({toolbar:{gap:12}})
+    await wrapper.setProps({pagination:{pageSize:10,pageSizeOptions:[10,20]}});await flushPromises()
+    expect(api.getState()).toMatchObject({columns:[{title:'已保存名称'},{}],presentation:{toolbar:{gap:12}},pageSize:10})
+    await wrapper.setProps({pagination:{pageSize:20,pageSizeOptions:[20,50]}});await flushPromises()
+    expect(api.getState()).toMatchObject({columns:[{title:'已保存名称'},{}],presentation:{toolbar:{gap:12}},pageSize:20})
   })
   it('applies AND/OR groups locally without replacing search conditions',async()=>{
     const wrapper=setup();await flushPromises();const api=wrapper.vm as any

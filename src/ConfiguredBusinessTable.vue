@@ -9,6 +9,7 @@ import type { PreferenceV3, TableDefinition } from './config/types'
 import { createRegistry, resolveRenderer, resolveRowActions, type RuntimeRegistry } from './runtime/registry'
 import type { FilterPlanPersistence } from './features/filters/plans'
 import type { ColumnConfig, DataSource, Query, RowData, TableConfig, ViewConfig } from './types'
+import type { ToolDefinition } from './features/presentation/model'
 
 const props = defineProps<{
   definition: TableDefinition
@@ -17,6 +18,7 @@ const props = defineProps<{
   data?: T[]
   dataSource?: DataSource<T>
   registry?: RuntimeRegistry<T>
+  tools?: {page:readonly ToolDefinition[];table:readonly ToolDefinition[]}
   views?: ViewConfig[]
   filterPlanPersistence?: FilterPlanPersistence | null
   loading?: boolean
@@ -64,6 +66,14 @@ const remoteFeatures = computed(() => {
 })
 const searchDefinition = computed(() => resolveFeatureGate(props.definition.features?.search, remoteFeatures.value?.search).enabled
   ? props.definition.search : undefined)
+const settingsDefinition = computed(() => resolveFeatureGate(props.definition.features?.columnSettings, remoteFeatures.value?.columnSettings).enabled
+  ? props.definition.settings : Object.hasOwn(props.definition, 'settings') ? {} : undefined)
+const settingsOverride = computed(() => {
+  if (!resolveFeatureGate(props.definition.features?.columnSettings, remoteFeatures.value?.columnSettings).enabled) return undefined
+  let value = props.remoteOverride
+  if (typeof value === 'string') { try { value = JSON.parse(value) as unknown } catch { return undefined } }
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string,unknown>).settings : undefined
+})
 const extensionErrors=new Set<string>()
 function report(diagnostic: ConfigDiagnostic) {
   if(diagnostic.code==='RuntimeExtensionError'){
@@ -118,6 +128,9 @@ defineExpose({
     :features="features"
     :remote-features="remoteFeatures"
     :search-definition="searchDefinition"
+    :settings-definition="settingsDefinition"
+    :settings-override="settingsOverride"
+    :tools="tools"
     :registry="registry()"
     :data="data"
     :data-source="dataSource"

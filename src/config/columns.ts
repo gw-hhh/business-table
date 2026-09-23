@@ -4,6 +4,7 @@ import {columnFontFamilies} from './font-families'
 import type { UserColumnConfig } from '../types'
 import type { DiagnosticReporter } from './diagnostics'
 import type { ColumnCapabilities, ConfigurableColumn } from './types'
+import { resolveControlAccess, type ControlAccess } from './access'
 
 export const columnTextStyleSchema = z.object({
   fontFamily: z.enum(columnFontFamilies).optional(),
@@ -67,8 +68,19 @@ export function parseColumnPatch(patch: unknown, report?: DiagnosticReporter, pa
 export function isColumnCapabilityEnabled(column: ConfigurableColumn, key: keyof ColumnCapabilities): boolean {
   // The flat API predates capabilities. A Definition always receives an explicit object.
   if (column.configurable === undefined) return true
-  const capability = column.configurable[key]
-  return capability === true || (isRecord(capability) && capability.enabled === true)
+  const access = getColumnCapabilityAccess(column, key)
+  return access.visible && !access.disabled
+}
+
+export function getColumnCapabilityAccess(column: ConfigurableColumn, key: keyof ColumnCapabilities): ControlAccess {
+  return resolveControlAccess(column.configurable?.[key])
+}
+export function isColumnCapabilityVisible(column: ConfigurableColumn, key: keyof ColumnCapabilities): boolean {
+  return getColumnCapabilityAccess(column, key).visible
+}
+/** Read-only locks future edits while keeping already saved values applicable. */
+export function isColumnCapabilityApplicable(column: ConfigurableColumn, key: keyof ColumnCapabilities): boolean {
+  return column.configurable === undefined || getColumnCapabilityAccess(column, key).visible
 }
 
 export function getColumnWidthBounds(column: ConfigurableColumn): { min: number; max: number } {
@@ -79,12 +91,12 @@ export function getColumnWidthBounds(column: ConfigurableColumn): { min: number;
   return { min, max: positive(constraint?.max, 500) }
 }
 
-export function guardColumnPatch(column: ConfigurableColumn, patch: unknown, report?: DiagnosticReporter): UserColumnConfig {
+export function guardColumnPatch(column: ConfigurableColumn, patch: unknown, report?: DiagnosticReporter, mode: 'read' | 'write' = 'write'): UserColumnConfig {
   const parsed = parseColumnPatch(patch, report, `columns.${column.id}`)
   const result: UserColumnConfig = {}
   for (const key of Object.keys(parsed) as (keyof UserColumnConfig)[]) {
     const value = parsed[key]
-    let allowed = isColumnCapabilityEnabled(column, capabilityKeys[key])
+    let allowed = mode === 'read' ? isColumnCapabilityApplicable(column, capabilityKeys[key]) : isColumnCapabilityEnabled(column, capabilityKeys[key])
     if (allowed && key === 'width') {
       const { min, max } = getColumnWidthBounds(column)
       allowed = (value as number) >= min && (value as number) <= max
@@ -115,11 +127,11 @@ export function applyColumnPatches<T extends ConfigurableColumn>(columns: T[], p
   }
   const entries = columns.map((column, index) => {
     const patch = own(patches, column.id)
-    const { order, ...fields } = patch === undefined ? {} : guardColumnPatch(column, patch, report)
+    const { order, ...fields } = patch === undefined ? {} : guardColumnPatch(column, patch, report, 'read')
     return { column: { ...column, ...fields }, index, order: order ?? index }
   })
-  const movable = entries.filter(entry => isColumnCapabilityEnabled(entry.column, 'order'))
+  const movable = entries.filter(entry => isColumnCapabilityApplicable(entry.column, 'order'))
     .sort((a, b) => a.order - b.order || a.index - b.index)
   let next = 0
-  return entries.map(entry => isColumnCapabilityEnabled(entry.column, 'order') ? movable[next++]!.column : entry.column)
+  return entries.map(entry => isColumnCapabilityApplicable(entry.column, 'order') ? movable[next++]!.column : entry.column)
 }

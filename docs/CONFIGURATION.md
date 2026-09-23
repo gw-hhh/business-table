@@ -1,6 +1,6 @@
 # 配置入口与功能开关
 
-当前提供配置解析、能力约束、运行时注册表、Search/Query Runtime，以及快捷列面板和设置抽屉的草稿、应用、取消闭环。报价页面作为宿主 Demo 展示通用布局插槽。完整 View 管理、Data Headless Runtime、映射和模板等仍按迁移矩阵继续。
+当前提供配置解析、能力约束、运行时注册表、Search/Query Runtime，以及快捷列面板和设置抽屉的草稿、应用、取消流程。设置页、列模块和字段能力使用统一的显示／只读策略；工具设置与真实工具共用声明。完整 View 管理、Data Headless Runtime、映射和模板的完整生命周期仍按迁移矩阵继续。
 
 ## 最简入口与旧 API
 
@@ -10,7 +10,7 @@
 
 默认只初始化 Core 查询、列、分页、加载、空状态和错误状态。rowKey 默认 id；tableKey 在无持久化时可省略，接入持久化必须提供稳定的非空标识。
 
-原1.0的 title/views/actions 显式 props 仍作为对应功能的代码声明。Search、Toolbar、ColumnSettings 需要显式 features 开关。原 Demo 和查询测试已调整声明，原能力保留。这是最简入口默认行为的兼容变化，已有调用方升级时应按 README 补充开关。
+原1.0的 title/views/actions 显式 props 仍作为对应功能的代码声明。Search、Toolbar、ColumnSettings 需要显式 features 开关。设置 UI 还需声明设置模块和列能力：直接入口传 `settingsDefinition`，配置入口传 `definition.settings`。仅打开 `features.columnSettings` 不会自动开放所有设置；已有调用方升级时应补充这些声明。
 
 ## Definition 与 Preference
 
@@ -31,6 +31,10 @@ const definition: TableDefinition = {
     },
   ],
   features: {search: true, toolbar: true, columnSettings: true},
+  settings: {
+    pages: {columns: true, appearance: {enabled: true, disabled: true}, toolbar: true},
+    columnSections: {basic: true},
+  },
   search: {
     resetBehavior: 'default',
     items: [
@@ -55,8 +59,8 @@ const definition: TableDefinition = {
 启用 Search 后，`ConfiguredBusinessTable` 使用 `definition.search`；直接使用 `BusinessTable` 时传入 `searchDefinition`。默认搜索界面、Custom 和 Headless 共用 Search Context。使用 `#search="{ context }"` 自定义界面时需设置 `features.search: { enabled: true, mode: 'custom' }`；使用 Headless `#before="{ search }"` 时设置 `mode: 'headless'`。`setValue(id, value)` 修改草稿，`submit()` 应用查询，`reset()` 按定义恢复默认值或清空。当前 View 的搜索值保存在 `search.values`，旧视图的关键词和条件会按字段与操作符迁移；完整 View 管理属于 BT-02。
 
 - access=false 的列不进入最终列集合。
-- default 设置代码默认值；未开放的 configurable 能力默认锁定。旧平面 ColumnConfig 无 configurable 时仍保留原先可编辑行为。
-- visible/order/rename/align/sortable/headerStyle/cellStyle 是布尔能力；width 支持 enabled/min/max；fixed 支持 enabled/allowedValues。
+- default 设置代码默认值；设置 UI 中未声明的 configurable 能力不显示。旧平面 ColumnConfig 无 configurable 时，底层程序化列修改保留历史兼容行为；设置 UI 仍要求显式声明。
+- configurable 各项支持 `true`、`false` 或 `{enabled, visible?, disabled?}`；width 另外支持 min/max，fixed 另外支持 allowedValues。
 - 宽度默认可调范围80–500，并遵守 minWidth。越界字段忽略并诊断，不丢弃同一个 patch 的合法字段。
 - 锁定顺序的列保持所在位置，其他列排序不会挤走它。
 - 表格显示、个人偏好和 View 不修改输入 Definition，也不持久化 VXE 私有对象。
@@ -79,6 +83,42 @@ Preference v3 示例：
 
 原 Persistence 继续收发 schema1。ConfiguredBusinessTable 通过 preferenceChange 发出 schema3，宿主负责新偏好存储与版本冲突处理。本批不包含远端409冲突工作流。存储读取或保存异常会发诊断，Core 数据仍可用。
 
+## 设置的显示与只读
+
+设置使用以下统一规则：
+
+| 本地声明 | 显示 | 可编辑 |
+|---|---|---|
+| 未配置、`false`、`{enabled: false}` | 否 | 否 |
+| `true`、`{enabled: true}` | 是 | 是 |
+| `{enabled: true, visible: false}` | 否 | 否 |
+| `{enabled: true, disabled: true}` | 是 | 否 |
+
+设置页 ID 为 `columns`、`sorts`、`actions`、`appearance`、`toolbar`。列模块 ID 为 `basic`、`content`、`number`、`filter`、`mapping`、`template`、`trial`。列模块还需要对应 `column.configurable` 能力：例如 number 对应 format，mapping 对应 mapping，trial 对应 trial。数字模块只适用于数字、金额和百分比列。
+
+列字段最终取 `pages.columns`、`columnSections` 和 `column.configurable` 的交集；任意一层隐藏则不显示，任意一层显式 disabled 则只读。例如：
+
+```ts
+settings: {
+  pages: {columns: true, sorts: true, actions: true, appearance: true, toolbar: true},
+  columnSections: {
+    basic: true, content: true, number: true, filter: true,
+    mapping: true, template: true, trial: true,
+  },
+}
+// 某列的设置能力：显示名称只读，宽度可编辑；未声明的其他能力隐藏。
+configurable: {
+  rename: {enabled: true, disabled: true},
+  width: {enabled: true, min: 100, max: 320},
+}
+```
+
+`ConfiguredBusinessTable` 的远端收窄声明放在 `remoteOverride.settings`；直接入口使用 `settingsOverride`。远端缺失沿用本地，远端只能隐藏或禁用已开放项，不能重新开启本地缺失、隐藏或只读的项。
+
+只读页仍可进入查看；输入、拖动、恢复默认、导入设置以及设置 Runtime 写入命令都受同一策略约束。只读表示拒绝后续修改，已有合法偏好和 View 中的值仍可读取和显示，不会因改为只读而回到初始值。设置应用与命名 View 保存是独立动作。
+
+没有注册操作时不显示操作按钮页；没有任何工具时不显示工具栏页，单个空工具区域也不显示。报价 Demo 和默认配置示例显式开放全部已实现设置；只读示例位于 `/?example=config&mode=readonly`，未配置示例位于 `/?example=config&mode=unconfigured`。
+
 ## Gate 与加载
 
 ```ts
@@ -92,7 +132,7 @@ features: {
 
 加载策略为 eager / after-definition / on-visible / on-interaction。列设置默认 on-interaction；View 默认 after-definition；其余本批模块默认 eager。第一次激活才读取 details、创建上下文和加载默认 UI，后续复用。加载失败提供重试，关闭或卸载会丢弃迟到结果。
 
-ESM 库与浏览器 Demo 拆分 UI 模块，未触发列设置时不请求其模块。UMD 保留旧单文件分发方式，不能提供独立网络分块；需要网络按需加载的宿主应使用 ESM 入口。XLSX/RichText/Compare 本批尚未实现，也未引入基础包。
+ESM 库与浏览器 Demo 拆分 UI 模块，未触发列设置时不请求其模块。UMD 保留旧单文件分发方式，不能提供独立网络分块；需要网络按需加载的宿主应使用 ESM 入口。列模板已有按需加载的富文本编辑器；完整导出、对比等高级能力继续按迁移矩阵实施。
 
 ## 自定义与 Headless 列设置
 
@@ -105,11 +145,11 @@ ESM 库与浏览器 Demo 拆分 UI 模块，未触发列设置时不请求其模
 </ConfiguredBusinessTable>
 ```
 
-mode=custom 使用宿主 Slot，仍经过相同能力 Guard。mode=headless 无默认入口或面板，宿主可调用 await table.activateFeature('columnSettings') 获取上下文；getFeatureContext 读取已加载上下文。原有 columns、patch(id, delta)、close 保持兼容；新增 baseColumns、apply(patches)、sorts/setSorts、previewRows/previewCell 和 openMode。columns 是当前视图覆盖后的结果，apply 对所有列逐项 Guard 后一次保存。它是列设置上下文，不代表所有高级能力的完整 Headless API。
+mode=custom 使用宿主 Slot，仍经过相同能力 Guard。mode=headless 无默认入口或面板，宿主可调用 await table.activateFeature('columnSettings') 获取上下文；getFeatureContext 读取已加载上下文。上下文提供 columns、patch(id, delta)、close、baseColumns、apply(patches)、sorts/setSorts、previewRows/previewCell、openMode 和 settingsPolicy。自定义 UI 应按 settingsPolicy 决定显示和只读；调用 patch/apply/commit 时仍会再次校验。columns 是当前视图覆盖后的结果，apply 对所有列逐项 Guard 后一次保存。它是列设置上下文，不代表所有高级能力的完整 Headless API。
 
 默认 UI 中，“列设置”打开快捷面板，“表格设置”打开完整抽屉。显隐、顺序、左右冻结、名称、宽度和文字样式先写草稿；确认/应用后才更新正式表。快捷面板的“更多设置”沿用同一草稿，取消丢弃，抽屉关闭且有未应用修改时提示放弃或继续。排序规则也先在预览中生效；应用后进入现有 Query.sorts，不另造持久化排序协议。
 
-列的 headerStyle/cellStyle 使用 ColumnTextStyle：字体只接受 inherit/sans-serif/serif/monospace，字号 10–32，字重 normal/500/600/bold，颜色为六位十六进制，对齐 left/center/right。配置解析和写入都校验，不接受任意 CSS 字符串。对应 configurable 能力未开放时，UI 可见且禁用，写入仍受 Guard 约束。
+列的 headerStyle/cellStyle 使用 ColumnTextStyle：字体使用受控 token（含 inherit/sans-serif/serif/monospace 及系统、微软雅黑等预设），字号 10–32，字重 normal/500/600/bold，颜色为六位十六进制，对齐 left/center/right。配置解析和写入都校验，不接受任意 CSS 字符串。对应 configurable 能力未声明时不显示，显式 disabled 时才显示只读。
 
 修改当前视图覆盖的字段时，仅解除该字段的临时视图覆盖，使手动修改即时生效；不改宿主传入的 View 对象，不自动保存该视图，其余视图覆盖仍保留。保存视图由宿主明确执行。
 
@@ -122,6 +162,23 @@ BusinessTable 的 selection、fill 和 density 均为可选项。selection 使�
 BusinessTable 的组件引用新增 setQuery({keyword,filters,sorts,viewId})、applyView(view?, keyword?)、getState()、getSelectedRows()、clearSelection()、openColumnSettings('quick'|'drawer')。setQuery/applyView 返回本次加载 Promise，复用原有取消及乱序保护；getState 包含最终列（含隐藏列），便于宿主保存完整视图。配置入口 ConfiguredBusinessTable 原有公开方法不因此自动扩展。
 
 previewCell(value,row,column) 是宿主显式提供的纯展示函数。预览复用相同格式化和列样式，表格内容 inert，不绑定业务处理函数。自定义 renderer 必须自行保持正文样式继承，且不得在渲染时执行业务操作；不能把有副作用的正式操作处理函数传入预览。
+
+列设置中的“试算”调用同一列显示／导出解释器，用临时原值核对映射、格式和模板结果，不修改业务数据。该功能不代表已完成 BT-08 的计算字段和公式引擎。
+
+## 工具声明与布局
+
+两个组件都可接收 `tools: {page, table}`。工具使用稳定 ID，并由业务代码提供 handler；标签、顺序、位置和展示形式由 `presentation.toolbar.page/table` 保存。页面工具区的宿主 UI 和内置表格工具区应消费同一份声明与布局。报价 Demo 已使用共享 `ToolStrip` 渲染真实按钮，设置中的调整会作用到实际工具。
+
+```ts
+const tools = {
+  page: [{id: 'create', label: '新增', icon: 'plus', handler: () => openCreate()}],
+  table: [{id: 'reload', label: '刷新', icon: 'refresh', handler: () => reloadRows()}],
+}
+```
+
+将 tools 传给表格，并显式开启 `features.toolbar` 和 `settings.pages.toolbar`。直接入口的模块配置变量是 settingsDefinition。仅开启 toolbar 且未提供表格工具时，组件提供内置刷新；显式提供空 table 数组则不补工具。未提供处理函数的普通工具不会由 ToolStrip 渲染成可点击空按钮；显式 disabled 的工具可以显示为禁用。
+
+工具设置也使用同一可用性判断，代码声明为不可见或未实现的工具不显示。偏好中的 `position: 'hidden'` 只隐藏真实按钮，设置项继续保留，方便重新开启。700px 及以下视口将非固定的直接工具放入“更多”，`fixed: true` 保持直接显示；切换视口不修改已保存的位置配置。
 
 ## Registry 与动作
 

@@ -17,7 +17,7 @@ export interface TablePresentation { appearance: Appearance; rowActions: RowActi
 export interface PresentationDelta { appearance?: Partial<Appearance>; rowActions?: Partial<RowActionLayout>; toolbar?: Partial<ToolbarLayout> }
 export interface ToolDefinition {
   id: string; label: string; icon?: string; order?: number; position?: ItemPosition; display?: DisplayMode
-  fixed?: boolean; immutable?: boolean; separator?: boolean; disabled?: boolean; active?: boolean
+  fixed?: boolean; immutable?: boolean; separator?: boolean; visible?: boolean; disabled?: boolean; active?: boolean; variant?: 'primary'
   handler?: (event: Event) => void | Promise<void>
 }
 export interface PresentedAction<T extends RowData = RowData> extends Action<T> { display?: DisplayMode; group?: 'normal' | 'export' | 'danger' }
@@ -81,16 +81,30 @@ function difference(current: unknown, base: unknown): unknown {
 export function presentationDelta(presentation: TablePresentation, base = defaultPresentation()): PresentationDelta {
   return difference(resolvePresentation(presentation), base) as PresentationDelta ?? {}
 }
-export function presentActions<T extends RowData>(registered: readonly Action<T>[], layout: RowActionLayout): PresentedAction<T>[] {
-  const resolve = (items: readonly Action<T>[], depth: number): PresentedAction<T>[] => {
+/** Resolve local availability without evaluating row predicates or saved visibility. */
+export function availableActions<T extends RowData>(registered: readonly Action<T>[]): Action<T>[] {
+  const resolve = (items: readonly Action<T>[], depth: number): Action<T>[] => {
     if (depth > 4) return []
-    const seen = new Set<string>(), result: PresentedAction<T>[] = []
+    const seen = new Set<string>(), result: Action<T>[] = []
     for (const item of items) {
       if (!item.id || seen.has(item.id)) continue
       seen.add(item.id)
-      const preference = Object.hasOwn(layout.items, item.id) ? layout.items[item.id]! : {}
-      if (item.visible === false || preference.position === 'hidden') continue
+      if (item.visible === false) continue
       const children = item.children ? resolve(item.children, depth + 1) : undefined
+      if (children && !children.length) continue
+      result.push(children ? { ...item, children } : item)
+    }
+    return result
+  }
+  return resolve(registered, 0)
+}
+export function presentActions<T extends RowData>(registered: readonly Action<T>[], layout: RowActionLayout): PresentedAction<T>[] {
+  const resolve = (items: readonly Action<T>[]): PresentedAction<T>[] => {
+    const result: PresentedAction<T>[] = []
+    for (const item of items) {
+      const preference = Object.hasOwn(layout.items, item.id) ? layout.items[item.id]! : {}
+      if (preference.position === 'hidden') continue
+      const children = item.children ? resolve(item.children) : undefined
       if (children && !children.length) continue
       const next: PresentedAction<T> = {
         ...item, ...(children ? { children } : {}),
@@ -105,13 +119,19 @@ export function presentActions<T extends RowData>(registered: readonly Action<T>
     }
     return result.sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
   }
-  return resolve(registered, 0)
+  return resolve(availableActions(registered))
+}
+/** Local declarations own availability; saved visibility never removes an item from its editor. */
+export function availableTools(registered: readonly ToolDefinition[]): ToolDefinition[] {
+  const seen = new Set<string>()
+  return registered.filter(item => {
+    if (!item.id || seen.has(item.id)) return false
+    seen.add(item.id)
+    return item.visible !== false && (typeof item.handler === 'function' || item.disabled === true)
+  })
 }
 export function presentTools(registered: readonly ToolDefinition[], preferences: Record<string, ToolPreference>): ToolDefinition[] {
-  const seen = new Set<string>()
-  return registered.flatMap(item => {
-    if (!item.id || seen.has(item.id)) return []
-    seen.add(item.id)
+  return availableTools(registered).flatMap(item => {
     const preference = Object.hasOwn(preferences, item.id) ? preferences[item.id]! : {}
     const position = item.immutable ? 'direct' : preference.position ?? item.position ?? 'direct'
     if (position === 'hidden') return []

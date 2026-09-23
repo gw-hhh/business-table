@@ -4,7 +4,11 @@ import type { Page, Locator } from '@playwright/test'
 const body = (page: Page) => page.locator('.vxe-table--main-wrapper .vxe-body--row')
 async function openColumn(page: Page, id: string, name: string) {
   const button = page.locator('.vxe-table--main-wrapper').getByTestId(`column-filter-${id}`)
-  await button.locator('xpath=ancestor::th').hover()
+  await button.scrollIntoViewIfNeeded()
+  // Lazy action columns can resize the header after hover; keyboard focus keeps
+  // this accessible trigger revealed while the table finishes its layout.
+  await button.focus()
+  await expect(button).toBeFocused()
   await button.click()
   const dialog = page.getByRole('dialog', { name: `筛选 · ${name}`, exact: true })
   await expect(dialog).toBeVisible(); return dialog
