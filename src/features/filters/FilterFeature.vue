@@ -116,7 +116,7 @@ async function removePlan() {
     <template #footer>
       <button v-if="single" type="button" class="bt-ui-button text" :disabled="busy || !column" @click="apply(true)">清除此列</button>
       <button v-else type="button" class="bt-ui-button text" :disabled="busy" @click="group = createFilterGroupDraft(context.columns)">清空条件</button>
-      <span class="bt-ui-fill"/><button type="button" class="bt-ui-button" :disabled="busy" @click="context.close">取消</button><button type="button" class="bt-ui-button primary" :disabled="busy || unavailable || single && !column" @click="apply()">{{single ? '应用筛选' : '应用条件'}}</button>
+      <span v-if="!single" class="bt-ui-fill"/><button type="button" class="bt-ui-button" :disabled="busy" @click="context.close">取消</button><button type="button" class="bt-ui-button primary" :disabled="busy || unavailable || single && !column" @click="apply()">{{single ? '应用筛选' : '应用条件'}}</button>
     </template>
   </DialogFrame>
   <DialogFrame v-if="nameOpen" :title="renameMode ? '重命名筛选方案' : '保存筛选方案'" :busy="busy" class="bt-filter-dialog" @close="nameOpen = false">

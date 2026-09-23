@@ -1,4 +1,4 @@
-import {computed,onBeforeUnmount,onMounted,readonly,ref,shallowRef,watch} from 'vue'
+import {computed,markRaw,onBeforeUnmount,onMounted,readonly,ref,shallowRef,watch} from 'vue'
 import type {ColumnConfig,DataSource,FilterConfig,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,UserColumnConfig,ViewConfig} from '../types'
 import type {ConfigDiagnostic} from '../config/diagnostics'
 import type {RuntimeRegistry} from './registry'
@@ -47,6 +47,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   const pages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize.value)))
   const jumpPage=ref(1),pageButtons=computed(()=>Array.from({length:Math.min(5,pages.value)},(_,index)=>Math.max(1,Math.min(page.value-2,pages.value-4))+index))
   const selected=shallowRef(new Map<string,T>())
+  let selectionRequest=0,selectionController:AbortController|undefined
   let sequence=0,identity=0,ready=false,disposed=false,controller:AbortController|null=null,preferenceController=new AbortController(),writeQueue:Promise<void>=Promise.resolve()
   const extensionErrors=new Set<string>(),commitListeners=new Set<(before:TableConfig,after:TableConfig)=>void>()
   function report(diagnostic:ConfigDiagnostic){
@@ -62,13 +63,18 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   })
   const {keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView}=queryRuntime
   const query=computed<Query>(()=>({page:page.value,pageSize:pageSize.value,...queryRuntime.query.value}))
+  // Labels depend on the source and query criteria, never the current page.
+  // Keep this an opaque identity so summary watchers do not traverse raw rows.
+  const filterOptionsIdentity=computed(()=>markRaw({tableKey:key(),source:input.dataSource??input.data,query:queryRuntime.query.value}))
   let lastSearchSignature=''
   const reportConfigError=(cause:unknown)=>report({code:'RemoteConfigError',path:'preference',message:cause instanceof Error?cause.message:String(cause)})
   function rowId(row:RowData){return String(getValue(row,rowKey())??'')}
   function getSelectedRows():T[]{return [...selected.value.values()]}
-  function clearSelection(){if(!selected.value.size)return;selected.value=new Map();events.selectionChange?.([])}
-  function selectRow(row:T,checked:boolean){const next=new Map(selected.value);if(checked)next.set(rowId(row),row);else next.delete(rowId(row));selected.value=next;events.selectionChange?.(getSelectedRows())}
-  function selectPage(checked:boolean){const next=new Map(selected.value);for(const row of rows.value){if(checked)next.set(rowId(row),row);else next.delete(rowId(row))}selected.value=next;events.selectionChange?.(getSelectedRows())}
+  function cancelQuerySelection(){selectionRequest++;selectionController?.abort();selectionController=undefined}
+  function clearSelection(){cancelQuerySelection();if(!selected.value.size)return;selected.value=new Map();events.selectionChange?.([])}
+  function selectRow(row:T,checked:boolean){cancelQuerySelection();const next=new Map(selected.value);if(checked)next.set(rowId(row),row);else next.delete(rowId(row));selected.value=next;events.selectionChange?.(getSelectedRows())}
+  function selectPage(checked:boolean){cancelQuerySelection();const next=new Map(selected.value);for(const row of rows.value){if(checked)next.set(rowId(row),row);else next.delete(rowId(row))}selected.value=next;events.selectionChange?.(getSelectedRows())}
+  watch([query,()=>input.tableKey,()=>input.rowKey,()=>input.dataSource,()=>input.data,()=>input.selection],cancelQuerySelection,{flush:'sync'})
   const allSelected=computed(()=>rows.value.length>0&&rows.value.every(row=>selected.value.has(rowId(row))))
   const someSelected=computed(()=>!allSelected.value&&rows.value.some(row=>selected.value.has(rowId(row))))
   watch(rows,current=>{
@@ -240,7 +246,21 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(!Array.isArray(result)||result.length>10000)throw new Error('浏览器最多处理 10000 条记录，请使用服务端导出。')
     return result
   }
-  async function optionsFor(column:ColumnConfig,search='',signal?:AbortSignal):Promise<FilterOption[]>{
+  async function selectQuery():Promise<void>{
+    if(disposed||input.selection!==true)throw new Error('表格当前未启用选择。')
+    cancelQuerySelection()
+    const requestId=selectionRequest,epoch=identity,active=new AbortController()
+    selectionController=active
+    const current=()=>!disposed&&epoch===identity&&requestId===selectionRequest&&!active.signal.aborted&&input.selection===true
+    try{
+      const result=await readRows('query',active.signal)
+      if(!current())return
+      selected.value=new Map(result.map(row=>[rowId(row),row]))
+      events.selectionChange?.(getSelectedRows())
+    }catch(cause){if(current())throw cause}
+    finally{if(selectionController===active)selectionController=undefined}
+  }
+  async function optionsFor(column:ColumnConfig,search='',signal?:AbortSignal,values?:readonly FilterOption['value'][]):Promise<FilterOption[]>{
     const resolved=allResolvedColumns.value.find(item=>item.id===column.id&&item.field===column.field)
     if(!resolved||!defaultColumnFilter(resolved).enabled)throw new Error('筛选字段已不可用。')
     column=resolved
@@ -248,7 +268,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     let result:FilterOption[]
     if(settings.source==='manual')result=cloneData(settings.options)
     else if(settings.source==='mapping')result=column.mapping?.items.map(item=>({value:item.value,label:item.label}))??column.valueMap?.map(item=>({value:item.value,label:item.label}))??[]
-    else if(input.dataSource?.options)result=await input.dataSource.options(column as ColumnConfig<T>,copyQuery(query.value),{search,signal})
+    else if(input.dataSource?.options)result=await input.dataSource.options(column as ColumnConfig<T>,copyQuery(query.value),{search,signal,...(values?{values:[...values]}:{})})
     else if(settings.source==='remote')throw new Error('此列未配置选项接口。')
     else result=collectFilterOptions(await readRows('all',signal),column)
     const needle=search.trim().toLocaleLowerCase()
@@ -276,15 +296,15 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   watch([()=>normalizePagination(input.pagination).pageSize,()=>normalizePagination(input.pagination).pageSizeOptions.join(',')],([next],[before])=>{
     updatePageSize(normalizePagination({...input.pagination,pageSize:next!==before?next:pageSize.value}).pageSize)
   })
-  watch([()=>input.dataSource,()=>input.data],([source],[previous])=>{if(source!==previous)page.value=1;if(source!==previous||!source)void load()},{deep:true})
+  watch([()=>input.dataSource,()=>input.data],([source],[previous])=>{cancelQuerySelection();if(source!==previous)page.value=1;if(source!==previous||!source)void load()},{deep:true})
   watch(()=>queryRuntime.searchSignature.value,signature=>{
     if(!ready||disposed||signature===lastSearchSignature)return
     page.value=1;clearSelection();void load()
   },{flush:'post'})
   watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
-  onBeforeUnmount(()=>{disposed=true;identity++;sequence++;preferenceController.abort();controller?.abort();commitListeners.clear()})
-  const commands={reload:()=>load(),setQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,goPage,readRows,optionsFor,sort}
-  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
+  onBeforeUnmount(()=>{disposed=true;identity++;sequence++;cancelQuerySelection();preferenceController.abort();controller?.abort();commitListeners.clear()})
+  const commands={reload:()=>load(),setQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,readRows,optionsFor,sort}
+  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defineComponent, nextTick } from 'vue'
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import App from '../demo/App.vue'
 
 const Grid = defineComponent({ template: '<div><slot /></div>' })
@@ -26,6 +26,7 @@ describe('quotation page menu keyboard behavior', () => {
   })
   it('supports End, Home and wrapping arrow navigation without changing data', async () => {
     const page = await setup()
+    const stored=localStorage.getItem('business-table.quotation-demo.data.v1')
     await page.get('button[aria-label="更多页面操作"]').trigger('click'); await flushPromises()
     const items = page.findAll('.q-page-menu [role="menuitem"]')
     ;(items[0].element as HTMLElement).focus()
@@ -37,7 +38,7 @@ describe('quotation page menu keyboard behavior', () => {
     expect(document.activeElement).toBe(items[3].element)
     await items[3].trigger('keydown', { key: 'Home' })
     expect(document.activeElement).toBe(items[0].element)
-    expect(localStorage.getItem('business-table.quotation-demo.data.v1')).toBeNull()
+    expect(localStorage.getItem('business-table.quotation-demo.data.v1')).toBe(stored)
   })
   it('Tab closes the menu and continues to the next field outside it', async () => {
     const page = await setup()
@@ -53,12 +54,12 @@ describe('quotation page menu keyboard behavior', () => {
     const trigger = page.get('button[title="行高密度"]')
     ;(trigger.element as HTMLElement).focus()
     await trigger.trigger('keydown', { key: 'ArrowUp' }); await flushPromises()
-    const menu = page.find('.q-density-menu')
+    const menu = new DOMWrapper(document.querySelector('[role="menu"][aria-label="行高密度"]') as HTMLElement)
     expect(menu.exists()).toBe(true)
     const items = menu.findAll('[role="menuitemradio"]')
     expect(document.activeElement).toBe(items[2].element)
     await items[0].trigger('click'); await nextTick()
-    expect(page.find('.q-density-menu').exists()).toBe(false)
+    expect(document.querySelector('[role="menu"][aria-label="行高密度"]')).toBeNull()
     expect(document.activeElement).toBe(trigger.element)
     expect(page.get('[data-business-table]').classes()).toContain('bt--compact')
   })

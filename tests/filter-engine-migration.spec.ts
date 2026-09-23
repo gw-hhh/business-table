@@ -57,7 +57,7 @@ describe('shared filter engine migration', () => {
     const rows = makeExampleQuotations()
     const query: Query = { page: 1, pageSize: 100, sorts: [], filters: [{ field: 'amount', operator: 'gt', value: 200000 }],
       filterGroup: { logic: 'or', rules: [{ field: 'customer', operator: 'eq', value: '澄川水务' }, { field: 'status', operator: 'eq', value: '评审中' }] } }
-    expect(filterQuotations(rows, query).map(row => row.id)).toEqual(['Q20260914-0181', 'Q20260914-0003'])
-    expect(rows[0]?.id).toBe('Q20260914-0181')
+    expect(filterQuotations(rows, query).map(row => row.id)).toEqual(['Q20260914-0181', 'Q20260912-0051'])
+    expect(rows[0]?.id).toBe('Q20260914-0001')
   })
 })

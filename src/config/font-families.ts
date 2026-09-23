@@ -21,3 +21,5 @@ export const fontOptions = [
 export function fontFamilyCss(value:ColumnFontFamily):string {
   return Object.hasOwn(fontFamilies,value)?fontFamilies[value].css:'inherit'
 }
+const excelFonts:Record<ColumnFontFamily,string>={inherit:'Microsoft YaHei','sans-serif':'Arial',serif:'Times New Roman',monospace:'Consolas',system:'Microsoft YaHei',yahei:'Microsoft YaHei',pingfang:'PingFang SC',simsun:'SimSun',mono:'Consolas'}
+export function fontFamilyExcel(value:ColumnFontFamily):string{return excelFonts[value]??excelFonts.system}

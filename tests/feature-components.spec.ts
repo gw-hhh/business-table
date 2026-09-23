@@ -15,6 +15,18 @@ function table(extra:Record<string,unknown>={}){
   wrappers.push(host);return host.findComponent(BusinessTable) as VueWrapper
 }
 describe('feature integration',()=>{
+  it('keeps hidden settings entry lazy while a registered tool can open the same guarded feature',async()=>{
+    const details=vi.fn(()=>({label:'字段'}))
+    const w=table({settingsDefinition:fullSettingsDefinition(),columns:columns.map(column=>({...column,configurable:{...allColumnCapabilities}})),features:{columnSettings:{enabled:true,entry:false,get details(){return details()}}}})
+    await flushPromises()
+    expect(w.find('[data-testid="column-settings"]').exists()).toBe(false)
+    expect(w.find('[data-testid="table-settings"]').exists()).toBe(false)
+    expect(details).not.toHaveBeenCalled()
+    const api=w.vm as unknown as {openColumnSettings:(mode:'quick')=>Promise<void>}
+    await api.openColumnSettings('quick')
+    await vi.waitFor(()=>expect(w.find('[data-testid="column-panel"]').exists()).toBe(true))
+    expect(details).toHaveBeenCalledTimes(1)
+  })
   it('minimal columns and data creates only the core table and pagination',async()=>{
     const w=table();await flushPromises()
     expect(w.text()).toContain('A')

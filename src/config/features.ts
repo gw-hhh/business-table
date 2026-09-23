@@ -4,6 +4,8 @@ export type FeatureRenderMode = 'default' | 'custom' | 'headless'
 export type FeatureLoadStrategy = 'eager' | 'after-definition' | 'on-visible' | 'on-interaction'
 export interface FeatureDeclaration {
   enabled: boolean
+  /** Hide only the default launch button; commands and contextual entry points remain available. */
+  entry?: boolean
   mode?: FeatureRenderMode
   loadStrategy?: FeatureLoadStrategy
   details?: {label?: string; allowedItems?: string[]}
@@ -36,4 +38,9 @@ export function readFeatureDetails(local:unknown, remote?:unknown, report?:Diagn
     result.allowedItems=Array.isArray(override?.allowedItems)?allowed.filter(id=>override.allowedItems instanceof Array&&override.allowedItems.includes(id)):[...allowed]
   }
   return result
+}
+
+export function featureEntryVisible(local:unknown,remote?:unknown):boolean {
+  if(!resolveFeatureGate(local,remote).enabled)return false
+  return record(local)?.entry!==false&&record(remote)?.entry!==false
 }

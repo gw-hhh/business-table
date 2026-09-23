@@ -27,7 +27,7 @@ function drop(id:string){const items=ordered(),from=items.findIndex(item=>item.i
         <label class="bt-settings-field"><span>按钮间距</span><select aria-label="按钮间距" :value="modelValue.gap" @change="patch({gap:Number(($event.target as HTMLSelectElement).value)})"><option v-for="gap in [4,8,12,16,20,24]" :key="gap" :value="gap">{{gap}} px</option></select></label>
       </div><label class="bt-settings-check"><input type="checkbox" :checked="modelValue.grouped" @change="patch({grouped:($event.target as HTMLInputElement).checked})">更多菜单按普通、导出、危险操作分组</label><p class="bt-settings-note">列宽不足时，末尾按钮自动放入“更多”。隐藏按钮不改变用户权限。</p>
     </section>
-    <section class="bt-settings-section"><div class="bt-settings-section__heading"><h4>按钮及顺序</h4></div>
+    <section class="bt-settings-section"><h4>按钮及顺序</h4>
 
       <div v-for="(action,index) in ordered()" :key="action.id" class="bt-action-setting" :data-action-setting="action.id" @dragover.prevent @drop.prevent="drop(action.id)">
         <div class="bt-action-setting__row">

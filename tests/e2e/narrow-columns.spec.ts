@@ -4,10 +4,10 @@ test('narrow tables keep project data readable and restore desktop frozen column
   await page.setViewportSize({ width: 390, height: 900 })
   await page.goto('/')
   const table = page.locator('[data-business-table]')
-  await expect(table.locator('.vxe-table--main-wrapper .vxe-body--row')).toHaveCount(3)
+  await expect(table.locator('.vxe-table--main-wrapper .vxe-body--row')).toHaveCount(6)
   const fixed = table.locator('.vxe-table--fixed-left-wrapper:visible, .vxe-table--fixed-right-wrapper:visible')
   await expect(fixed, 'mobile must not be covered by fixed ID and action overlays').toHaveCount(0)
-  const name = table.locator('.vxe-table--main-wrapper .q-project-cell').first()
+  const name = table.locator('.vxe-table--main-wrapper .bt-business-cell:has(.bt-cell-secondary)').first()
   await name.scrollIntoViewIfNeeded()
   expect(await name.evaluate(element => {
     const box = element.getBoundingClientRect()
@@ -32,6 +32,6 @@ test('narrow tables keep project data readable and restore desktop frozen column
   // A wide container that still overflows makes VXE's fixed overlays observable.
   await page.setViewportSize({ width: 900, height: 900 })
   await expect(fixed).toHaveCount(2)
-  await page.getByTestId('column-settings').click()
+  await page.getByRole('button',{name:'列设置',exact:true}).click()
   await expect(page.getByTestId('column-panel').getByTitle('左冻结 报价编号', { exact: true })).toHaveAttribute('aria-pressed', 'true')
 })

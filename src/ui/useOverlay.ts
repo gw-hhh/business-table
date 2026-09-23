@@ -2,9 +2,9 @@ import { nextTick, onBeforeUnmount, onMounted, type Ref } from 'vue'
 
 let locks = 0
 let originalOverflow = ''
-export function visibleControls(root: HTMLElement): HTMLElement[] {
+export function visibleControls(root: HTMLElement, includeProgrammatic = false): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href],[tabindex]')).filter(element => {
-    if (element.tabIndex < 0 || element.matches(':disabled') || element.closest('[inert],[hidden]')) return false
+    if ((!includeProgrammatic && element.tabIndex < 0) || element.matches(':disabled') || element.closest('[inert],[hidden]')) return false
     for (let current: HTMLElement | null = element; current && current !== root; current = current.parentElement) {
       const style = getComputedStyle(current)
       if (style.display === 'none' || style.visibility === 'hidden') return false

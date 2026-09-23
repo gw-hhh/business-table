@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { visibleControls } from './useOverlay'
-const props = withDefaults(defineProps<{ anchor: HTMLElement | null; label: string; role?: 'menu' | 'dialog'; width?: number }>(), { role: 'menu', width: 230 })
+import {registerPopup} from './popupScope'
+const props = withDefaults(defineProps<{ anchor: HTMLElement | null; label: string; role?: 'menu' | 'dialog'; width?: number; initialFocus?: 'first'|'last' }>(), { role: 'menu', width: 230, initialFocus:'first' })
 const emit = defineEmits<{ close: [restoreFocus?: boolean] }>()
 const popup = ref<HTMLElement>(), position = ref({ left:'0px', top:'0px', visibility:'hidden' as 'hidden'|'visible' })
+registerPopup(popup)
 let frame = 0
 function positionNow() {
   if (!popup.value || !props.anchor?.isConnected) return
@@ -21,19 +23,19 @@ function keydown(event: KeyboardEvent) {
   if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); return }
   if (event.key === 'Tab' && props.role === 'menu') { close(true); return }
   if (props.role !== 'menu' || !['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return
-  const items = visibleControls(popup.value), index = items.indexOf(document.activeElement as HTMLElement)
+  const items = visibleControls(popup.value,props.role==='menu'), index = items.indexOf(document.activeElement as HTMLElement)
   if (!items.length) return
   event.preventDefault()
   const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length
   items[next]?.focus()
 }
 onMounted(async () => {
-  await nextTick(); positionNow()
+  await nextTick(); positionNow(); await nextTick()
+  if (popup.value) {const items=visibleControls(popup.value,props.role==='menu');(items[props.initialFocus==='last'?items.length-1:0]??popup.value).focus({preventScroll:true})}
   frame = requestAnimationFrame(() => {
     document.addEventListener('pointerdown', outside)
     document.addEventListener('scroll', scrolled, true)
     window.addEventListener('resize', positionNow)
-    if (popup.value) (visibleControls(popup.value)[0] ?? popup.value).focus({ preventScroll:true })
   })
 })
 onBeforeUnmount(() => { cancelAnimationFrame(frame); document.removeEventListener('pointerdown',outside);document.removeEventListener('scroll',scrolled,true);window.removeEventListener('resize',positionNow) })

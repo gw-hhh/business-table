@@ -27,7 +27,6 @@ onBeforeUnmount(options.dispose)
 <template>
   <div class="bt-filter-values">
     <label v-if="config.search" class="bt-ui-field"><span class="bt-sr-only">搜索筛选项</span><input v-model="search" type="search" placeholder="搜索筛选项" aria-label="搜索筛选项"></label>
-    <div class="bt-filter-selection"><span>已选 {{modelValue.length}} 项</span><button type="button" class="bt-ui-button text" :disabled="!modelValue.length" @click="emit('update:modelValue', [])">清除选择</button></div>
     <div class="bt-filter-options" :aria-busy="loading">
       <p v-if="loading" class="bt-ui-note" role="status">正在加载筛选项…</p>
       <div v-else-if="error" class="bt-ui-error" role="alert">{{error}} <button type="button" class="bt-ui-button text" @click="options.load(search)">重试</button></div>

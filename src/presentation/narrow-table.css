@@ -1,4 +1,4 @@
 /* Container-based narrow presentation; the saved configuration stays unchanged. */
 .bt--narrow .bt__tools{gap:3px}
 .bt--narrow .bt__jump{display:none}
-.bt--fill.bt--narrow .bt__viewport{flex:none;height:360px;max-height:65dvh;min-height:0;overflow:auto}
+.bt--fill.bt--narrow .bt__viewport{flex:none;height:360px;max-height:65dvh;min-height:0;overflow:hidden}

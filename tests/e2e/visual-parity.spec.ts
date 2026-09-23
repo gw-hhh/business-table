@@ -1,8 +1,8 @@
 import type { Locator } from '@playwright/test'
 import { test, expect } from './runtime'
 
-// Product geometry comes from the legacy page and the six accepted reference
-// screenshots at 1920 × 945. These checks do not depend on generated snapshots.
+// Geometry and default state are measured from the actual legacy page at
+// 1920 × 945: six unfiltered rows, default density, and the current-object preview.
 const desktop = { width: 1920, height: 945 }
 
 async function expectBox(locator: Locator, expected: Partial<Record<'x' | 'y' | 'width' | 'height', number>>) {
@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
   await page.setViewportSize(desktop)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
-  await expect(page.locator('[data-business-table]')).toContainText('Q20260914-0181')
+  await expect(page.locator('[data-business-table]')).toContainText('Q20260914-0001')
 })
 
 test('quotation page restores the reference layout, density and footer', async ({ page }, testInfo) => {
@@ -30,24 +30,27 @@ test('quotation page restores the reference layout, density and footer', async (
   await expect(page.getByRole('heading', { name: '报价管理', exact: true })).toBeVisible()
   await expectBox(card, { x: 24, y: 96, width: 1872, height: 810 })
   await expectBox(mainTable.locator('.vxe-header--row').first(), { height: 44 })
-  await expect(rows).toHaveCount(3)
-  await expect(rows.nth(0)).toContainText('Q20260914-0181')
-  await expect(rows.nth(1)).toContainText('Q20260914-0121')
-  await expect(rows.nth(2)).toContainText('Q20260914-0001')
-  await expectBox(rows.first(), { height: 73 })
-  await expect(rows.first()).toContainText('化学品储罐监测')
+  await expect(rows).toHaveCount(6)
+  for (const [index, id] of ['Q20260914-0001','Q20260914-0181','Q20260914-0121','Q20260912-0051','Q20260912-0013','Q20260912-0002'].entries()) {
+    await expect(rows.nth(index)).toContainText(id)
+  }
+  await expectBox(rows.first(), { height: 61 })
+  await expect(rows.first()).toContainText('二期计量系统改造')
   await expect(rows.first()).toContainText('澄川水务')
-  await expect(rows.first()).toContainText('237,450.00')
+  await expect(rows.first()).toContainText('63,860.00')
+  await expect(page.getByRole('checkbox', { name: '选择当前页', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '展开', exact: true })).toBeVisible()
+  await expect(mainTable.locator('.bt__sort.is-sorted')).toHaveCount(0)
   await expectBox(card.locator('.bt__footer'), { y: 848, height: 57 })
-  await expect(card.locator('.bt__footer')).toContainText('376,510.00')
+  await expect(card.locator('.bt__footer')).toContainText('1,026,450.00')
   await expect(page.getByRole('button', { name: '下一页', exact: true })).toBeDisabled()
-  await expect(page.getByRole('combobox', { name: '每页条数' })).toHaveValue('100')
+  await expect(page.getByRole('combobox', { name: '每页条数' })).toHaveValue('10')
 
   await testInfo.attach('quotation-desktop', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
 })
 
 test('row More is an unclipped menu and Escape restores focus', async ({ page }) => {
-  const trigger = page.locator('[data-business-table]').getByRole('button', { name: '更多操作 Q20260914-0181', exact: true }).first()
+  const trigger = page.locator('[data-business-table]').getByRole('button', { name: '更多操作 Q20260914-0001', exact: true }).first()
   await trigger.click()
   const menu = page.getByRole('menu')
   await expectBox(menu, { width: 174 })
@@ -88,9 +91,17 @@ test('view popup restores the saved-view layout and applying a view changes the 
   await expect(popup.getByRole('button',{name:/^澄川水务专属/})).toBeVisible()
   await expect(popup.getByRole('button', { name: '更新当前视图', exact: true })).toBeVisible()
   await expect(popup.getByRole('button', { name: '另存为视图', exact: true })).toBeVisible()
-  await popup.getByRole('button', { name: '全部报价', exact: true }).click()
+  await popup.getByRole('button', { name: '澄川水务专属', exact: true }).click()
   await expect(popup).toHaveCount(0)
-  await expect(page.locator('[data-business-table] .vxe-table--main-wrapper .vxe-body--row')).toHaveCount(6)
+  const rows=page.locator('[data-business-table] .vxe-table--main-wrapper .vxe-body--row')
+  await expect(rows).toHaveCount(3)
+  await expect(rows.first()).toContainText('Q20260914-0001')
+  await expect(rows.last()).toContainText('Q20260914-0121')
+  await page.getByRole('button', { name: '保存与切换视图', exact: true }).click()
+  await popup.getByRole('button', { name: /^全部报价(?:\s*默认)?$/ }).click()
+  await expect(popup).toHaveCount(0)
+  await expect(rows).toHaveCount(6)
+  await expect(rows.first()).toContainText('Q20260914-0001')
   await expect(page.locator('[data-business-table]')).toContainText('泽临管道')
 })
 
@@ -98,7 +109,7 @@ test('quick columns uses a draft and preserves the paired freeze controls', asyn
   const table = page.locator('[data-business-table] .vxe-table--main-wrapper')
   const ownerHeader = table.locator('.vxe-header--column').filter({ hasText: '负责人' })
   await expect(ownerHeader).toBeVisible()
-  await page.getByTestId('column-settings').click()
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
   const panel = page.getByTestId('column-panel')
   await expectBox(panel, { width: 280 })
   await expect(panel.getByRole('checkbox', { name: '显示报价编号', exact: true })).toBeChecked()
@@ -120,7 +131,7 @@ test('quick columns uses a draft and preserves the paired freeze controls', asyn
   await panel.getByRole('button', { name: '取消', exact: true }).click()
   await expect(panel).toHaveCount(0)
   await expect(ownerHeader).toBeVisible()
-  await page.getByTestId('column-settings').click()
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
   await expect(panel.getByRole('checkbox', { name: '显示负责人', exact: true })).toBeChecked()
   await panel.getByRole('checkbox', { name: '显示负责人', exact: true }).uncheck()
   await panel.getByRole('button', { name: '确认', exact: true }).click()
@@ -130,11 +141,11 @@ test('quick columns uses a draft and preserves the paired freeze controls', asyn
 test('full settings restores the drawer and applies a column draft only on confirmation', async ({ page }) => {
   const table = page.locator('[data-business-table] .vxe-table--main-wrapper')
   const header = () => table.locator('.vxe-header--column').filter({ hasText: '负责人' })
-  await page.getByTestId('column-settings').click()
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
   await page.getByTestId('column-panel').getByRole('button', { name: '更多设置', exact: true }).click()
   const drawer = page.getByTestId('settings-drawer')
   await expectBox(drawer, { x: 880, y: 0, width: 1040, height: 945 })
-  await expectBox(drawer.getByTestId('settings-preview'), { y: 657, height: 227 })
+  await expectBox(drawer.getByTestId('settings-preview'), { y: 684, height: 200 })
   expect(await drawer.locator('.bt-settings-tabs').evaluate(element => element.scrollHeight - element.clientHeight), 'desktop settings tabs must fit without a vertical scrollbar').toBeLessThanOrEqual(0)
   await expect(drawer.getByRole('button', { name: '应用', exact: true })).toBeDisabled()
   await drawer.getByRole('button', { name: '编辑列 负责人', exact: true }).click()
@@ -158,7 +169,7 @@ test('narrow quotation and settings keep scrolling inside the content', async ({
   await page.setViewportSize({ width: 390, height: 900 })
   await expect(page.getByRole('heading', { name: '报价管理', exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
-  await page.getByTestId('column-settings').click()
+  await page.getByRole('button', { name: '列设置', exact: true }).click()
   const panel = page.getByTestId('column-panel')
   await expect(panel).toBeInViewport()
   await panel.getByRole('button', { name: '更多设置', exact: true }).click()
@@ -172,15 +183,18 @@ test('narrow quotation and settings keep scrolling inside the content', async ({
 })
 
 test('header text alignment is applied to the live table as well as the preview',async({page})=>{
-  await page.getByTestId('table-settings').click()
+  await page.getByRole('button', { name: '表格设置', exact: true }).click()
   const drawer=page.getByTestId('settings-drawer')
   await drawer.getByRole('button',{name:'编辑列 负责人',exact:true}).click()
   const headerStyle=drawer.locator('section').filter({has:page.getByRole('heading',{name:'表头文字',exact:true})})
   await headerStyle.getByRole('button',{name:'表头文字右对齐',exact:true}).click()
+  await expect(drawer.getByTestId('settings-preview').locator('th').filter({hasText:'负责人'})).toHaveCSS('text-align','right')
   await drawer.getByRole('button',{name:'应用',exact:true}).click()
   const cell=page.locator('.vxe-table--main-wrapper .vxe-header--column').filter({hasText:'负责人'})
+  await expect(cell.locator('.bt__sort')).toHaveCSS('justify-content','flex-end')
+  // Legacy measurement: 10px cell padding + 22px filter + 20px menu + two 1px gaps.
   await expect.poll(()=>cell.evaluate(element=>{
     const content=element.querySelector('.bt__sort')!
-    return Math.abs(element.getBoundingClientRect().right-content.getBoundingClientRect().right-10)
+    return Math.abs(element.getBoundingClientRect().right-content.getBoundingClientRect().right-54)
   })).toBeLessThanOrEqual(1)
 })

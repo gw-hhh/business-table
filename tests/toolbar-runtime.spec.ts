@@ -55,7 +55,7 @@ describe('registered toolbar tools share the persisted presentation', () => {
       { id: 'settings', label: '设置入口', immutable: true, handler: () => {} },
     ], layout } }); wrappers.push(wrapper); await flushPromises()
     expect(wrapper.find('[data-tool-id="ordinary"]').exists()).toBe(false)
-    expect(wrapper.findAll('.bt-tool-item').map(item => item.attributes('data-tool-id'))).toEqual(['fixed', 'settings'])
+    expect(wrapper.findAll('.bt-tool-item[data-tool-id]').map(item => item.attributes('data-tool-id'))).toEqual(['fixed', 'settings'])
     await wrapper.get('button[aria-haspopup="menu"]').trigger('click')
     expect(wrapper.get('[role="menu"] [data-tool-id="ordinary"] button').text()).toBe('普通工具')
     await wrapper.setProps({ layout: { ...layout, ordinary: { position: 'direct', fixed: true } } })
@@ -63,7 +63,7 @@ describe('registered toolbar tools share the persisted presentation', () => {
     expect(wrapper.find('.bt-tool-item[data-tool-id="ordinary"]').exists()).toBe(true)
     await wrapper.setProps({ layout })
     media.matches = false; media.dispatchEvent(new Event('change')); await flushPromises()
-    expect(wrapper.findAll('.bt-tool-item').map(item => item.attributes('data-tool-id'))).toEqual(['ordinary', 'fixed', 'settings'])
+    expect(wrapper.findAll('.bt-tool-item[data-tool-id]').map(item => item.attributes('data-tool-id'))).toEqual(['ordinary', 'fixed', 'settings'])
     expect(layout.ordinary).toEqual({ position: 'direct' })
   })
   it('applies the Demo settings transaction to the registered toolbar', async () => {
@@ -71,13 +71,13 @@ describe('registered toolbar tools share the persisted presentation', () => {
     const wrapper = mount(App, { attachTo: document.body, global: { stubs: { 'vxe-table': defineComponent({ template: '<div><slot /></div>' }), 'vxe-column': defineComponent({ template: '<div><slot name="header" /></div>' }), teleport: true } } }) as VueWrapper
     wrappers.push(wrapper); await flushPromises()
     const api = wrapper.findComponent(BusinessTable).vm as unknown as { getFeatureContext: (name: string) => unknown }
-    await wrapper.get('[data-testid="table-settings"]').trigger('click'); await flushPromises()
+    await wrapper.get('button[aria-label="表格设置"]').trigger('click'); await flushPromises()
     await vi.waitFor(() => expect(api.getFeatureContext('columnSettings')).toBeDefined())
     await wrapper.get('button[aria-label="工具栏"]').trigger('click')
     await wrapper.get('select[aria-label="模板下载工具位置"]').setValue('hidden')
     const apply = wrapper.findAll('button').find(button => button.text() === '应用')!
     await apply.trigger('click'); await flushPromises()
-    await wrapper.findAll('button').find(button => button.text() === '收起')!.trigger('click'); await flushPromises()
+    await wrapper.findAll('button').find(button => button.text() === '展开')!.trigger('click'); await flushPromises()
     expect(wrapper.find('button[aria-label="模板下载"]').exists()).toBe(false)
     localStorage.clear()
   })

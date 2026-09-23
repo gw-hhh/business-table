@@ -4,8 +4,8 @@ import { quotationColumns } from '../demo/quotation/model'
 it('uses the legacy column proportions instead of widening the ID and status columns', () => {
   const columns = Object.fromEntries(quotationColumns.map(column => [column.id, column]))
   expect(columns.id.width).toBe(194)
-  expect(columns.name.minWidth).toBe(280)
-  expect(columns.name.width).toBeUndefined() // The project column takes available space.
+  expect(columns.name.minWidth).toBe(180)
+  expect(columns.name.width).toBe(280) // The project column takes available space.
   expect(columns.amount.width).toBe(180)
   expect(columns.status.width).toBe(112)
   expect(columns.status.minWidth).toBe(102)

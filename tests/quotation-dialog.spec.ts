@@ -1,11 +1,11 @@
 import { afterEach, expect, it } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import QuotationDialog from '../demo/quotation/QuotationDialog.vue'
+import DialogFrame from '../src/ui/DialogFrame.vue'
 
 afterEach(() => { document.body.replaceChildren() })
 
 it('puts initial focus on the requested editable field rather than the close button', async () => {
-  const wrapper = mount(QuotationDialog, {
+  const wrapper = mount(DialogFrame, {
     props: { title: '新增报价' }, attachTo: document.body,
     slots: { default: '<label>项目名称<input id="project-name" autofocus/></label>' },
   })
@@ -17,7 +17,7 @@ it('puts initial focus on the requested editable field rather than the close but
 it('keeps focus inside the dialog and returns to the launching button on close', async () => {
   const trigger = document.createElement('button')
   document.body.append(trigger); trigger.focus()
-  const wrapper = mount(QuotationDialog, {
+  const wrapper = mount(DialogFrame, {
     props: { title: '报价详情' }, attachTo: document.body,
     slots: { default: '<fieldset disabled><input autofocus value="readonly"/></fieldset>', footer: '<button id="dialog-last">关闭</button>' },
   })

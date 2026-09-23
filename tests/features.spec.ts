@@ -1,8 +1,15 @@
 import {describe,it,expect,vi} from 'vitest'
-import {resolveFeatureGate,readFeatureDetails} from '../src/config/features'
+import {resolveFeatureGate,readFeatureDetails,featureEntryVisible} from '../src/config/features'
 import {createFeatureController} from '../src/runtime/feature'
 
 describe('feature gates before details',()=>{
+  it('hides a default entry without disabling contextual commands, and remote cannot widen it',()=>{
+    const local={enabled:true,entry:false}
+    expect(featureEntryVisible(local,{entry:true})).toBe(false)
+    expect(resolveFeatureGate(local).enabled).toBe(true)
+    expect(featureEntryVisible(true,{entry:false})).toBe(false)
+    expect(featureEntryVisible(false,{enabled:true,entry:true})).toBe(false)
+  })
   it.each([
     [undefined,undefined,false],[false,{enabled:true},false],
     [true,undefined,true],[true,{},true],[true,{enabled:false},false],

@@ -8,7 +8,7 @@ export interface CellResult {
   excelFormat: string; mapping?: MappingItem; document?: RichDocument
 }
 
-function decimal(value: unknown): [bigint, bigint] | null {
+export function decimal(value: unknown): [bigint, bigint] | null {
   if (typeof value === 'bigint') return [value, 1n]
   if (!['string', 'number'].includes(typeof value) || typeof value === 'number' && !Number.isFinite(value)) return null
   const text = String(value).trim()

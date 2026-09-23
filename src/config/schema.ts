@@ -22,7 +22,7 @@ const capabilitySchemas = { content:controlCapability,format:controlCapability,m
 const optionalColumnSchemas = {
   ...ruleFieldSchemas,kind:z.enum(['data','actions']),
   type: z.enum(['text', 'number', 'currency', 'percent', 'date', 'enum', 'boolean']),
-  width: z.number().positive(), minWidth: z.number().positive(), visible: z.boolean(), fixed,
+  width: z.number().positive(), minWidth: z.number().positive(), grow: z.number().nonnegative(), visible: z.boolean(), fixed,
   align: z.enum(['left', 'center', 'right']), sortable: z.boolean(), filterable: z.boolean(), emptyText: z.string(),
   headerStyle:columnTextStyleSchema,cellStyle:columnTextStyleSchema,
   numberFormat: z.object({ style: z.enum(['decimal', 'currency', 'percent']).optional(), currency: z.string().regex(/^[a-zA-Z]{3}$/).optional(), useGrouping: z.boolean().optional(), minimumFractionDigits: z.number().int().min(0).max(20).optional(), maximumFractionDigits: z.number().int().min(0).max(20).optional(), percentBase: z.enum(['ratio', 'percent']).optional(), prefix: z.string().optional(), suffix: z.string().optional() })

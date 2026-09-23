@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import BusinessTable from '../src/BusinessTable.vue'
 import { viewQueryEquals } from '../src/features/views/runtime'
-import { normalizeSearchDefinition } from '../src/features/search/model'
+import { normalizeSearchDefinition, type SearchSummaryItem } from '../src/features/search/model'
 import type { FilterConfig, Query, RowData, ViewConfig } from '../src/types'
 
 const columns = [
@@ -34,7 +34,7 @@ interface Api {
   applyView(view: ViewConfig): Promise<void>
   setQuery(value: Partial<Query>): Promise<void>
   setFilterState(value: { columnFilters: FilterConfig[] }): Promise<void>
-  getFeatureContext(name: 'search'): { getValue(id: string): unknown; setValue(id: string, value: unknown): void; submit(): Promise<void>; reset(): Promise<void>; pending: boolean } | undefined
+  getFeatureContext(name: 'search'): { getValue(id: string): unknown; setValue(id: string, value: unknown): void; submit(): Promise<void>; reset(): Promise<void>; pending: boolean; readonly summaryItems: SearchSummaryItem[] } | undefined
 }
 const wrappers: VueWrapper[] = []
 beforeAll(async () => { await import('../src/components/TableSearch.vue') })
@@ -59,6 +59,31 @@ async function setup(extra: Record<string, unknown> = {}) {
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()); document.body.innerHTML = '' })
 
 describe('Search Feature and Query Runtime', () => {
+  it('restores and saves a preset choice while projecting only its backend conditions', async () => {
+    const { api, queries } = await setup({ searchDefinition: { items: [
+      { id: 'status', label: '状态', kind: 'select', field: 'status', options: [
+        { value: 'open', label: '未结', filters: [{ field: 'status', operator: 'in', value: [1, 2] }] },
+      ] },
+    ] } })
+    await api.applyView({ id: 'backend', name: '后台视图', search: { values: { status: 'open' } } })
+    expect(queries.at(-1)?.filters).toEqual([{ field: 'status', operator: 'in', value: [1, 2] }])
+    expect(api.getState().total).toBe(3)
+    expect(api.getFeatureContext('search')!.summaryItems).toEqual([{ id: 'status', label: '状态', value: 'open', displayValue: '未结' }])
+    expect(api.viewSnapshot().search?.values).toEqual({ status: 'open' })
+    expect(api.viewSnapshot().filters).toEqual([])
+  })
+  it('exposes applied labels separately from typed backend values and draft edits', async () => {
+    const { api, queries } = await setup()
+    await api.applyView({ id: 'backend', name: '后台视图', search: { values: { status: 1 } } })
+    const context = api.getFeatureContext('search')!
+    expect(context.summaryItems).toEqual([{ id: 'status', label: '状态', value: 1, displayValue: '待处理' }])
+    context.setValue('status', 2)
+    expect(context.summaryItems[0]!.value).toBe(1)
+    await context.submit()
+    expect(context.summaryItems).toEqual([{ id: 'status', label: '状态', value: 2, displayValue: '已完成' }])
+    expect(queries.at(-1)?.filters).toEqual([{ field: 'status', operator: 'eq', value: 2 }])
+    expect(api.viewSnapshot().search?.values.status).toBe(2)
+  })
   it('keeps multi-field drafts separate until submit and projects typed filters once', async () => {
     const { wrapper, api, queries } = await setup()
     const initial = queries.length

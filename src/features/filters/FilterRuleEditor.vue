@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ColumnConfig } from '../../types'
-import { defaultColumnFilter, operatorLabels, type FilterOption } from './model'
+import { defaultColumnFilter, filterInputUnit, operatorLabels, type FilterOption } from './model'
 import type { FilterRuleDraft } from './editor'
 import FilterOptions from './FilterOptions.vue'
 const props = defineProps<{
@@ -13,10 +13,7 @@ const config = computed(() => defaultColumnFilter(props.column))
 const relative = computed(() => ['nextDays', 'pastDays'].includes(props.modelValue.operator))
 const date = computed(() => config.value.type === 'date' && !relative.value)
 const patch = (value: Partial<FilterRuleDraft>) => emit('update:modelValue', { ...props.modelValue, ...value })
-const unit = computed(() => {
-  const factor = props.modelValue.unitFactor ?? 1
-  return factor === 10000 ? '万（原值 ÷ 10000）' : factor === 1000 ? '千（原值 ÷ 1000）' : factor === 1e8 ? '亿（原值 ÷ 100000000）' : factor === .01 ? '百分比，例如 10 代表 10%' : '原始数值'
-})
+const unit = computed(() => filterInputUnit(props.column, props.modelValue.unitFactor) || '原始数值')
 </script>
 <template>
   <div class="bt-filter-rule-editor">

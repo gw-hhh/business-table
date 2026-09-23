@@ -5,6 +5,12 @@ import {
 } from '../demo/quotation/model'
 
 describe('quotation demo product interactions', () => {
+  it('defaults new validity to thirty days and rejects fractional cents or reversed dates',()=>{
+    const rows=makeExampleQuotations(),draft=createQuotationDraft(undefined,rows,new Date('2026-09-23T08:00:00Z'))
+    expect(draft.date).toBe('2026-10-23')
+    expect(()=>saveQuotation(rows,{...rows[0]!,amount:1.234})).toThrow('两位小数')
+    expect(()=>saveQuotation(rows,{...rows[0]!,date:'2026-09-01'})).toThrow('有效期')
+  })
   it('combines keyword, customer, owner and inclusive creation dates before pagination', () => {
     const rows = makeExampleQuotations()
     const query = makeQuotationQuery({ keyword: '计量', customer: '澄川水务', status: '', region: '', owner: '林予安', from: '2026-09-14', to: '2026-09-14' })
@@ -31,7 +37,7 @@ describe('quotation demo product interactions', () => {
     expect(saved[0]!.name).toBe('新的项目名称')
     expect(saved[0]!.amount).toBe(1)
     expect(saved[1]).toEqual(rows[1])
-    expect(rows[0]!.amount).toBe(237450)
+    expect(rows[0]!.amount).toBe(63860)
   })
 
   it('round trips a backup and rejects broken or duplicate records before replacing data', () => {

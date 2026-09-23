@@ -1,20 +1,25 @@
 <script setup lang="ts" generic="T extends RowData">
-import{computed,defineAsyncComponent,reactive,ref,useSlots,type ComponentPublicInstance,type VNodeChild}from'vue'
+import{computed,defineAsyncComponent,reactive,ref,shallowReactive,useSlots,type ComponentPublicInstance,type VNodeChild}from'vue'
 import type{Action,ColumnConfig,DataSource,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,UserColumnConfig,ViewConfig}from'./types'
 import{displayValue,getValue}from'./core'
-import {readFeatureDetails,resolveFeatureGate,type TableFeatures} from './config/features'
+import {readFeatureDetails,resolveFeatureGate,featureEntryVisible,type TableFeatures} from './config/features'
 import type {ConfigDiagnostic} from './config/diagnostics'
 import FeatureHost from './components/FeatureHost.vue'
 import CellRenderer from './components/CellRenderer'
 import TableIcon from './components/TableIcon.vue'
 import {columnTextCss as textStyle} from './components/settingsTypes'
 import {useNarrowTable} from './presentation/useNarrowTable'
+import {useTableViewport,scrollViewportByKey} from './presentation/useTableViewport'
+import {resolveColumnLayout} from './presentation/columnLayout'
 import {useTableRuntime} from './runtime/useTableRuntime'
 import type {RuntimeRegistry} from './runtime/registry'
 import type {PresentationDelta,ToolDefinition} from './features/presentation/model'
 import type {SettingsCommit} from './features/settings/session'
 import {guardSettingsColumnPatch,resolveSettingsPolicy,type SettingsDefinition} from './features/settings/policy'
 import BusinessCell from './components/BusinessCell.vue'
+import ColumnHeader from './features/columns/ColumnHeader.vue'
+import type {ColumnHeaderContext} from './features/columns/header'
+import {getSettingsColumnFieldAccess} from './features/settings/policy'
 import {cloneData} from './runtime/value'
 import {fontFamilyCss} from './config/font-families'
 import type {FilterPlanPersistence} from './features/filters/plans'
@@ -23,10 +28,13 @@ import {defaultColumnFilter} from './features/filters/model'
 const FilterChips=defineAsyncComponent(()=>import('./features/filters/FilterChips.vue'))
 const defaultSearchDefinition={items:[{id:'keyword',label:'关键词',kind:'keyword',defaultValue:''}]}
 const tableElement=ref<HTMLElement>()
+const viewportElement=ref<HTMLElement>()
 const gridElement=ref<{recalculate:(full?:boolean)=>Promise<void>}>()
-const narrow=useNarrowTable(tableElement,()=>{
+function recalculateGrid(){
   void gridElement.value?.recalculate(true).catch(cause=>{error.value=cause instanceof Error?cause.message:String(cause)})
-})
+}
+const narrow=useNarrowTable(tableElement,recalculateGrid)
+const viewportSize=useTableViewport(viewportElement,recalculateGrid,()=>viewportElement.value?.querySelector<HTMLElement>('.vxe-table--main-wrapper .vxe-table--header-wrapper')??undefined)
 const props=withDefaults(defineProps<{settingsDefinition?:SettingsDefinition;settingsOverride?:unknown;filterPlanPersistence?:FilterPlanPersistence|null;presentation?:PresentationDelta;tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;preferenceTimeoutMs?:number;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;searchDefinition?:unknown;registry?:RuntimeRegistry<T>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default',preferenceTimeoutMs:3000})
 const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]];cellAction:[{action:'open'|'copy';row:T;column:ColumnConfig<T>}]}>()
 const slots=useSlots()
@@ -71,7 +79,7 @@ async function cellAction(action:'open'|'copy',row:T,column:ColumnConfig<T>){
 }
 const showHeader=computed(()=>(['title','search','views','toolbar','columnSettings','filters'] as const).some(name=>{const value=gate(name);return value.enabled&&value.mode!=='headless'}))
 const hasHeaderFeatures=computed(()=>(['title','search','views','toolbar','columnSettings','filters'] as const).some(name=>gate(name).enabled))
-const hosts=new Map<FeatureName,{activate:()=>Promise<object|undefined>;getContext:()=>object|undefined}>()
+const hosts=shallowReactive(new Map<FeatureName,{activate:()=>Promise<object|undefined>;getContext:()=>object|undefined}>())
 function setHost(name:FeatureName,value:Element|ComponentPublicInstance|null){if(value)hosts.set(name,value as unknown as ReturnType<typeof hosts.get> & {});else hosts.delete(name)}
 function titleContext(details:{label?:string}){return reactive({get label(){return details.label??props.title??'数据列表'},get total(){return total.value}})}
 function searchContext(){return runtime.searchContext()}
@@ -114,10 +122,37 @@ function resetSettingsEntry(){
   const context=hosts.get('columnSettings')?.getContext() as ReturnType<typeof columnSettingsContext>|undefined
   if(context){context.openMode=runtime.settingsPolicy.value.pages.columns.visible?'quick':'drawer';context.initialTab='columns';context.selectedColumnId=undefined}
 }
-function rowActionsContext(details:{allowedItems?:string[]}){
-  return reactive({get fixed(){return narrow.value?false:actionColumn.value?.fixed??'right' as const},get column(){return actionColumn.value},get layout(){return presentation.value.rowActions},get actions(){return props.actionProvider?.(details)??props.actions??[]},rowId,reportError(cause:unknown){report({code:'RuntimeExtensionError',path:'rowActions',message:cause instanceof Error?cause.message:String(cause)})}})
+function columnHeaderContext(column:ColumnConfig):ColumnHeaderContext {
+  return {
+    column,baseWidth:sourceColumns.value.find(item=>item.id===column.id)?.width,
+    get sorts(){return sorts.value},
+    get filterable(){return gate('filters').enabled&&gate('filters').mode!=='headless'&&column.kind!=='actions'&&defaultColumnFilter(column).enabled},
+    get filtered(){return columnFilters.value.some(rule=>rule.field===column.field)},
+    get settings(){return gate('columnSettings').enabled&&runtime.settingsPolicy.value.pages.columns.visible},
+    access:field=>getSettingsColumnFieldAccess(column,field,runtime.settingsPolicy.value),
+    patch:change=>applyPatches(settingsPatches({[column.id]:change})),
+    sort:order=>order===undefined?sort(column):setQuery({sorts:order===null?sorts.value.filter(rule=>rule.field!==column.field):[{field:column.field,order},...sorts.value.filter(rule=>rule.field!==column.field)]}),
+    filter:()=>void openFilters(column.id),configure:()=>void openColumnSettings('drawer',column.id),
+  }
 }
-defineExpose({openFilters,setFilterState,applySettings,setPresentation,setColumnFilters,readRows:runtime.readRows,optionsFor:runtime.optionsFor,viewSnapshot:runtime.viewSnapshot,getRuntime:()=>runtime,reload:()=>load(),setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>hosts.get(name)?.getContext()})
+function rowActionsContext(details:{allowedItems?:string[]}){
+  return reactive({get header(){return actionColumn.value?columnHeaderContext(actionColumn.value):undefined},get renderWidth(){return actionColumn.value?columnLayout.value.widths[actionColumn.value.id]:undefined},get fixed(){return narrow.value?false:actionColumn.value?.fixed??'right' as const},get column(){return actionColumn.value},get layout(){return presentation.value.rowActions},get actions(){return props.actionProvider?.(details)??props.actions??[]},rowId,reportError(cause:unknown){report({code:'RuntimeExtensionError',path:'rowActions',message:cause instanceof Error?cause.message:String(cause)})}})
+}
+
+const hasRenderedActions=computed(()=>{
+  if(!gate('rowActions').enabled||gate('rowActions').mode==='headless')return false
+  // Layout consumes an activated feature context; it must never initiate detail or registry reads.
+  const context=hosts.get('rowActions')?.getContext() as {actions:readonly Action<T>[]} | undefined
+  return Boolean(context?.actions.length)
+})
+const columnLayout=computed(()=>resolveColumnLayout(
+  resolvedColumns.value.filter(column=>column.kind!=='actions'||hasRenderedActions.value),
+  viewportSize.value.width,
+  (props.selection?44:0)+(presentation.value.appearance.index?48:0),
+))
+// Native stable gutters absorb small overflows within their reserved space; do not add a second scrollbar row for them.
+const gridScrollbars=computed(()=>props.fill?{y:{visible:'visible' as const},x:{visible:columnLayout.value.totalWidth>viewportSize.value.frameWidth}}:undefined)
+defineExpose({openFilters,setFilterState,applySettings,setPresentation,setColumnFilters,readRows:runtime.readRows,selectQuery:runtime.selectQuery,optionsFor:runtime.optionsFor,viewSnapshot:runtime.viewSnapshot,getRuntime:()=>runtime,reload:()=>load(),setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>hosts.get(name)?.getContext()})
 </script>
 <template>
 <section ref="tableElement" class="bt" :class="{'bt--narrow':narrow,'bt--fill':fill,['bt--'+presentation.appearance.density]:true,['bt-border--'+presentation.appearance.border]:true,'bt--stripe':presentation.appearance.stripe,'bt--no-hover':!presentation.appearance.hover}" :style="tableStyle" data-business-table :aria-busy="Boolean(loading||busy)">
@@ -131,24 +166,24 @@ defineExpose({openFilters,setFilterState,applySettings,setPresentation,setColumn
       <FeatureHost :key="tableKey" v-if="gate('search').enabled" :ref="value=>setHost('search',value)" :local="declarations.search" :remote="remoteFeatures?.search" :create-context="searchContext" :loader="()=>import('./components/TableSearch.vue')" @diagnostic="report"><template #custom="{context}"><slot name="search" :context="context"/></template></FeatureHost>
       <FeatureHost :key="tableKey" v-if="gate('views').enabled" :ref="value=>setHost('views',value)" :local="declarations.views" :remote="remoteFeatures?.views" default-strategy="after-definition" :create-context="viewsContext" :loader="()=>import('./components/ViewSwitcher.vue')" @diagnostic="report"><template #custom="{context}"><slot name="views" :context="context"/></template></FeatureHost>
       <FeatureHost :key="tableKey" v-if="gate('columnSettings').enabled" :ref="value=>setHost('columnSettings',value)" :local="declarations.columnSettings" :remote="remoteFeatures?.columnSettings" default-strategy="on-interaction" :entry-label="settingsEntryLabel" entry-icon="columns" test-id="column-settings" @entry="resetSettingsEntry" :create-context="columnSettingsContext" :loader="()=>import('./components/ColumnSettings.vue')" @diagnostic="report"><template #custom="{context}"><slot name="column-settings" :context="context"/></template></FeatureHost>
-      <button v-if="gate('columnSettings').enabled&&gate('columnSettings').mode==='default'" class="bt__settings-trigger" data-testid="table-settings" @click="openColumnSettings('drawer')"><TableIcon name="settings"/>表格设置</button>
+      <button v-if="gate('columnSettings').enabled&&gate('columnSettings').mode==='default'&&featureEntryVisible(declarations.columnSettings,remoteFeatures?.columnSettings)" class="bt__settings-trigger" data-testid="table-settings" @click="openColumnSettings('drawer')"><TableIcon name="settings"/>表格设置</button>
       <FeatureHost :key="tableKey" v-if="gate('toolbar').enabled" :ref="value=>setHost('toolbar',value)" :local="declarations.toolbar" :remote="remoteFeatures?.toolbar" :create-context="toolbarContext" :loader="()=>import('./components/TableToolbar.vue')" @diagnostic="report"><template #custom="{context}"><slot name="toolbar" :context="context"/></template></FeatureHost>
       <FeatureHost :key="tableKey" v-if="gate('filters').enabled" :ref="value=>setHost('filters',value)" :local="declarations.filters" :remote="remoteFeatures?.filters" default-strategy="on-interaction" entry-label="组合筛选" entry-icon="filter" test-id="combined-filter" @entry="resetFilterEntry" :create-context="filtersContext" :loader="()=>import('./features/filters/FilterFeature.vue')" @diagnostic="report"><template #custom="{context}"><slot name="filters" :context="context"/></template></FeatureHost>
       <slot name="toolbar-after"/>
     </div>
   </header>
   <slot name="after-toolbar"/>
-  <FilterChips v-if="gate('filters').enabled&&gate('filters').mode==='default'&&(columnFilters.length||filterGroup?.rules.length)" :columns="allResolvedColumns" :column-filters="columnFilters" :group="filterGroup" @edit="openFilters" @clear="clearFilter"/>
-  <div class="bt__viewport">
-  <vxe-table ref="gridElement" :auto-resize="false" :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:presentation.appearance.hover,keyField:rowKey}">
+  <FilterChips v-if="gate('filters').enabled&&gate('filters').mode==='default'&&(columnFilters.length||filterGroup?.rules.length)" :columns="allResolvedColumns" :column-filters="columnFilters" :group="filterGroup" :options-for="runtime.optionsFor" :options-identity="runtime.filterOptionsIdentity.value" @edit="openFilters" @clear="clearFilter"/>
+  <div ref="viewportElement" :id="tableKey?tableKey+'-viewport':undefined" class="bt__viewport" tabindex="0" role="region" :aria-label="(title??'数据列表')+'，可横向滚动'" @keydown="scrollViewportByKey($event,viewportElement?.querySelector<HTMLElement>('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper'))">
+  <vxe-table ref="gridElement" :auto-resize="false" :height="fill?viewportSize.height||undefined:undefined" :scrollbar-config="gridScrollbars" :row-class-name="({row}:{row:T})=>selected.has(rowId(row))?'is-selected':''" :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:presentation.appearance.hover,keyField:rowKey}">
     <template #loading><div v-if="loading||busy" class="bt__loading" role="status" aria-label="加载中">加载中…</div></template>
-    <vxe-column v-if="selection" width="42" :fixed="narrow?undefined:'left'" class-name="bt__select-cell">
+    <vxe-column v-if="selection" width="44" :fixed="narrow?undefined:'left'" class-name="bt__select-cell">
       <template #header><input type="checkbox" aria-label="选择当前页" :checked="allSelected" :indeterminate="someSelected" @change="event=>selectPage((event.target as HTMLInputElement).checked)"></template>
       <template #default="{row}"><input type="checkbox" :aria-label="'选择 '+rowId(row)" :checked="selected.has(rowId(row))" @change="event=>selectRow(row,(event.target as HTMLInputElement).checked)"></template>
     </vxe-column>
-    <vxe-column v-if="presentation.appearance.index" type="seq" title="序号" width="56" :seq-config="{startIndex:(page-1)*pageSize}"/>
-    <vxe-column v-for="c in dataColumns" :key="c.id" :field="c.field" :title="c.title" :width="c.width" :min-width="c.minWidth??120" :fixed="narrow?undefined:c.fixed||undefined" :align="c.align??'left'" :header-align="c.headerStyle?.align??c.align??'left'" :sortable="false">
-      <template #header><div class="bt__column-heading" :data-align="c.headerStyle?.align??c.align??'left'" :style="{justifyContent:(c.headerStyle?.align??c.align)==='right'?'flex-end':(c.headerStyle?.align??c.align)==='center'?'center':'flex-start'}"><button v-if="c.sortable" class="bt__sort" :class="{'is-sorted':sorts[0]?.field===c.field}" :style="textStyle(c.headerStyle)" @click="sort(c)"><span>{{c.title}}</span><span class="bt__sort-mark">{{sorts[0]?.field===c.field?(sorts[0]?.order==='asc'?'↑':'↓'):'↑↓'}}</span></button><span v-else :style="textStyle(c.headerStyle)">{{c.title}}</span><button v-if="gate('filters').enabled&&gate('filters').mode!=='headless'&&defaultColumnFilter(c).enabled" type="button" class="bt__column-filter" :class="{'is-active':columnFilters.some(rule=>rule.field===c.field)}" :aria-pressed="columnFilters.some(rule=>rule.field===c.field)" :aria-label="'筛选 '+c.title" :title="'筛选 '+c.title" :data-testid="'column-filter-'+c.id" @click.stop="openFilters(c.id)"><TableIcon name="filter" :size="13"/></button></div></template>
+    <vxe-column v-if="presentation.appearance.index" type="seq" title="序号" width="48" :fixed="narrow?undefined:'left'" :seq-config="{startIndex:(page-1)*pageSize}"/>
+    <vxe-column v-for="c in dataColumns" :key="c.id" :field="c.field" :title="c.title" :width="columnLayout.widths[c.id]" :min-width="c.minWidth??120" :fixed="narrow?undefined:c.fixed||undefined" :align="c.align??'left'" :header-align="c.headerStyle?.align??c.align??'left'" :sortable="false">
+      <template #header><ColumnHeader :context="columnHeaderContext(c)"/></template>
       <template #default="{row}"><div class="bt__cell-content" :style="textStyle(c.cellStyle)"><slot name="cell" :row="row" :column="c" :value="getValue(row,c.field)" :text="displayValue(getValue(row,c.field),c)"><CellRenderer v-if="cellRenderer&&c.renderer" :value="getValue(row,c.field)" :row="row" :column="c" :renderer="cellRenderer" @diagnostic="report"/><BusinessCell v-else :row="row" :column="c" :columns="allResolvedColumns" @action="cellAction($event,row,c)"/></slot></div></template>
     </vxe-column>
     <FeatureHost :key="tableKey" v-if="gate('rowActions').enabled" :ref="value=>setHost('rowActions',value)" :local="declarations.rowActions" :remote="remoteFeatures?.rowActions" :create-context="rowActionsContext" :loader="()=>import('./components/RowActions.vue')" @diagnostic="report"><template #custom="{context}"><slot name="row-actions" :context="context"/></template></FeatureHost>

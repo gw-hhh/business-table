@@ -1,6 +1,6 @@
 # 配置入口与功能开关
 
-当前提供配置解析、能力约束、运行时注册表、Search/Query Runtime，以及快捷列面板和设置抽屉的草稿、应用、取消流程。设置页、列模块和字段能力使用统一的显示／只读策略；工具设置与真实工具共用声明。完整 View 管理、Data Headless Runtime、映射和模板的完整生命周期仍按迁移矩阵继续。
+当前提供配置解析、能力约束、运行时注册表、Search/Query Runtime，以及快捷列面板和设置抽屉的草稿、应用、取消流程。设置页、列模块和字段能力使用统一的显示／只读策略；工具设置与真实工具共用声明。View 本地 Runtime/UI 已接入，服务端权限和版本冲突协议仍待 BT-02 后续；Data Headless Runtime、映射和模板的完整生命周期按迁移矩阵继续。
 
 ## 最简入口与旧 API
 
@@ -56,7 +56,33 @@ const definition: TableDefinition = {
 
 配置顺序为 Local Definition → Remote Override → Preference → View。宿主后台负责角色/项目/用户优先级，不在组件中复制后端权限决策。所有覆盖都经过同一个列 Guard。
 
-启用 Search 后，`ConfiguredBusinessTable` 使用 `definition.search`；直接使用 `BusinessTable` 时传入 `searchDefinition`。默认搜索界面、Custom 和 Headless 共用 Search Context。使用 `#search="{ context }"` 自定义界面时需设置 `features.search: { enabled: true, mode: 'custom' }`；使用 Headless `#before="{ search }"` 时设置 `mode: 'headless'`。`setValue(id, value)` 修改草稿，`submit()` 应用查询，`reset()` 按定义恢复默认值或清空。当前 View 的搜索值保存在 `search.values`，旧视图的关键词和条件会按字段与操作符迁移；完整 View 管理属于 BT-02。
+启用 Search 后，`ConfiguredBusinessTable` 使用 `definition.search`；直接使用 `BusinessTable` 时传入 `searchDefinition`。默认搜索界面、Custom 和 Headless 共用 Search Context。使用 `#search="{ context }"` 自定义界面时需设置 `features.search: { enabled: true, mode: 'custom' }`；使用 Headless `#before="{ search }"` 时设置 `mode: 'headless'`。`setValue(id, value)` 修改草稿，`submit()` 应用查询，`reset()` 按定义恢复默认值或清空。当前 View 的搜索值保存在 `search.values`，旧视图的关键词和条件会按字段与操作符迁移；本地视图管理已由 Views Runtime/ViewsPanel 提供，BT-02 后续负责服务端权限和版本冲突协议。
+
+### 搜索显示值与实际值
+
+搜索选项使用 `{ value, label }`：例如 `{ value: 1, label: 'A' }` 在界面和摘要显示 A，Query 和 View 保留数字 1。匹配按原始类型区分，数字 `1` 与字符串 `'1'` 是两个选项。`SearchContext.summaryItems` 返回已应用条件的 `{ id, label, value, displayValue }[]`；草稿修改只改变 pending，不提前改变摘要。摘要中的 value 是独立副本，不能通过修改它改写查询。
+
+```vue
+<SearchSummary v-if="searchContext" :context="searchContext" />
+```
+
+`SearchSummary` 从包入口导出，接收相同的 Search Context，提供条件标签、移除、清除条件及待查询提示。清除条件遵守 `resetBehavior`；需要清空全部条件时声明 `resetBehavior: 'empty'`。
+
+单选还可声明命名的查询预设。`filters` 仅用于 `kind: 'select'`、`operator: 'eq'`（默认值），条件按 AND 与其他查询条件共同执行；空数组表示该选项不增加条件。
+
+```ts
+{
+  id: 'status', label: '状态', kind: 'select', field: 'status',
+  options: [
+    { value: 'open', label: '未结（草稿 / 评审中）',
+      filters: [{ field: 'status', operator: 'in', value: ['草稿', '评审中'] }] },
+  ],
+}
+```
+
+该选项的 UI/View 值仍为 `open`，实际 Query 使用 `status in ['草稿', '评审中']`。筛选投影是经过校验的声明数据，不接受函数；不要在业务页面根据 open 再补一份条件。`ne`、`in`、`notIn` 搜索项不接受选项预设，避免多预设的合并和取反语义不明确。
+
+列筛选的数字单位可声明为 `column.filter.inputUnit: '元'`（最长 40 字），与 `numberRule.scale` 共用通用缩放。条件保存的 `unitFactor` 固定输入基准；例如已保存的 2 万元始终查询原值 20000，即使之后把显示格式改为千元。筛选选项 `label` 和输入单位都不会替换条件的原始 value。
 
 - access=false 的列不进入最终列集合。
 - default 设置代码默认值；设置 UI 中未声明的 configurable 能力不显示。旧平面 ColumnConfig 无 configurable 时，底层程序化列修改保留历史兼容行为；设置 UI 仍要求显式声明。
@@ -157,6 +183,10 @@ mode=custom 使用宿主 Slot，仍经过相同能力 Guard。mode=headless 无�
 
 BusinessTable 的 selection、fill 和 density 均为可选项。selection 使用稳定 rowKey 保存选中记录并发出 selectionChange；翻页保留、改变查询或视图清空。fill 使表体占满有确定高度的宿主容器；density 支持 compact/default/comfortable。最简入口默认不创建选择栏或报价页面。
 
+`BusinessTable` 组件引用和 `getRuntime()` 均提供 `selectQuery(): Promise<void>`，在 `selection: true` 时将当前查询的完整结果替换为选中项，不只选择当前页。本地执行相同查询规则；远程复用 `DataSource.readAll(query, {limit: 10000, signal})`，未提供完整读取接口时拒绝，不以当前页代替。请求失败保留原选择；请求期间查询、表格标识、数据源或选择开关改变，手动修改选择及卸载都会取消旧结果。适配器即使忽略 signal，迟到结果也不会覆盖新选择。
+
+`useTableControls(initial?, options?)` 管理查询区展开、显示和临时多选栏。默认 `advanced: false`、`searchVisible: true`、`selectionVisible: false`。可选 `options.persistence` 提供同步 `load(): unknown` 与 `save({advanced, searchVisible}): void`；读取接受对象或 JSON 文本，未知字段忽略，声明字段必须为 boolean，坏数据整体回到 initial 默认值。`selectionVisible` 不读取、不保存，刷新不会自动进入多选。读取/保存失败保留可用界面并调用可选 `onError(cause)`，不会从 watcher 抛出异常。持久化适配器自行决定用户、页面隔离和存储键；此偏好不进入业务查询或 View。
+
 宿主可使用 before、toolbar-start、toolbar-end、toolbar-after、after-toolbar、cell、summary 插槽；before 在 Search 开启时提供 Search Context，toolbar-after 位于内置设置入口之后。toolbar-start/summary 提供总数和当前行，summary 另提供页码和每页条数；cell 提供 row/column/value/text。状态标签、合计和业务表单由宿主实现。
 
 BusinessTable 的组件引用新增 setQuery({keyword,filters,sorts,viewId})、applyView(view?, keyword?)、getState()、getSelectedRows()、clearSelection()、openColumnSettings('quick'|'drawer')。setQuery/applyView 返回本次加载 Promise，复用原有取消及乱序保护；getState 包含最终列（含隐藏列），便于宿主保存完整视图。配置入口 ConfiguredBusinessTable 原有公开方法不因此自动扩展。
@@ -206,3 +236,10 @@ Action 新增 icon、separator、children，描述图标、分隔线和子菜单
 运行完整 verify:release，必须真实通过类型检查、Vitest、构建及开发/生产预览的 Playwright；console.error、pageerror、原生window error、unhandledrejection均为0。源码、Demo和构建入口不得引用 reference。
 
 依用户最新安排，本批本地提交、提供预览，验收后才推送GitHub。远端仍遵循 feature → development → main，不把本地 PASS 写成远端 CI PASS。
+
+
+### 上下文入口与渲染列宽
+
+`features.filters: {enabled:true, entry:false}` 隐藏默认组合筛选启动按钮，保留普通列筛选入口；`columnSettings` 也支持 `entry:false`，让注册工具通过 `openColumnSettings` 打开同一个守卫后的设置面板。`entry` 不会开启关闭的 Feature，远端不能把本地隐藏入口重新打开。
+
+`ColumnConfig.grow` 是开发者字段：正数按权重分配容器剩余宽度，`0` 不增长。未声明时优先由首个未冻结数据列承担余量。保存的 `width` 不会因窗口变大而改变；实际宽度只用于渲染和冻结边定位。报价 Demo 在项目列声明 `grow:1`。

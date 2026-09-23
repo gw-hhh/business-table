@@ -6,7 +6,13 @@ import type { FilterConfig } from '../../types'
 export type SearchJson = string | number | boolean | null | SearchJson[] | { [key: string]: SearchJson }
 export type SearchValues = Record<string, SearchJson>
 export type SearchItemType = 'keyword' | 'text' | 'select' | 'date' | 'number' | 'custom'
-export interface SearchOption { value: string | number | boolean | null; label: string }
+export interface SearchOption {
+  value: string | number | boolean | null
+  label: string
+  /** An equality choice may project a named preset into explicit backend conditions. */
+  filters?: FilterConfig[]
+}
+export interface SearchSummaryItem { id: string; label: string; value: SearchJson; displayValue: string }
 export interface SearchItem {
   id: string
   label?: string
@@ -171,10 +177,14 @@ export function normalizeSearchDefinition(input: unknown, allowedIds?: readonly 
         || !raw.options.every(option => record(option) && (option.value === null || typeof option.value === 'boolean'
           || typeof option.value === 'string' && option.value.length <= 2000
           || typeof option.value === 'number' && Number.isFinite(option.value))
-          && typeof option.label === 'string' && option.label.length <= 200)) {
+          && typeof option.label === 'string' && option.label.length <= 200
+          && (option.filters === undefined || operator === 'eq' && Array.isArray(option.filters)
+            && option.filters.length <= FILTER_LIMITS.rules && option.filters.every(rule => readFilter(rule) !== null)))) {
         issue(report, `${path}.options`, '搜索选项无效。'); continue
       }
-      item.options = raw.options.map(option => ({ value: option.value, label: option.label })) as SearchOption[]
+      item.options = raw.options.map(option => ({ value: option.value, label: option.label,
+        ...(option.filters === undefined ? {} : { filters: option.filters.map((rule: unknown) => readFilter(rule)!) }),
+      })) as SearchOption[]
     }
     if (raw.defaultValue !== undefined) {
       const value = checkedValue(raw.defaultValue, item, report, `${path}.defaultValue`)
@@ -277,6 +287,19 @@ export function serializeSearchValues(values: SearchValues, definition: SearchDe
   }
   return result
 }
+/** Display labels are derived from applied values and never serialized into the query. */
+export function summarizeSearchValues(values: SearchValues, definition: SearchDefinition): SearchSummaryItem[] {
+  return definition.items.flatMap(item => {
+    if (!Object.hasOwn(values, item.id)) return []
+    const value = checkedValue(values[item.id], item)
+    if (value === undefined || value === null || value === '' || Array.isArray(value) && !value.length
+      || item.kind === 'keyword' && !String(value).trim()) return []
+    const display = (entry: SearchJson): string => item.options?.find(option => Object.is(option.value, entry))?.label
+      ?? (entry === null ? '空值' : typeof entry === 'object' ? JSON.stringify(entry) : String(entry))
+    return [{ id: item.id, label: item.label ?? item.id, value,
+      displayValue: Array.isArray(value) ? value.map(display).join('、') : display(value) }]
+  })
+}
 export function projectSearchValues(values: SearchValues, definition: SearchDefinition, registry?: RuntimeRegistry, report?: DiagnosticReporter): SearchProjection {
   const output: SearchProjection = { keyword: '', filters: [] }
   if (!record(values)) { issue(report, 'search.values', '搜索值必须是对象。'); return output }
@@ -307,6 +330,12 @@ export function projectSearchValues(values: SearchValues, definition: SearchDefi
       continue
     }
     if (value === '' || value === null) continue
+    const preset = item.kind === 'select' && item.operator === 'eq'
+      ? item.options?.find(option => Object.is(option.value, value))?.filters : undefined
+    if (preset) {
+      output.filters.push(...preset.map(rule => readFilter(rule)!))
+      continue
+    }
     const rule = readFilter({ field: item.field, operator: item.operator, value })
     if (rule) output.filters.push(rule)
     else issue(report, `search.values.${item.id}`, '搜索条件无效，已忽略。')

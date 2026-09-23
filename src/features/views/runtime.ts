@@ -1,4 +1,4 @@
-import { computed, readonly, shallowRef } from 'vue'
+import { computed, readonly, shallowRef, type Ref } from 'vue'
 import type { ViewConfig } from '../../types'
 import { cloneData } from '../../runtime/value'
 import { parseColumnPatch } from '../../config/columns'
@@ -8,11 +8,20 @@ import type { RuntimeRegistry } from '../../runtime/registry'
 import { presentationDelta, resolvePresentation } from '../presentation/model'
 
 export interface ViewSnapshot extends Omit<ViewConfig, 'id' | 'name'> {}
+export interface ViewSummary{id:string;name:string;isSystem?:boolean;isReadOnly?:boolean;isDefault?:boolean}
+export interface ViewsPanelRuntime{views:Readonly<Ref<readonly ViewSummary[]>>;activeId:Readonly<Ref<string|null>>;current:Readonly<Ref<ViewSummary|undefined>>;apply:(id:string)=>Promise<void>;saveAs:(name:string,state:ViewSnapshot)=>Promise<string>;rename:(id:string,name:string)=>Promise<void>;update:(id:string,state:ViewSnapshot)=>Promise<void>;setDefault:(id:string)=>Promise<void>;move:(id:string,offset:number)=>Promise<void>;remove:(id:string)=>Promise<void>}
 export interface ViewsOptions {
   tableKey: string; initial: unknown
   apply: (view: ViewConfig) => void | Promise<void>
   save?: (views: ViewConfig[]) => void | Promise<void>
   maxViews?: number
+}
+/** Track the complete applied snapshot, including layout, page size and host view preferences. */
+export function createViewChangeTracker(read:()=>ViewSnapshot){
+  const accepted=shallowRef<string>()
+  const canonical=(value:unknown):unknown=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([key,entry])=>[key,canonical(entry)])):value
+  const current=computed(()=>JSON.stringify(canonical(read())))
+  return {modified:computed(()=>accepted.value!==undefined&&current.value!==accepted.value),accept:()=>{accepted.value=current.value}}
 }
 const object = (input: unknown): Record<string, unknown> => input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
 function snapshot(input: unknown): ViewSnapshot {
@@ -108,6 +117,8 @@ export function createViewsRuntime(options: ViewsOptions) {
   const views = shallowRef(readViews(options.initial, options.tableKey))
   const activeId = shallowRef<string | null>(views.value.find(view => view.isDefault)?.id ?? views.value[0]?.id ?? null)
   let queue: Promise<void> = Promise.resolve()
+  let application=0
+  let applyingId:string|undefined
   const find = (id: string) => { const view = views.value.find(item => item.id === id); if (!view) throw new Error('视图已删除，请重新选择。'); return view }
   const editable = (id: string) => { const view = find(id); if (view.isSystem || view.isReadOnly) throw new Error('系统视图不能修改。'); return view }
   function transaction(update: (current: ViewConfig[]) => ViewConfig[]) {
@@ -121,34 +132,39 @@ export function createViewsRuntime(options: ViewsOptions) {
   }
   function validName(name: string, id?: string) {
     const label = name.trim()
-    if (!label || label.length > 40) throw new Error('请填写 1–40 字的视图名称。')
-    if (views.value.some(view => view.id !== id && view.name === label)) throw new Error('已有同名视图。')
+    if (!label || label.length > 30) throw new Error('请输入 1–30 个字符的视图名称。')
+    const key=label.normalize('NFKC').toLocaleLowerCase()
+    if (views.value.some(view => view.id !== id && view.name.normalize('NFKC').toLocaleLowerCase() === key)) throw new Error('这个名称已被使用，请换一个。')
     return label
   }
   async function apply(id: string) {
+    const request=++application
     const view = find(id)
-    const value = view.isSystem ? { id: view.id, name: view.name, filters: [], columnFilters: [], sorts: [], keyword: '', filterGroup: { logic: 'and' as const, rules: [] } } : cloneData(view)
-    await options.apply(value)
-    activeId.value = id
+    applyingId=id
+    const value = view.isSystem ? { id: view.id, name: view.name, isSystem: true, filters: [], columnFilters: [], sorts: [], keyword: '', filterGroup: { logic: 'and' as const, rules: [] } } : cloneData(view)
+    try{await options.apply(value);if(request===application&&views.value.some(item=>item.id===id))activeId.value=id}
+    finally{if(request===application)applyingId=undefined}
   }
   return {
-    views: readonly(views), activeId: readonly(activeId), current: computed(() => views.value.find(view => view.id === activeId.value)), apply,
+    // Publish copies so recursive query nodes do not become Vue DeepReadonly proxies.
+    views: computed<readonly ViewConfig[]>(() => cloneData(views.value)), activeId: readonly(activeId), current: computed(() => { const view=views.value.find(item=>item.id===activeId.value);return view?cloneData(view):undefined }), apply,
     async saveAs(name: string, state: ViewSnapshot) {
-      const id = crypto.randomUUID()
+      const id = crypto.randomUUID(),captured=snapshot(state),request=++application
+      applyingId=undefined
       await transaction(current => {
         if (current.length >= (options.maxViews ?? 50)) throw new Error('最多保存 50 个视图。')
-        return [...current, { id, name: validName(name), ...snapshot(state) }]
+        return [...current, { id, name: validName(name), ...captured }]
       })
-      activeId.value = id
+      if(request===application)activeId.value = id
       return id
     },
-    async update(id: string, state: ViewSnapshot) { await transaction(current => { editable(id); return current.map(view => view.id === id ? { ...view, ...snapshot(state) } : view) }) },
+    async update(id: string, state: ViewSnapshot) { const captured=snapshot(state);await transaction(current => { editable(id); return current.map(view => view.id === id ? { id:view.id,name:view.name,...(view.isDefault?{isDefault:true}:{}),...captured } : view) }) },
     async rename(id: string, name: string) { await transaction(current => { editable(id); const label = validName(name, id); return current.map(view => view.id === id ? { ...view, name: label } : view) }) },
     async setDefault(id: string) { await transaction(current => { find(id); return current.map(view => ({ ...view, isDefault: view.id === id })) }) },
-    async move(id: string, offset: number) { await transaction(current => { const index = current.findIndex(view => view.id === id); const target = index + offset; if (index < 0 || target < 0 || target >= current.length) return current; const [view] = current.splice(index, 1); current.splice(target, 0, view!); return current }) },
+    async move(id: string, offset: number) { await transaction(current => { const index = current.findIndex(view => view.id === id); const target = index + offset; if (index < 0 || target < 0 || target >= current.length || current[index]?.isSystem || current.slice(Math.min(index,target),Math.max(index,target)+1).some(view=>view.isSystem)) return current; const [view] = current.splice(index, 1); current.splice(target, 0, view!); return current }) },
     async remove(id: string) {
-      await transaction(current => { editable(id); return current.filter(view => view.id !== id) })
-      if (activeId.value === id) { const next = views.value.find(view => view.isDefault) ?? views.value[0]; activeId.value = next?.id ?? null; if (next) await apply(next.id) }
+      await transaction(current => { const removed=editable(id);const next=current.filter(view => view.id !== id);if(removed.isDefault){const fallback=next.find(view=>view.isSystem)??next[0];if(fallback)fallback.isDefault=true}return next })
+      if (activeId.value === id||applyingId===id) { ++application;applyingId=undefined;const next = views.value.find(view => view.isDefault) ?? views.value[0]; activeId.value = next?.id ?? null; if (next) await apply(next.id) }
     },
   }
 }

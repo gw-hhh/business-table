@@ -7,7 +7,7 @@ import { guardFilterState, type FilterState } from './filter-state'
 import { operatorLabels, readFilter, readFilterGroup, type FilterGroup } from './filter'
 import {
   defaultSearchValues, normalizeSearchDefinition, projectSearchValues, readSearchJson, readSearchValues, readRuntimeSearchValues,
-  restoreLegacySearch, serializeSearchValues, type SearchDefinition, type SearchValues,
+  restoreLegacySearch, serializeSearchValues, summarizeSearchValues, type SearchDefinition, type SearchValues,
 } from '../features/search/model'
 
 export type QueryChange = Partial<Pick<Query, 'keyword' | 'filters' | 'sorts' | 'viewId' | 'filterGroup'>>
@@ -230,6 +230,7 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
       get items() { return search()?.definition.items ?? [] },
       get values() { return cloneData(search()?.draft.value ?? {}) },
       get appliedValues() { return cloneData(search()?.applied.value ?? {}) },
+      get summaryItems() { const state = search(); return state ? summarizeSearchValues(state.applied.value, state.definition) : [] },
       get defaultCollapsed() { return search()?.definition.defaultCollapsed === true },
       get pending() { return pending.value },
       get draft() { return searchDraft.value },

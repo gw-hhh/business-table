@@ -2,7 +2,7 @@ import {test,expect} from './runtime'
 
 async function openSettings(page:import('@playwright/test').Page){
   await page.goto('/')
-  await page.getByTestId('table-settings').click()
+  await page.getByRole('button',{name:'表格设置',exact:true}).click()
   return page.getByTestId('settings-drawer')
 }
 
@@ -81,7 +81,7 @@ test('nested Escape and alignment keys retain the editor instead of dismissing i
 })
 
 test('quick hidden columns have the legacy strike-through and hidden pins do not catch clicks',async({page})=>{
-  await page.goto('/');await page.getByTestId('column-settings').click()
+  await page.goto('/');await page.getByRole('button',{name:'列设置',exact:true}).click()
   const panel=page.getByTestId('column-panel')
   const hidden=panel.locator('.bt-column-popup__row').filter({has:page.getByRole('checkbox',{name:'显示客户',exact:true})})
   await expect(hidden.locator('.bt-column-popup__name')).toHaveCSS('text-decoration-line','line-through')
@@ -107,7 +107,7 @@ test('column context stays visible while scrolling settings content',async({page
 test.describe('touch controls',()=>{
   test.use({hasTouch:true,viewport:{width:390,height:900}})
   test('supports explicit move controls and nested font dialog without page overflow',async({page},info)=>{
-    await page.goto('/');await page.getByTestId('column-settings').click()
+    await page.goto('/');await page.getByRole('button',{name:'列设置',exact:true}).click()
     const panel=page.getByTestId('column-panel')
     const down=panel.getByRole('button',{name:'下移 项目名称 / 客户',exact:true})
     await expect(down).toBeVisible();await expect(down).toBeInViewport()
@@ -144,4 +144,35 @@ test('color palette stays inside the scroll area above the preview boundary',asy
   await info.attach('visible-color-palette',{body:await page.screenshot(),contentType:'image/png'})
   await white.click()
   await expect(color.getByRole('textbox',{name:'表头文字文字颜色',exact:true})).toHaveValue('#ffffff')
+})
+
+test('number settings use the same display and export interpretation in trial, preview and the saved table',async({page})=>{
+  const drawer=await openSettings(page)
+  await drawer.getByRole('button',{name:'编辑列 含税金额（元）',exact:true}).click()
+  await drawer.getByRole('navigation',{name:'列设置内容'}).getByRole('button',{name:'数字',exact:true}).click()
+  await drawer.getByRole('checkbox',{name:'启用数字格式',exact:true}).check()
+  await drawer.getByRole('button',{name:'万元两位',exact:true}).click()
+  await expect(drawer.getByTestId('settings-preview')).toContainText('6.39万元')
+  await expect(page.locator('[data-business-table]')).not.toContainText('6.39万元')
+  await drawer.getByRole('button',{name:'应用',exact:true}).click()
+  await expect(page.locator('[data-business-table]')).toContainText('6.39万元')
+  await page.reload()
+  await expect(page.locator('[data-business-table]')).toContainText('6.39万元')
+})
+
+test('mapping edits reach real cells and tool previews do not run business actions',async({page})=>{
+  const drawer=await openSettings(page)
+  await drawer.getByRole('tab',{name:'工具栏',exact:true}).click()
+  const preview=drawer.getByTestId('settings-preview')
+  await preview.getByRole('button',{name:'新增报价',exact:true}).click()
+  await expect(preview.getByRole('status')).toContainText('没有执行操作')
+  await expect(page.getByRole('dialog',{name:'新增报价',exact:true})).toHaveCount(0)
+  await drawer.getByRole('tab',{name:'列设置',exact:true}).click()
+  await drawer.getByRole('button',{name:'编辑列 状态',exact:true}).click()
+  await drawer.getByRole('navigation',{name:'列设置内容'}).getByRole('button',{name:'映射',exact:true}).click()
+  await drawer.getByRole('checkbox',{name:'启用值映射',exact:true}).check()
+  await drawer.getByRole('textbox',{name:'映射文案 1',exact:true}).fill('草稿预览验证')
+  await expect(preview).toContainText('草稿预览验证')
+  await drawer.getByRole('button',{name:'应用',exact:true}).click()
+  await expect(page.locator('[data-business-table]')).toContainText('草稿预览验证')
 })

@@ -1,6 +1,6 @@
 <script setup lang="ts" generic="C extends object">
 import {computed,markRaw,nextTick,onBeforeUnmount,onMounted,ref,shallowRef,watch,type Component,type WatchStopHandle} from 'vue'
-import {resolveFeatureGate,readFeatureDetails,type FeatureLoadStrategy} from '../config/features'
+import {resolveFeatureGate,readFeatureDetails,featureEntryVisible,type FeatureLoadStrategy} from '../config/features'
 import {createFeatureController,type FeatureController,type FeatureState} from '../runtime/feature'
 import type {ConfigDiagnostic} from '../config/diagnostics'
 import TableIcon from './TableIcon.vue'
@@ -79,7 +79,7 @@ onBeforeUnmount(()=>{mounted=false;generation++;stopDetails?.();controller?.disp
 defineExpose({activate,getContext:()=>loaded.value?.context})
 </script>
 <template>
-  <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
+  <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel&&featureEntryVisible(local,remote)" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
   <span v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-visible'" ref="sentinel" class="bt__feature-sentinel" aria-hidden="true"></span>
   <span v-if="state==='unavailable'&&gate.mode!=='headless'" class="bt__feature-error" role="status">暂时无法加载 <button @click="activate()">重试</button></span>
   <component :is="loaded.component" v-if="loaded&&active&&gate.mode==='default'" :context="loaded.context"/>

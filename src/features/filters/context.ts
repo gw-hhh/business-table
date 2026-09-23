@@ -13,7 +13,7 @@ export interface FiltersContext {
   readonly persistence?: FilterPlanPersistence
   columnId?: string
   revision: number
-  optionsFor(column: ColumnConfig, search: string, signal: AbortSignal): Promise<FilterOption[]>
+  optionsFor(column: ColumnConfig, search: string, signal: AbortSignal, values?: readonly FilterOption['value'][]): Promise<FilterOption[]>
   apply(state: FilterState): Promise<void>
   close(): void
 }
@@ -29,10 +29,10 @@ export function createFiltersContext<T extends RowData>(runtime: TableRuntime<T>
     get state() { return cloneData({ columnFilters: runtime.columnFilters.value, filterGroup: runtime.filterGroup.value }) },
     persistence: options.persistence === null ? undefined : options.persistence ?? (options.tableKey ? createLocalFilterPlanPersistence() : undefined),
     async apply(state: FilterState) { guard(); await runtime.setFilterState(guardFilterState(state, columns())) },
-    async optionsFor(column: ColumnConfig, search: string, signal: AbortSignal) {
+    async optionsFor(column: ColumnConfig, search: string, signal: AbortSignal, values?: readonly FilterOption['value'][]) {
       guard()
       if (!columns().some(item => item.id === column.id && item.field === column.field)) throw new Error('筛选字段已不可用。')
-      return runtime.optionsFor(column, search, signal)
+      return runtime.optionsFor(column, search, signal, values)
     },
     close: controls.close,
   })

@@ -12,6 +12,7 @@ import {
   readSearchValues,
   restoreLegacySearch,
   serializeSearchValues,
+  summarizeSearchValues,
 } from '../src/features/search/model'
 
 const definitions = () => normalizeSearchDefinition({
@@ -28,6 +29,43 @@ const definitions = () => normalizeSearchDefinition({
 })
 
 describe('Search definition and values', () => {
+  it('projects a named select choice into typed filters while saving its original value', () => {
+    const definition = normalizeSearchDefinition({ items: [
+      { id: 'State', label: '状态', kind: 'select', field: 'status', options: [
+        { value: 'open', label: '未结', filters: [{ field: 'status', operator: 'in', value: [1, '1', false] }] },
+        { value: 'all', label: '全部', filters: [] },
+      ] },
+    ] })
+    const values = readSearchValues({ State: 'open' }, definition)
+    expect(projectSearchValues(values, definition).filters).toEqual([{ field: 'status', operator: 'in', value: [1, '1', false] }])
+    expect(serializeSearchValues(values, definition)).toEqual({ State: 'open' })
+    expect(summarizeSearchValues(values, definition)).toEqual([{ id: 'State', label: '状态', value: 'open', displayValue: '未结' }])
+    expect(projectSearchValues({ State: 'all' }, definition).filters).toEqual([])
+  })
+
+  it('rejects invalid select projections and ambiguous non-equality preset semantics', () => {
+    const issues: ConfigDiagnostic[] = []
+    const definition = normalizeSearchDefinition({ items: [
+      { id: 'Broken', kind: 'select', field: 'status', options: [{ value: 1, label: '损坏', filters: [{ field: 'status', operator: 'in', value: [() => 1] }] }] },
+      { id: 'Negated', kind: 'select', field: 'status', operator: 'ne', options: [{ value: 1, label: '否定组合', filters: [{ field: 'status', operator: 'eq', value: 1 }] }] },
+    ] }, undefined, issue => issues.push(issue))
+    expect(definition.items).toEqual([])
+    expect(issues.map(issue => issue.path)).toEqual(['search.items.0.options', 'search.items.1.options'])
+  })
+
+  it('summarizes typed choices and returns detached applied values', () => {
+    const definition = normalizeSearchDefinition({ items: [
+      { id: 'State', label: '状态', kind: 'select', field: 'status', operator: 'in', options: [
+        { value: 1, label: '数字' }, { value: '1', label: '文本' }, { value: false, label: '否' },
+      ] },
+      { id: 'Keyword', label: '关键词', kind: 'keyword' },
+    ] })
+    const values = { State: [1, '1', false], Keyword: '  ' }
+    const summary = summarizeSearchValues(values, definition)
+    expect(summary).toEqual([{ id: 'State', label: '状态', value: [1, '1', false], displayValue: '数字、文本、否' }])
+    ;(summary[0]!.value as unknown[]).push('extra')
+    expect(values.State).toEqual([1, '1', false])
+  })
   it('copies safe JSON for View snapshots and rejects cycles without invoking accessors', () => {
     const original = { values: [1, false, { id: 'D01' }] }
     const copy = readSearchJson(original)

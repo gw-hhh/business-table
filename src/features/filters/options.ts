@@ -1,6 +1,5 @@
 import { readonly, shallowRef } from 'vue'
-import type { FilterOption } from './model'
-import { typedKey } from '../../runtime/value'
+import { readFilterOptions, type FilterOption } from './model'
 import { withDeadline } from '../../runtime/deadline'
 
 export function createFilterOptions(loader: (search: string, signal: AbortSignal) => Promise<FilterOption[]>, timeoutMs = 10000) {
@@ -16,13 +15,7 @@ export function createFilterOptions(loader: (search: string, signal: AbortSignal
       try {
         const result = await withDeadline(child => loader(search, child), timeoutMs, signal, '筛选项加载超时，请重试。')
         if (!current()) return
-        if (!Array.isArray(result) || result.length > 10000) throw new Error('选项接口返回的数据无效。')
-        const seen = new Set<string>()
-        items.value = result.map(option => {
-          if (!option || typeof option.label !== 'string' || option.label.length > 2000
-            || !(option.value === null || typeof option.value === 'boolean' || typeof option.value === 'string' && option.value.length <= 2000 || typeof option.value === 'number' && Number.isFinite(option.value))) throw new Error('选项接口返回的数据无效。')
-          return { value: option.value, label: option.label, ...(Number.isSafeInteger(option.count) && Number(option.count) >= 0 ? { count: option.count } : {}) }
-        }).filter(option => { const key = typedKey(option.value); if (seen.has(key)) return false; seen.add(key); return true })
+        items.value = readFilterOptions(result)
       } catch (cause) { if (current()) error.value = cause instanceof Error ? cause.message : String(cause) }
       finally { if (current()) loading.value = false }
     },

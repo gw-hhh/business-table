@@ -2,23 +2,24 @@ import type { Page } from '@playwright/test'
 import { test, expect } from './runtime'
 
 const legacyURL = 'http://127.0.0.1:4173/reference/legacy-v3.1/quotation-manager-v3.1/index.html'
-const comparisons = [
+const comparisons: { name: string; old: string; current: string; properties: string[]; matchText?: string }[] = [
   { name: 'page title', old: '.page-title-row h1', current: '.q-title-row h1', properties: ['font-size', 'font-weight', 'color', 'letter-spacing', 'line-height'] },
   { name: 'breadcrumb', old: '.breadcrumb', current: '.q-breadcrumb', properties: ['font-size', 'color', 'margin-bottom'] },
   { name: 'query label', old: 'label[for="filter-keyword"]', current: 'label[for="quotation-keyword"]', properties: ['font-size', 'color'] },
   { name: 'query input', old: '#filter-keyword', current: '#quotation-keyword', properties: ['height', 'font-size', 'color', 'border-color', 'border-radius', 'padding-left'] },
-  { name: 'page button', old: '#export-button', current: '.q-header-actions .q-btn', properties: ['height', 'font-size', 'color', 'border-color', 'border-radius'] },
-  { name: 'customer subline', old: '.cell-customer', current: '.q-project-cell > small', properties: ['color', 'line-height'] },
-  { name: 'draft tag', old: '.status-neutral', current: '.q-status--draft', properties: ['color', 'background-color', 'border-radius'] },
-  { name: 'contract tag', old: '.status-green', current: '.q-status--contract', properties: ['color', 'background-color', 'border-radius'] },
+  { name: 'page button', old: '#export-button', current: '.q-header-actions button[aria-label="导出"]', properties: ['height', 'font-size', 'color', 'border-color', 'border-radius'] },
+  { name: 'customer subline', old: '.cell-customer', current: '.bt-cell-secondary', properties: ['color', 'line-height'] },
+  { name: 'draft tag', old: '.status-neutral', current: '.bt-cell-map', matchText: '草稿', properties: ['color', 'background-color', 'border-radius'] },
+  { name: 'contract tag', old: '.status-green', current: '.bt-cell-map', matchText: '已转合同', properties: ['color', 'background-color', 'border-radius'] },
   { name: 'footer summary', old: '.result-summary', current: '.q-result-summary', properties: ['color', 'font-size'] },
 ]
 async function measure(page: Page, original: boolean) {
   const result: Record<string, Record<string, string>> = {}
   for (const item of comparisons) {
-    // Page actions intentionally collapse into More on narrow viewports.
-    if (item.name === 'page button' && (page.viewportSize()?.width ?? 1280) <= 700) continue
-    result[item.name] = await page.locator(original ? item.old : item.current).first().evaluate((element, properties) => {
+    const target = page.locator(original ? item.old : item.current)
+    const element = (!original && item.matchText ? target.filter({ hasText: item.matchText }) : target).first()
+    await expect(element, `${item.name} should remain visible`).toBeVisible()
+    result[item.name] = await element.evaluate((element, properties) => {
       const style = getComputedStyle(element)
       return Object.fromEntries(properties.map(property => [property, style.getPropertyValue(property)]))
     }, item.properties)
@@ -26,23 +27,23 @@ async function measure(page: Page, original: boolean) {
   return result
 }
 async function clickTableTool(page: Page, title: string) {
-  const tool = page.getByTitle(title, { exact: true })
-  if (!await tool.isVisible()) await page.getByRole('button', { name: '更多表格工具', exact: true }).click()
+  const tool = page.getByRole('button', { name: title, exact: true })
+  await expect(tool).toBeVisible()
   await tool.click()
 }
-async function standardState(page: Page) {
-  await expect(page.locator('.vxe-table--main-wrapper .vxe-body--row').first()).toBeVisible()
-  await page.getByRole('button', { name: '保存与切换视图', exact: true }).click()
-  await page.getByRole('dialog', { name: '我的视图', exact: true }).getByRole('button', { name: '全部报价', exact: true }).click()
-  await page.getByRole('button', { name: '收起', exact: true }).click()
-  await clickTableTool(page, '行高密度')
-  await page.getByRole('menuitemradio', { name: '标准', exact: true }).click()
-  await clickTableTool(page, '批量操作')
-  await page.getByRole('combobox', { name: '每页条数' }).selectOption('10')
-  await clickTableTool(page, '排序规则')
-  await page.getByRole('button', { name: '清除排序', exact: true }).click()
-  await page.keyboard.press('Escape')
-  await expect(page.locator('.vxe-table--main-wrapper .vxe-body--row')).toHaveCount(6)
+async function expectDefaultState(page: Page) {
+  const rows = page.locator('.vxe-table--main-wrapper .vxe-body--row')
+  await expect(rows).toHaveCount(6)
+  await expect(page.getByRole('button', { name: '保存与切换视图', exact: true })).toContainText('全部报价')
+  await expect(page.getByRole('button', { name: '展开', exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('button', { name: '批量操作', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('button', { name: '排序规则', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('combobox', { name: '每页条数' })).toHaveValue('10')
+  await expect(page.locator('#quotation-customer')).toHaveValue('')
+  await expect(page.locator('[data-business-table]')).toHaveClass(/bt--default/)
+  expect((await rows.first().boundingBox())!.height).toBeCloseTo(61, 0)
+  for (const name of ['模板下载', '导出', '新增报价']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
+  for (const name of ['列设置', '表格设置', '排序规则', '行高密度']) await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
 }
 
 for (const width of [1440, 390]) {
@@ -54,7 +55,7 @@ for (const width of [1440, 390]) {
     const reference = await measure(page, true)
     await page.screenshot({ path: info.outputPath(`legacy-${width}.png`), fullPage: true })
     await page.goto('/')
-    await standardState(page)
+    await expectDefaultState(page)
     const current = await measure(page, false)
     await page.mouse.move(0, 0)
     await page.screenshot({ path: info.outputPath(`vue-${width}.png`), fullPage: true })
@@ -95,16 +96,23 @@ test('page actions support keyboard entry, arrow navigation, Tab and return focu
 
 test('density menu supports keyboard selection and returns focus', async ({ page }) => {
   await page.goto('/')
-  const trigger = page.getByTitle('行高密度', { exact: true })
+  const trigger = page.getByRole('button', { name: '行高密度', exact: true })
   await trigger.focus()
   await page.keyboard.press('ArrowDown')
   const menu = page.getByRole('menu', { name: '行高密度', exact: true })
   await expect(menu).toBeVisible()
+  await expect(menu.getByRole('menuitemradio', { name: '默认', exact: true })).toHaveAttribute('aria-checked', 'true')
   await expect(menu.getByRole('menuitemradio').first()).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(menu).toHaveCount(0)
   await expect(trigger).toBeFocused()
   await expect(page.locator('[data-business-table]')).toHaveClass(/bt--compact/)
+  await page.keyboard.press('ArrowUp')
+  await expect(menu.getByRole('menuitemradio', { name: '宽松', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(menu).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+  await expect(page.locator('[data-business-table]')).toHaveClass(/bt--comfortable/)
 })
 
 for (const width of [320, 768]) {
@@ -116,7 +124,7 @@ for (const width of [320, 768]) {
     await expect(view).toBeInViewport({ ratio: 1 })
     await page.screenshot({ path: info.outputPath(`view-${width}.png`), fullPage: true })
     await page.keyboard.press('Escape')
-    await page.getByTestId('table-settings').click()
+    await clickTableTool(page, '表格设置')
     const drawer = page.getByTestId('settings-drawer')
     await expect(drawer.getByRole('button', { name: '应用', exact: true })).toBeInViewport()
     await page.screenshot({ path: info.outputPath(`drawer-${width}.png`), fullPage: true })

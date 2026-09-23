@@ -137,7 +137,7 @@ describe('all settings pages share one draft transaction',()=>{
   })
   it('falls back from hidden tabs and omits empty toolbar groups',async()=>{
     const {wrapper}=setup(false,{initialTab:'actions',actions:[],tools:{page:[],table:[{id:'refresh',label:'刷新',handler:()=>{}}]}})
-    expect(wrapper.get('button[aria-label="列设置"]').attributes('aria-current')).toBe('page')
+    expect(wrapper.get('button[aria-label="列设置"]').attributes('aria-selected')).toBe('true')
     await button(wrapper,'工具栏').trigger('click')
     expect(wrapper.text()).toContain('表格工具栏')
     expect(wrapper.text()).not.toContain('页面工具栏')

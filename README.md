@@ -62,9 +62,17 @@ Search 开启后可用 `searchDefinition` 声明稳定字段 ID、类型、默�
 
 ## 当前进度
 
-Query Runtime 和 Search Feature 已接入通用组件；完整的 View 创建、修改、默认视图和持久化属于下一项 BT-02。报价 Demo 用于验证迁移，尚未完成旧版全部功能与视觉验收。实际进度见 [当前状态](docs/CODEX-CURRENT-STATE.md)和[迁移矩阵](docs/LEGACY-MIGRATION.md)。
+Query/Search、视图创建/更新/重命名/默认/重排/删除、列头菜单/列宽调整、设置预览、Excel/CSV 导出与模板下载已接入通用组件。报价详情、新增、修改、复制使用业务抽屉。此次按旧版实际操作修正首屏及交互；验证范围和结果见 [本批验收](docs/LEGACY-INTERACTION-ACCEPTANCE.md)。实际进度见 [当前状态](docs/CODEX-CURRENT-STATE.md)和[迁移矩阵](docs/LEGACY-MIGRATION.md)。
 
 设置中的映射、格式、模板和规则试算已有基础实现；当前“试算”用于核对列显示和导出结果，BT-08 的计算字段与公式引擎仍待实施。
+
+筛选选项使用 `{value: 1, label: 'A'}`：界面显示 A，Query/View/后台传输保留数字 1。`SearchContext.summaryItems` 分别提供 `value` 和 `displayValue`；远程列选项接口通过 `values` 找回已选值标签，详见 [使用说明](docs/USAGE.md)。
+
+此次暂缓旧版“数据工具”菜单及组合筛选、条件标记、分组汇总、记录对比、区域选择、设置历史等高级入口；普通列筛选和表格设置中的工具栏配置继续提供。已有组合筛选在配置示例中保留验证。
+
+## 修改与同步
+
+先在本地修改、预览、运行完整检查，再在当前开发分支提交。配置接口、功能或用法变化时同步更新 README、CONFIGURATION、USAGE 和当前交接文档。完成本地验收后再推送同一分支；本地保存或提交不会自动更新 GitHub。
 
 ## Release gate
 
