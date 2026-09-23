@@ -43,6 +43,7 @@ src/
 - Column Settings
 - Filter Feature
 - Views 基础能力
+- 历史实现文档已整理至 `docs/archive/`
 
 ## Legacy 规则
 
