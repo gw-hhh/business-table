@@ -21,6 +21,20 @@ function chips(extra: Record<string, unknown> = {}) {
 }
 
 describe('filter summaries display labels without replacing query values', () => {
+  it('describes nested groups with raw typed labels even when one field occurs more than once', async () => {
+    const optionsFor = vi.fn(async (_column: ColumnConfig, _search: string, _signal: AbortSignal, values?: FilterOption['value'][]) =>
+      [{ value: 1, label: 'A' }, { value: '1', label: 'B' }, { value: false, label: '否' }].filter(option => values?.some(value => Object.is(value, option.value))))
+    const group = { logic: 'and' as const, rules: [rule(1), { logic: 'or' as const, rules: [rule('1'), rule(false)] }] }
+    const wrapper = chips({ columnFilters: [], group, optionsFor, inline: true })
+    await flushPromises()
+    const button = wrapper.findAll('button').find(button => button.text() === '组合条件 3 项')
+    expect(button).toBeDefined()
+    expect(button!.attributes('title')).toBe('状态：属于 A 且 (状态：属于 B 或 状态：属于 否)')
+    expect(optionsFor).toHaveBeenCalledTimes(1)
+    expect(optionsFor.mock.calls[0]![3]).toEqual([1, '1', false])
+    expect(group.rules).toEqual([rule(1), { logic: 'or', rules: [rule('1'), rule(false)] }])
+  })
+
   it('matches manual option labels by raw type and keeps the filter unchanged', () => {
     const values = [1, '1', false, null]
     const input = { field: 'status', operator: 'in' as const, value: values }

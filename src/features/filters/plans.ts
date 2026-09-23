@@ -32,7 +32,10 @@ export function readFilterPlans(input: unknown, tableKey: string): FilterPlan[] 
   })
 }
 /** Created on feature activation; mutations publish only after the adapter confirms durability. */
-export function createFilterPlans(tableKey: string, persistence: FilterPlanPersistence) {
+export function createFilterPlans(tableKey: string, persistence: FilterPlanPersistence, options: {
+  assertActive?: () => void
+  validateState?: (state: FilterState) => FilterState
+} = {}) {
   const plans = shallowRef<FilterPlan[]>([]), loading = shallowRef(false), ready = shallowRef(false)
   let queue: Promise<void> = Promise.resolve(), pendingLoad: Promise<void> | undefined, epoch = 0, disposed = false, controller: AbortController | undefined
   function transaction(update: (current: FilterPlan[]) => FilterPlan[]) {
@@ -40,9 +43,11 @@ export function createFilterPlans(tableKey: string, persistence: FilterPlanPersi
       if (disposed) throw new Error('筛选设置已关闭。')
       if (!ready.value || pendingLoad) await (pendingLoad ?? load())
       if (disposed) throw new Error('筛选设置已关闭。')
+      options.assertActive?.()
       if (!ready.value) throw new Error('请先重新读取筛选方案。')
       ++epoch; controller?.abort(); loading.value = false
       const next = update(cloneData(plans.value))
+      options.assertActive?.()
       await persistence.save(tableKey, { kind: 'business-table-filter-plans', version: 1, tableKey, plans: cloneData(next) })
       if (!disposed) { ++epoch; controller?.abort(); loading.value = false; plans.value = next; ready.value = true }
     })
@@ -55,7 +60,9 @@ export function createFilterPlans(tableKey: string, persistence: FilterPlanPersi
     return label
   }
   function load(): Promise<void> {
-    if (disposed) return Promise.resolve()
+    if (disposed) return Promise.reject(new Error('筛选设置已关闭。'))
+    try { options.assertActive?.() }
+    catch (cause) { return Promise.reject(cause) }
     if (pendingLoad) return pendingLoad
     const request = ++epoch; controller?.abort(); controller = new AbortController()
     loading.value = true; ready.value = false
@@ -72,9 +79,10 @@ export function createFilterPlans(tableKey: string, persistence: FilterPlanPersi
     async save(name: string, state: FilterState, existingId?: string) {
       const snapshot = readFilterState(state), id = existingId ?? crypto.randomUUID()
       await transaction(current => {
+        const accepted = options.validateState?.(snapshot) ?? snapshot
         if (existingId && !current.some(plan => plan.id === existingId)) throw new Error('筛选方案已删除。')
         if (!existingId && current.length >= 50) throw new Error('最多保存 50 个筛选方案。')
-        const plan = { id, name: validName(name, current, existingId), ...snapshot }
+        const plan = { id, name: validName(name, current, existingId), ...accepted }
         return existingId ? current.map(item => item.id === id ? plan : item) : [...current, plan]
       })
       return id

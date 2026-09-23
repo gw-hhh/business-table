@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ColumnConfig } from '../../types'
-import { defaultColumnFilter, filterInputUnit, operatorLabels, type FilterOption } from './model'
+import { defaultColumnFilter, filterInputUnit, filterOperatorLabel, type FilterOption } from './model'
 import type { FilterRuleDraft } from './editor'
 import FilterOptions from './FilterOptions.vue'
 const props = defineProps<{
@@ -17,7 +17,7 @@ const unit = computed(() => filterInputUnit(props.column, props.modelValue.unitF
 </script>
 <template>
   <div class="bt-filter-rule-editor">
-    <label class="bt-ui-field">条件<select :autofocus="autofocus" :value="modelValue.operator" aria-label="筛选条件" @change="patch({operator: ($event.target as HTMLSelectElement).value as FilterRuleDraft['operator']})"><option v-for="operator in config.operators" :key="operator" :value="operator">{{operatorLabels[operator]}}</option></select></label>
+    <label class="bt-ui-field">条件<select :autofocus="autofocus" :value="modelValue.operator" aria-label="筛选条件" @change="patch({operator: ($event.target as HTMLSelectElement).value as FilterRuleDraft['operator']})"><option v-for="operator in config.operators" :key="operator" :value="operator">{{filterOperatorLabel(column, operator)}}</option></select></label>
     <template v-if="!['empty', 'notEmpty'].includes(modelValue.operator)">
       <FilterOptions v-if="['in', 'notIn'].includes(modelValue.operator)" :model-value="modelValue.values" :column="column" :name="modelValue.id" :load="optionsFor" @update:model-value="patch({values: $event})"/>
       <div v-else class="bt-filter-values">

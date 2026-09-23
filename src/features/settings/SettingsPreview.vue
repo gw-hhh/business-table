@@ -37,7 +37,12 @@ const mappingCases=computed(()=>{
 })
 const actionWidth=computed(()=>{const column=props.columns.find(column=>column.kind==='actions');return column?editableColumnWidth(column):230})
 // Only presentation declarations cross the preview boundary; real tool handlers never do.
-function toolsForPreview(scope:'page'|'table'):ToolDefinition[]{return availableTools(props.tools[scope]).map(tool=>({...tool,handler:()=>{note.value=`预览“${tool.label}”，没有执行操作。`}}))}
+function toolsForPreview(scope:'page'|'table'):ToolDefinition[]{
+  const isolate=(tools:readonly ToolDefinition[]):ToolDefinition[]=>tools.map(tool=>({...tool,
+    ...(tool.children?{children:isolate(tool.children),handler:undefined}:{handler:()=>{note.value=`预览“${tool.label}”，没有执行操作。`}}),
+  }))
+  return isolate(availableTools(props.tools[scope]))
+}
 const previewTools=computed(()=>({page:toolsForPreview('page'),table:toolsForPreview('table')}))
 function sampleName(item:RowData,index:number){return props.columns.filter(column=>!['number','currency','percent'].includes(column.type??'')).slice(0,2).map(column=>displayValue(getValue(item,column.field),column)).join(' · ')||`样例 ${index+1}`}
 watch(()=>[props.tab,props.section,props.mode],()=>{note.value=''})

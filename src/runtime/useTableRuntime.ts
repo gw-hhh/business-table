@@ -177,6 +177,10 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     queryRuntime.setQuery(change);page.value=1
     clearSelection();await load()
   }
+  async function clearQuery(){
+    queryRuntime.clearQuery();page.value=1
+    clearSelection();await load()
+  }
   async function setFilterState(next:FilterState){
     queryRuntime.setFilterState(next)
     page.value=1;clearSelection();await load()
@@ -304,7 +308,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;cancelQuerySelection();preferenceController.abort();controller?.abort();commitListeners.clear()})
-  const commands={reload:()=>load(),setQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,readRows,optionsFor,sort}
+  const commands={reload:()=>load(),setQuery,clearQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,readRows,optionsFor,sort}
   return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

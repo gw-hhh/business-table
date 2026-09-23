@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import TableIcon from '../../components/TableIcon.vue'
+import ToolMenu from './ToolMenu.vue'
 import {providePopupScope} from '../../ui/popupScope'
 import { presentTools, type ToolDefinition, type ToolPreference } from '../presentation/model'
 
@@ -19,6 +20,7 @@ const popupScope=providePopupScope()
 const emit = defineEmits<{ error: [cause: unknown] }>()
 const root = ref<HTMLElement>(), trigger = ref<HTMLButtonElement>(), opened = ref(false), failure = ref('')
 const menu = ref<HTMLElement>(), menuStyle = ref<CSSProperties>({ position: 'fixed', right: 'auto' }), narrow = ref(false)
+const activeMenu = ref<string>(), menuAnchor = ref<HTMLElement | null>(null), initialFocus = ref<'first'|'last'>('first')
 let media: MediaQueryList | undefined
 let observer: ResizeObserver | undefined
 const available = ref(Number.POSITIVE_INFINITY), widths = ref<Record<string,number>>({})
@@ -48,8 +50,10 @@ const presented = computed(() => presentTools(props.tools, props.layout))
 const inOverflow = (tool: ToolDefinition) => tool.position === 'more' || (props.overflow === 'collapse' && !tool.fixed && (narrow.value || collapsed.value.has(tool.id)))
 const direct = computed(() => presented.value.filter(tool => !inOverflow(tool)))
 const overflow = computed(() => presented.value.filter(inOverflow))
+const menuTool = computed(() => presented.value.find(tool => tool.id === activeMenu.value && tool.disabled !== true))
 const menuItems = () => [...(root.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])]
-function close(focus = false) { opened.value = false; if (focus) trigger.value?.focus() }
+function closeToolMenu(focus = false) { activeMenu.value = undefined; if (focus && menuAnchor.value?.isConnected) menuAnchor.value.focus() }
+function close(focus = false) { closeToolMenu(); opened.value = false; if (focus) trigger.value?.focus() }
 function positionMenu() {
   if (!opened.value || !trigger.value || !menu.value) return
   const anchor = trigger.value.getBoundingClientRect(), box = menu.value.getBoundingClientRect(), margin = 12
@@ -58,37 +62,64 @@ function positionMenu() {
   const top = Math.max(margin, Math.min(below + box.height <= window.innerHeight - margin ? below : above, window.innerHeight - box.height - margin))
   menuStyle.value = { position: 'fixed', right: 'auto', left: `${left}px`, top: `${top}px`, maxHeight: `${window.innerHeight - margin * 2}px`, overflowY: box.height > window.innerHeight - margin * 2 ? 'auto' : 'visible' }
 }
-async function toggleMenu() { opened.value = !opened.value; if (opened.value) { await nextTick(); positionMenu(); focusAt(0) } }
-async function invoke(tool: ToolDefinition, event: Event, keepOpen = false) {
-  if (tool.disabled === true || !tool.handler) return
+async function toggleMenu() { closeToolMenu(); opened.value = !opened.value; if (opened.value) { await nextTick(); positionMenu(); focusAt(0) } }
+function currentTool(path: readonly string[]): ToolDefinition | undefined {
+  let items = presentTools(props.tools, props.layout), current: ToolDefinition | undefined
+  for (const id of path) {
+    current = items.find(tool => tool.id === id)
+    if (!current || current.disabled === true) return undefined
+    items = [...(current.children ?? [])]
+  }
+  return current
+}
+async function invokePath(path: string[], event: Event, keepOpen = false) {
+  const tool = currentTool(path)
+  if (!tool?.handler || tool.children) return
   failure.value = ''
-  if (!keepOpen) close(opened.value)
+  if (!keepOpen) { closeToolMenu(true); close(opened.value) }
   try { await tool.handler(event) }
   catch (cause) { failure.value = cause instanceof Error ? cause.message : '操作失败，请重试。'; emit('error', cause) }
+}
+async function invoke(tool: ToolDefinition, event: Event, keepOpen = false) {
+  const current = currentTool([tool.id])
+  if (!current) return
+  if (!current.children) return invokePath([tool.id], event, keepOpen)
+  failure.value = ''
+  menuAnchor.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  initialFocus.value = event instanceof KeyboardEvent && event.key === 'ArrowUp' ? 'last' : 'first'
+  activeMenu.value = activeMenu.value === tool.id && !(event instanceof KeyboardEvent) ? undefined : tool.id
+}
+function toolKey(tool: ToolDefinition, event: KeyboardEvent, inMenu = false) {
+  if (!tool.children || !(inMenu ? ['ArrowRight'] : ['ArrowDown','ArrowUp']).includes(event.key)) return
+  event.preventDefault(); event.stopPropagation(); void invoke(tool,event)
 }
 function focusAt(index: number) { const items = menuItems(); items[index]?.focus() }
 async function openFromKey(event: KeyboardEvent) {
   if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return
-  event.preventDefault(); event.stopPropagation(); opened.value = true
+  event.preventDefault(); event.stopPropagation(); closeToolMenu(); opened.value = true
   await nextTick(); positionMenu(); focusAt(event.key === 'ArrowUp' ? menuItems().length - 1 : 0)
 }
+function tabAway(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing) return
+  const origin = opened.value ? trigger.value : menuAnchor.value
+  const stops = [...document.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[tabindex]')].filter(element => {
+    if (menu.value?.contains(element) || popupScope.contains(element) || element.tabIndex < 0 || element.matches(':disabled,[aria-disabled="true"]')) return false
+    for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
+      const style = getComputedStyle(parent)
+      if (parent.hidden || parent.inert || style.display === 'none' || style.visibility === 'hidden') return false
+    }
+    return true
+  })
+  const index = origin ? stops.indexOf(origin) : -1
+  const target = index >= 0 ? stops[index + (event.shiftKey ? -1 : 1)] : undefined
+  event.preventDefault(); event.stopPropagation(); close(); (target ?? origin)?.focus()
+}
 function menuKey(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing) return
   const popup = root.value?.querySelector('[role="menu"]')
   if (event.target instanceof Element && event.target.closest('[role="menu"],[role="dialog"]') !== popup) return
   if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); return }
-  if (event.key === 'Tab') {
-    const stops = [...document.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[tabindex]')].filter(element => {
-      if (popup?.contains(element) || element.tabIndex < 0 || element.matches(':disabled,[aria-disabled="true"]')) return false
-      for (let parent: HTMLElement | null = element; parent; parent = parent.parentElement) {
-        const style = getComputedStyle(parent)
-        if (parent.hidden || parent.inert || style.display === 'none' || style.visibility === 'hidden') return false
-      }
-      return true
-    })
-    const index = trigger.value ? stops.indexOf(trigger.value) : -1
-    const target = index >= 0 ? stops[index + (event.shiftKey ? -1 : 1)] : undefined
-    event.preventDefault(); event.stopPropagation(); close(); (target ?? trigger.value)?.focus(); return
-  }
+  if (event.key === 'Tab') { tabAway(event); return }
   const items = menuItems(), index = items.indexOf(document.activeElement as HTMLButtonElement)
   const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : event.key === 'ArrowDown' ? (index + 1) % items.length : event.key === 'ArrowUp' ? (index - 1 + items.length) % items.length : undefined
   if (next === undefined) return
@@ -97,7 +128,8 @@ function menuKey(event: KeyboardEvent) {
 function outside(event: PointerEvent) { if (event.target instanceof Node && !root.value?.contains(event.target) && !popupScope.contains(event.target)) close() }
 function classes(tool: ToolDefinition) { return ['bt-tool', tool.display === 'icon' ? props.iconButtonClass : props.buttonClass, { 'is-active': tool.active, 'is-primary': tool.variant === 'primary', 'is-icon': tool.display === 'icon' }] }
 function resize() { narrow.value = media?.matches ?? window.innerWidth <= 700; void nextTick(positionMenu) }
-watch(overflow, items => { if (!items.length) close(); else void nextTick(positionMenu) })
+watch(overflow, items => { if (!items.length && opened.value) close(); else void nextTick(positionMenu) })
+watch(menuTool, tool => { if (!tool?.children?.length) closeToolMenu() })
 watch(()=>JSON.stringify([presented.value.map(tool=>[tool.id,tool.label,tool.display,tool.position,tool.separator]),props.size,props.gap]),()=>void nextTick(measureContainer),{flush:'post'})
 function observeContainer(){observer?.disconnect();if(root.value?.parentElement)observer?.observe(root.value.parentElement);measureContainer()}
 watch(root,observeContainer,{flush:'post'})
@@ -125,7 +157,7 @@ onBeforeUnmount(() => {
     <div class="bt-tool-measure" aria-hidden="true" inert><span v-for="tool in presented" :key="tool.id" :data-measure-tool="tool.id" class="bt-tool-item" :class="{'has-separator':tool.separator}"><span :class="classes(tool)"><TableIcon v-if="tool.display!=='text'" :name="tool.icon??'file'"/><span v-if="tool.display!=='icon'">{{tool.label}}</span></span></span></div>
     <div v-for="tool in direct" :key="tool.id" class="bt-tool-item" :class="{'has-separator':tool.separator,'is-fixed':tool.fixed}" :data-tool-id="tool.id">
       <slot :name="`tool-${tool.id}`" :tool="tool" :invoke="(event:Event,keepOpen=false)=>invoke(tool,event,keepOpen)">
-        <button type="button" :class="classes(tool)" :title="tool.label" :aria-label="tool.label" :aria-pressed="tool.active === undefined ? undefined : tool.active" :disabled="tool.disabled === true" @click="invoke(tool,$event)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span v-if="tool.display !== 'icon'">{{tool.label}}</span></button>
+        <button type="button" :class="classes(tool)" :title="tool.label" :aria-label="tool.label" :aria-pressed="tool.active === undefined ? undefined : tool.active" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" :disabled="tool.disabled === true" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span v-if="tool.display !== 'icon'">{{tool.label}}</span></button>
       </slot>
     </div>
     <div v-if="overflow.length" class="bt-tool-more">
@@ -133,11 +165,12 @@ onBeforeUnmount(() => {
       <div v-if="opened" ref="menu" class="bt-tool-menu" :class="menuClass" :style="menuStyle" role="menu" :aria-label="moreLabel" @keydown="menuKey">
         <div v-for="tool in overflow" :key="tool.id" :data-tool-id="tool.id" :class="{'has-separator':tool.separator}">
           <slot :name="`tool-${tool.id}`" :tool="tool" :invoke="(event:Event,keepOpen=false)=>invoke(tool,event,keepOpen)" :in-menu="true">
-            <button type="button" role="menuitem" tabindex="-1" :disabled="tool.disabled === true" :title="tool.label" :aria-label="tool.label" @click="invoke(tool,$event)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span v-if="tool.display !== 'icon'">{{tool.label}}</span></button>
+            <button type="button" role="menuitem" tabindex="-1" :disabled="tool.disabled === true" :title="tool.label" :aria-label="tool.label" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event,true)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span>{{tool.label}}</span><TableIcon v-if="tool.children" name="chevron-right" :size="12"/></button>
           </slot>
         </div>
       </div>
     </div>
+    <ToolMenu v-if="menuTool?.children" :tools="menuTool.children" :anchor="menuAnchor" :label="menuTool.label" :path="[menuTool.id]" :initial-focus="initialFocus" @select="invokePath" @close="closeToolMenu" @tab="tabAway"/>
     <p v-if="failure" class="bt-tool-error" role="alert">{{failure}}</p>
   </div>
 </template>

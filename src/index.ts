@@ -26,6 +26,7 @@ export { summarizeSearchValues } from './features/search/model'
 export type { FilterOption, FilterOptionsLoader } from './features/filters/model'
 export { formatFilterSummary, useFilterSummaries } from './features/filters/summary'
 export type { SearchContext } from './runtime/query'
+export const QuerySummary:typeof import('./components/QuerySummary.vue')['default']=defineAsyncComponent(()=>import('./components/QuerySummary.vue'))
 export const SearchSummary=defineAsyncComponent(()=>import('./components/SearchSummary.vue'))
 export type { ControlConfig, ControlDeclaration, ControlAccess } from './config/access'
 export type { SettingsDefinition, SettingsPolicy, SettingsPage, ColumnSettingsSection } from './features/settings/policy'

@@ -7,7 +7,7 @@ import TableIcon from './TableIcon.vue'
 
 const props=defineProps<{
   local:unknown;remote?:unknown;defaultStrategy?:FeatureLoadStrategy;entryLabel?:string;entryIcon?:string;testId?:string
-  createContext:(details:{label?:string;allowedItems?:string[]},controls:{close:()=>void;isActive:()=>boolean})=>C|Promise<C>
+  createContext:(details:{label?:string;allowedItems?:string[]},controls:{close:()=>void;isActive:()=>boolean;onDispose:(dispose:()=>void)=>void})=>C|Promise<C>
   loader:()=>Promise<{default:Component}>
 }>()
 const emit=defineEmits<{diagnostic:[ConfigDiagnostic];entry:[]}>()
@@ -61,9 +61,21 @@ function resetController(){
         const refreshedGeneration=generation
         void activate().then(()=>{if(generation===refreshedGeneration)active.value=wasActive})
       },{flush:'sync'})
-      const context=await props.createContext(details,{close,isActive:()=>generation===currentGeneration&&gate.value.enabled})
-      const component=mode==='default'?markRaw((await props.loader()).default):undefined
-      return {value:{context,component}}
+      const disposers:(()=>void)[]=[]
+      let released=false
+      const release=()=>{
+        if(released)return
+        released=true
+        for(const dispose of disposers.reverse()){
+          try{dispose()}
+          catch(cause){emit('diagnostic',{code:'RuntimeExtensionError',path:'features.dispose',message:cause instanceof Error?cause.message:String(cause)})}
+        }
+      }
+      try{
+        const context=await props.createContext(details,{close,isActive:()=>generation===currentGeneration&&gate.value.enabled,onDispose:dispose=>{if(released)dispose();else disposers.push(dispose)}})
+        const component=mode==='default'?markRaw((await props.loader()).default):undefined
+        return {value:{context,component},dispose:release}
+      }catch(cause){release();throw cause}
     },
   })
   state.value=controller.state

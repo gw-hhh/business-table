@@ -18,6 +18,7 @@ export interface PresentationDelta { appearance?: Partial<Appearance>; rowAction
 export interface ToolDefinition {
   id: string; label: string; icon?: string; order?: number; position?: ItemPosition; display?: DisplayMode
   fixed?: boolean; immutable?: boolean; separator?: boolean; visible?: boolean; disabled?: boolean; active?: boolean; variant?: 'primary'
+  children?: readonly ToolDefinition[]
   handler?: (event: Event) => void | Promise<void>
 }
 export interface PresentedAction<T extends RowData = RowData> extends Action<T> { display?: DisplayMode; group?: 'normal' | 'export' | 'danger' }
@@ -123,18 +124,29 @@ export function presentActions<T extends RowData>(registered: readonly Action<T>
 }
 /** Local declarations own availability; saved visibility never removes an item from its editor. */
 export function availableTools(registered: readonly ToolDefinition[]): ToolDefinition[] {
-  const seen = new Set<string>()
-  return registered.filter(item => {
-    if (!item.id || seen.has(item.id)) return false
-    seen.add(item.id)
-    return item.visible !== false && (typeof item.handler === 'function' || item.disabled === true)
-  })
+  const resolve = (items: readonly ToolDefinition[], ancestors: ReadonlySet<ToolDefinition>, depth: number): ToolDefinition[] => {
+    if (depth > 4) return []
+    const seen = new Set<string>(), result: ToolDefinition[] = []
+    for (const item of items) {
+      if (!item.id || seen.has(item.id)) continue
+      seen.add(item.id)
+      if (item.visible === false || ancestors.has(item)) continue
+      const children = item.children ? resolve(item.children, new Set([...ancestors, item]), depth + 1) : undefined
+      if (children ? !children.length : typeof item.handler !== 'function' && item.disabled !== true) continue
+      result.push(children ? { ...item, children } : item)
+    }
+    return result
+  }
+  return resolve(registered, new Set(), 0)
 }
 export function presentTools(registered: readonly ToolDefinition[], preferences: Record<string, ToolPreference>): ToolDefinition[] {
-  return availableTools(registered).flatMap(item => {
-    const preference = Object.hasOwn(preferences, item.id) ? preferences[item.id]! : {}
+  const resolve = (items: readonly ToolDefinition[], layout: Record<string, ToolPreference>): ToolDefinition[] => items.flatMap(item => {
+    const preference = Object.hasOwn(layout, item.id) ? layout[item.id]! : {}
     const position = item.immutable ? 'direct' : preference.position ?? item.position ?? 'direct'
     if (position === 'hidden') return []
-    return [{ ...item, label: preference.label ?? item.label, order: preference.order ?? item.order ?? 0, display: preference.display ?? item.display ?? 'icon-text', position, fixed: item.immutable || (preference.fixed ?? item.fixed ?? false), separator: preference.separator ?? item.separator }]
+    const children = item.children ? resolve(item.children, {}) : undefined
+    if (children && !children.length) return []
+    return [{ ...item, ...(children ? { children } : {}), label: preference.label ?? item.label, order: preference.order ?? item.order ?? 0, display: preference.display ?? item.display ?? 'icon-text', position, fixed: item.immutable || (preference.fixed ?? item.fixed ?? false), separator: preference.separator ?? item.separator }]
   }).sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+  return resolve(availableTools(registered), preferences)
 }

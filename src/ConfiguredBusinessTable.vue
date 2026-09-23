@@ -21,6 +21,7 @@ const props = defineProps<{
   tools?: {page:readonly ToolDefinition[];table:readonly ToolDefinition[]}
   views?: ViewConfig[]
   filterPlanPersistence?: FilterPlanPersistence | null
+  querySummary?: boolean
   loading?: boolean
 }>()
 const emit = defineEmits<{
@@ -136,6 +137,7 @@ defineExpose({
     :data-source="dataSource"
     :views="views"
     :filter-plan-persistence="filterPlanPersistence"
+    :query-summary="querySummary"
     :loading="loading"
     :action-provider="actionProvider"
     :cell-renderer="renderCell"

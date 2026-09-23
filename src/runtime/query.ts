@@ -132,6 +132,30 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
     state.draft.value = cloneData(values)
     if (!state.definition.items.some(item => item.kind === 'keyword')) { legacyKeyword.value = ''; legacyDraft.value = '' }
   }
+  function removeSearchItem(id: string): boolean {
+    const state = search()
+    if (!state || !state.definition.items.some(item => item.id === id)) throw new Error('查询字段已不可用。')
+    const wasApplied = Object.hasOwn(state.applied.value, id)
+    if (wasApplied) {
+      const applied = { ...state.applied.value }
+      delete applied[id]
+      state.applied.value = applied
+    }
+    if (Object.hasOwn(state.draft.value, id)) {
+      const draft = { ...state.draft.value }
+      delete draft[id]
+      state.draft.value = draft
+    }
+    return wasApplied
+  }
+  function clearQuery(): void {
+    resetSearch()
+    legacyKeyword.value = ''
+    legacyDraft.value = ''
+    filters.value = []
+    columnFilters.value = []
+    filterGroup.value = undefined
+  }
 
   function validFilters(source: readonly FilterConfig[] | undefined, persisted = false): FilterConfig[] {
     return (source ?? []).flatMap((entry, index) => {
@@ -239,10 +263,11 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
       component(id: string) { const item = search()?.definition.items.find(item => item.id === id); return item?.kind === 'custom' ? options.registry()?.get('search', item.id)?.component : undefined },
       async submit() { commitSearch(); await onCommit() },
       async reset() { resetSearch(); await onCommit() },
+      async remove(id: string) { if (removeSearchItem(id)) await onCommit() },
     }
   }
   return { keyword, searchSignature, searchDraft, filters, columnFilters, filterGroup, sorts, activeView, query,
-    getValue, setValue, pending, commitSearch, resetSearch, setQuery, setFilterState, sort, restoreView, snapshot, clear, context }
+    getValue, setValue, pending, commitSearch, resetSearch, clearQuery, setQuery, setFilterState, sort, restoreView, snapshot, clear, context }
 }
 
 export type QueryRuntime = ReturnType<typeof useQueryRuntime>

@@ -1,6 +1,7 @@
 import type { ColumnConfig, FilterConfig, RowData } from '../../types'
 import { getValue, typedKey } from '../../runtime/value'
 import { evaluateCell } from '../columns/evaluate'
+import { operatorLabels } from '../../runtime/filter'
 export type FilterType = 'text' | 'number' | 'date' | 'single' | 'multi' | 'boolean'
 export interface FilterOption { value: string | number | boolean | null; label: string; count?: number }
 export type FilterOptionsLoader = (column: ColumnConfig, search: string, signal: AbortSignal, values?: readonly FilterOption['value'][]) => Promise<FilterOption[]>
@@ -28,6 +29,10 @@ export function filterInputUnit(column?: ColumnConfig, factor = 1): string {
   return scale + (column?.filter?.inputUnit ?? '')
 }
 export { operatorLabels, localDay, isCalendarDay, matchesFilter, matchesFilterGroup, compileFilter, compileFilterGroup, readFilter, readFilterGroup, FILTER_LIMITS, type FilterGroup } from '../../runtime/filter'
+const dateOperatorLabels: Partial<Record<FilterConfig['operator'], string>> = { eq: '当天', gte: '不早于', lte: '不晚于', between: '日期范围' }
+export function filterOperatorLabel(column: ColumnConfig | undefined, operator: FilterConfig['operator']): string {
+  return column && defaultColumnFilter(column).type === 'date' ? dateOperatorLabels[operator] ?? operatorLabels[operator] : operatorLabels[operator]
+}
 export const operatorsByType: Record<FilterType, FilterConfig['operator'][]> = {
   text:['contains','eq','ne','starts','empty','notEmpty'],
   number:['eq','ne','gt','gte','lt','lte','between','empty','notEmpty'],

@@ -75,6 +75,14 @@ describe('first-party filter feature', () => {
     expect(dialog('筛选 · 金额')?.querySelector('[role="alert"]')?.textContent).toContain('数字')
     expect(api.getState().rows).toHaveLength(3)
   })
+  it('uses the reference date operator labels without changing stored operator values', async () => {
+    const { api } = await setup({ columns: [...columns, { id: 'date', field: 'date', title: '有效期至', type: 'date' }] })
+    await api.openFilters('date'); await flushPromises()
+    const options = Array.from(dialog('筛选 · 有效期至')!.querySelectorAll<HTMLOptionElement>('[aria-label="筛选条件"] option'))
+    expect(options.slice(0, 4).map(option => [option.value, option.textContent])).toEqual([
+      ['eq', '当天'], ['gte', '不早于'], ['lte', '不晚于'], ['between', '日期范围'],
+    ])
+  })
   it('provides the same guarded operations to headless consumers without a dialog', async () => {
     const { api } = await setup({ features: { filters: { enabled: true, mode: 'headless', loadStrategy: 'on-interaction' } } })
     const context = await api.activateFeature('filters'); expect(context).toBeDefined()
@@ -125,10 +133,13 @@ describe('first-party filter feature', () => {
     } })
     await api.openFilters(); await flushPromises()
     const panel = dialog('组合筛选')!
-    const save = () => Array.from(panel.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent === '保存为方案')!
+    await click(panel, '筛选方案')
+    const manager = dialog('筛选方案')!
+    expect(manager).toBeTruthy()
+    const save = () => Array.from(manager.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent === '保存为方案')!
     expect(save().disabled).toBe(true)
-    expect(panel.querySelector('[role="alert"]')?.textContent).toContain('读取服务不可用')
-    failed = false; await click(panel, '重新读取')
+    expect(manager.querySelector('[role="alert"]')?.textContent).toContain('读取服务不可用')
+    failed = false; await click(manager, '重新读取')
     expect(save().disabled).toBe(false)
     expect(api.getState().rows).toHaveLength(3)
   })
@@ -136,9 +147,70 @@ describe('first-party filter feature', () => {
     const { api } = await setup({ filterPlanPersistence: { load: async () => null, save: async () => { throw new Error('存储不可用') } } })
     expect(typeof api.openFilters).toBe('function')
     await api.openFilters(); await flushPromises()
-    await click(dialog('组合筛选')!, '保存为方案')
+    await click(dialog('组合筛选')!, '添加条件'); await change(dialog('组合筛选')!, '筛选值', '甲')
+    await click(dialog('组合筛选')!, '筛选方案')
+    await click(dialog('筛选方案')!, '保存为方案')
     const panel = dialog('保存筛选方案')!; await change(panel, '方案名称', '常用条件'); await click(panel, '保存')
     expect(dialog('保存筛选方案')).toBeTruthy()
     expect(dialog('保存筛选方案')?.querySelector('[role="alert"]')?.textContent).toContain('存储不可用')
+    expect(dialog('组合筛选')?.querySelector<HTMLInputElement>('[aria-label="筛选值"]')?.value).toBe('甲')
+    expect(api.getState().query.filterGroup).toBeUndefined()
+  })
+  it('keeps the legacy rule editor first and moves plan controls to a secondary dialog', async () => {
+    const { api } = await setup()
+    await api.openFilters(); await flushPromises()
+    const panel = dialog('组合筛选')!
+    expect(panel.querySelector('.bt-dialog-body > .bt-filter-group')).toBeTruthy()
+    expect(panel.querySelector('.bt-filter-plans')).toBeNull()
+    expect(panel.querySelector('.bt-dialog-header button')?.textContent?.trim()).toBe('筛选方案')
+    expect(Array.from(panel.querySelectorAll('.bt-dialog-footer button')).map(button => button.textContent?.trim())).toEqual(['清空条件', '取消', '应用条件'])
+    await click(panel, '筛选方案')
+    expect(dialog('筛选方案')).toBeTruthy()
+    await click(dialog('筛选方案')!, '关闭')
+    expect(dialog('筛选方案')).toBeNull()
+    expect(dialog('组合筛选')).toBeTruthy()
+  })
+  it('loads a saved plan into a cancellable draft and applies it only after confirmation', async () => {
+    const saved = { kind: 'business-table-filter-plans', version: 1, tableKey: 'filter.fixture', plans: [
+      { id: 'mine', name: '甲报价', columnFilters: [], filterGroup: { logic: 'and', rules: [{ field: 'name', operator: 'eq', value: '甲' }] } },
+    ] }
+    const { api } = await setup({ filterPlanPersistence: { load: async () => saved, save: async () => {} } })
+    await api.openFilters(); await flushPromises()
+    await click(dialog('组合筛选')!, '筛选方案')
+    await change(dialog('筛选方案')!, '筛选方案', 'mine')
+    expect(dialog('筛选方案')).toBeNull()
+    expect(dialog('组合筛选')!.querySelectorAll('.bt-filter-rule')).toHaveLength(1)
+    expect(api.getState().query.filterGroup).toBeUndefined()
+    await click(dialog('组合筛选')!, '取消')
+    expect(api.getState().rows).toHaveLength(3)
+    await api.openFilters(); await flushPromises()
+    expect(dialog('组合筛选')!.querySelectorAll('.bt-filter-rule')).toHaveLength(0)
+    await click(dialog('组合筛选')!, '筛选方案')
+    await change(dialog('筛选方案')!, '筛选方案', 'mine')
+    await click(dialog('组合筛选')!, '应用条件')
+    expect(api.getState().rows.map(row => row.id)).toEqual([1, 2])
+  })
+  it('retains create, update, rename and delete in the secondary plan manager', async () => {
+    let stored: unknown = null
+    const persistence = { load: vi.fn(async () => stored), save: vi.fn(async (_key: string, value: unknown) => { stored = value }) }
+    const { api } = await setup({ filterPlanPersistence: persistence })
+    await api.openFilters(); await flushPromises()
+    const panel = dialog('组合筛选')!
+    await click(panel, '添加条件'); await change(panel, '筛选值', '甲')
+    await click(panel, '筛选方案'); await click(dialog('筛选方案')!, '保存为方案')
+    await change(dialog('保存筛选方案')!, '方案名称', '常用条件'); await click(dialog('保存筛选方案')!, '保存')
+    expect(dialog('保存筛选方案')).toBeNull()
+    const manager = dialog('筛选方案')!
+    await click(manager, '重命名')
+    await change(dialog('重命名筛选方案')!, '方案名称', '甲条件'); await click(dialog('重命名筛选方案')!, '保存')
+    expect(manager.querySelector('[aria-label="筛选方案"]')?.textContent).toContain('甲条件')
+    await click(manager, '关闭')
+    await change(panel, '筛选值', '乙')
+    await click(panel, '筛选方案'); await click(dialog('筛选方案')!, '更新方案')
+    expect(stored).toMatchObject({ plans: [{ name: '甲条件', filterGroup: { rules: [{ value: '乙' }] } }] })
+    await click(dialog('筛选方案')!, '删除方案')
+    await click(dialog('删除筛选方案')!, '删除')
+    expect(stored).toMatchObject({ plans: [] })
+    expect(api.getState().query.filterGroup).toBeUndefined()
   })
 })

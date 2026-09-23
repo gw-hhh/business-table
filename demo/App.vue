@@ -12,7 +12,6 @@ import {useTableControls} from '../src/features/presentation/useTableControls'
 import DialogFrame from '../src/ui/DialogFrame.vue'
 import {useSearchShortcut} from '../src/features/search/shortcut'
 import QuotationRecordDialog from './quotation/QuotationRecordDialog.vue'
-import SearchSummary from '../src/components/SearchSummary.vue'
 import ExportDialog from '../src/features/export/ExportDialog.vue'
 import TemplateDownloadDialog from '../src/features/export/TemplateDownloadDialog.vue'
 import {buildExportBook,downloadExport,exportCSV,normalizeExportOptions,type ExportField,type ExportGroup,type ExportPreset} from '../src/features/export/model'
@@ -49,7 +48,7 @@ const filteredRows = computed(() => filterQuotations(quotations.value, query.val
 const selectedAmount=computed(()=>selectedRows.value.reduce((sum,row)=>sum+row.amount,0))
 const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
+const table = ref<{ openFilters:(columnId?:string)=>Promise<void>; setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
 const currentSearch = () => table.value?.getRuntime().searchContext()
 const persistence = createLocalStoragePersistence()
 const features = { title: false, search: { enabled: true, mode: 'headless' as const }, views: false, toolbar: false, columnSettings: {enabled:true,entry:false}, filters: {enabled:true,entry:false} }
@@ -146,6 +145,10 @@ const tools = computed<{ page: ToolDefinition[]; table: ToolDefinition[] }>(() =
     { id: 'sort', label: '排序规则', icon: 'sort', display: 'icon', active: query.value.sorts.length > 0, handler: () => table.value?.openColumnSettings('drawer',undefined,'sorts') },
     {id:'columns',label:'列设置',icon:'columns',display:'icon',handler:()=>table.value?.openColumnSettings('quick')},
     {id:'settings',label:'表格设置',icon:'settings',immutable:true,handler:()=>table.value?.openColumnSettings('drawer')},
+    {id:'data-tools',label:'数据工具',icon:'filter',display:'icon',children:[
+      {id:'combined-filter',label:'组合筛选',icon:'filter',handler:()=>table.value?.openFilters()},
+      {id:'toolbar-settings',label:'工具栏设置',icon:'settings',separator:true,handler:()=>table.value?.openColumnSettings('drawer',undefined,'toolbar')},
+    ]},
   ],
 }))
 const actions: Action<Quotation>[] = [
@@ -169,7 +172,7 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
       </div>
     </header>
 
-    <BusinessTable ref="table" class="q-main-card" title="报价列表" :features="features" :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 10, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @selection-change="selectedRows = $event" @cell-action="event=>event.action==='open'&&showQuotation('view',event.row)">
+    <BusinessTable ref="table" class="q-main-card" title="报价列表" :features="features" query-summary :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 10, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @selection-change="selectedRows = $event" @cell-action="event=>event.action==='open'&&showQuotation('view',event.row)">
       <template #before="{ search: searchContext }">
         <div v-if="repository.externalChanged.value" class="q-storage-notice" role="status">数据已在其他页面更新。<button class="q-link" @click="refresh">刷新列表</button></div>
         <form v-if="searchVisible && searchContext" class="q-search-panel" aria-label="报价查询" @submit.prevent="submitSearch">
@@ -194,7 +197,6 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
           <template #tool-density="{tool,inMenu}"><DensityMenu ref="densityMenu" :tool="tool" :in-menu="inMenu" :value="table?.getRuntime().presentation.value.appearance.density??density" @change="setDensity"/></template>
         </ToolStrip>
       </template>
-      <template #after-toolbar><SearchSummary v-if="currentSearch()" :context="currentSearch()!"/></template>
 
       <template #summary="{ total, page, pageSize }"><div class="q-result-summary"><span>共 {{ total }} 条 · 第 {{ total ? (page - 1) * pageSize + 1 : 0 }}–{{ Math.min(page * pageSize, total) }} 条</span><span class="q-summary-divider">·</span><span>{{selectedRows.length?'所选合计':'筛选合计'}}</span><strong>¥ {{ money(selectedRows.length?selectedAmount:totalAmount) }}</strong></div></template>
     </BusinessTable>
