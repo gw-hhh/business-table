@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, existsSync, symlinkSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { resolve, join } from 'node:path'
+import { resolve, join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 
@@ -11,7 +11,11 @@ for (const entry of [pkg.main, pkg.module, pkg.types, pkg.exports['./style.css']
 }
 const workspace = mkdtempSync(join(tmpdir(), 'business-table-consumer-'))
 try {
-  const [pack] = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', workspace], { cwd: root, encoding: 'utf8' }))
+  // On Windows `npm` is a command shim, which execFileSync cannot spawn directly.
+  const npmCli = join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  const npmCommand = existsSync(npmCli) ? process.execPath : 'npm'
+  const npmArgs = [...(existsSync(npmCli) ? [npmCli] : []), 'pack', '--json', '--pack-destination', workspace]
+  const [pack] = JSON.parse(execFileSync(npmCommand, npmArgs, { cwd: root, encoding: 'utf8' }))
   assert(pack.files.some(file => file.path === pkg.types), 'Type entry not included by npm pack')
   assert(!pack.files.some(file => file.path.startsWith('src/') || file.path.startsWith('reference/')), 'Source/reference must not enter the runtime package')
   const consumerPackage = join(workspace, 'node_modules', ...pkg.name.split('/'))
@@ -21,7 +25,7 @@ try {
   for (const name of ['vue','vxe-table','vxe-pc-ui','zod','@vxe-ui/core','xe-utils','dom-zindex']) {
     const target = join(workspace, 'node_modules', ...name.split('/'))
     mkdirSync(resolve(target, '..'), { recursive: true })
-    symlinkSync(join(root, 'node_modules', ...name.split('/')), target, 'dir')
+    symlinkSync(join(root, 'node_modules', ...name.split('/')), target, process.platform === 'win32' ? 'junction' : 'dir')
   }
   writeFileSync(join(workspace, 'package.json'), JSON.stringify({ type: 'module' }))
   writeFileSync(join(workspace, 'consumer.ts'), `

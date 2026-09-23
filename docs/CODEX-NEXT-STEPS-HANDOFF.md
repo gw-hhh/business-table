@@ -27,11 +27,11 @@
 
 ### BT-01 Query Runtime
 
-迁移搜索、高级查询、查询状态和保存能力。
+已在 `feature/visual-parity-refinement` 实现：迁移搜索、高级查询、查询状态和 View 中的 Search 值保存。提交与 Release Gate 结果以当前分支和验收记录为准。
 
 ### BT-02 View Runtime
 
-完善视图创建、修改、默认视图和持久化。
+**下一项任务。** 完善通用视图创建、修改、默认视图和持久化；迁出 Demo 中剩余的视图管理状态，并补服务端权限与冲突处理。
 
 ### BT-03 Mapping
 

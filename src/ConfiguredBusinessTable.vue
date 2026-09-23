@@ -3,7 +3,7 @@ import { computed, ref, watch, type VNodeChild } from 'vue'
 import BusinessTable from './BusinessTable.vue'
 import { displayValue } from './core'
 import type { ConfigDiagnostic } from './config/diagnostics'
-import type { TableFeatures } from './config/features'
+import { resolveFeatureGate, type TableFeatures } from './config/features'
 import { createPreferenceDelta, resolveConfiguration } from './config/schema'
 import type { PreferenceV3, TableDefinition } from './config/types'
 import { createRegistry, resolveRenderer, resolveRowActions, type RuntimeRegistry } from './runtime/registry'
@@ -62,6 +62,8 @@ const remoteFeatures = computed(() => {
     ? value as Record<string, unknown>
     : undefined
 })
+const searchDefinition = computed(() => resolveFeatureGate(props.definition.features?.search, remoteFeatures.value?.search).enabled
+  ? props.definition.search : undefined)
 const extensionErrors=new Set<string>()
 function report(diagnostic: ConfigDiagnostic) {
   if(diagnostic.code==='RuntimeExtensionError'){
@@ -115,6 +117,8 @@ defineExpose({
     :pagination="pagination"
     :features="features"
     :remote-features="remoteFeatures"
+    :search-definition="searchDefinition"
+    :registry="registry()"
     :data="data"
     :data-source="dataSource"
     :views="views"

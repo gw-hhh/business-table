@@ -3,6 +3,8 @@ import type { ViewConfig } from '../../types'
 import { cloneData } from '../../runtime/value'
 import { parseColumnPatch } from '../../config/columns'
 import { readFilter, readFilterGroup } from '../filters/model'
+import { normalizeSearchDefinition, projectSearchValues, readSearchJson, readSearchValues, restoreLegacySearch, serializeSearchValues, type SearchDefinition, type SearchValues } from '../search/model'
+import type { RuntimeRegistry } from '../../runtime/registry'
 import { presentationDelta, resolvePresentation } from '../presentation/model'
 
 export interface ViewSnapshot extends Omit<ViewConfig, 'id' | 'name'> {}
@@ -15,6 +17,18 @@ export interface ViewsOptions {
 const object = (input: unknown): Record<string, unknown> => input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : {}
 function snapshot(input: unknown): ViewSnapshot {
   const value = object(input), result: ViewSnapshot = {}
+  if (value.search !== undefined) {
+    const search = object(value.search), source = object(search.values)
+    if (!search.values || source !== search.values || Object.keys(source).length > 100) throw new Error('视图查询值无效。')
+    const values: SearchValues = Object.create(null)
+    for (const [id, entry] of Object.entries(source)) {
+      if (!id || id.length > 160 || ['__proto__', 'constructor', 'prototype'].includes(id)) throw new Error('视图查询字段无效。')
+      const parsed = readSearchJson(entry)
+      if (parsed === undefined) throw new Error('视图查询值无效。')
+      values[id] = parsed
+    }
+    result.search = { values }
+  }
   if (typeof value.keyword === 'string') result.keyword = value.keyword.slice(0, 1000)
   for (const key of ['filters', 'columnFilters'] as const) {
     const rules = value[key]
@@ -69,10 +83,22 @@ export function readViews(input: unknown, tableKey: string): ViewConfig[] {
   })
 }
 /** Query layers retain distinct ownership; an absent group equals an intentionally empty root. */
-export function viewQueryEquals(left: ViewSnapshot, right: ViewSnapshot): boolean {
+export function viewQueryEquals(left: ViewSnapshot, right: ViewSnapshot, search?: { definition: SearchDefinition; registry?: RuntimeRegistry }): boolean {
   const query = (value: ViewSnapshot) => {
     const parsed = snapshot(value)
-    return { keyword: parsed.keyword ?? '', filters: parsed.filters ?? [], columnFilters: parsed.columnFilters ?? [],
+    let keyword = parsed.keyword ?? '', values = parsed.search?.values ?? {}, filters = parsed.filters ?? []
+    if (search) {
+      const definition = normalizeSearchDefinition(search.definition)
+      const restored = parsed.search
+        ? { values: readSearchValues(parsed.search.values, definition, search.registry, undefined, 'replace'), filters }
+        : restoreLegacySearch(parsed.keyword, filters, definition, search.registry)
+      const projected = projectSearchValues(restored.values, definition, search.registry)
+      keyword = definition.items.some(item => item.kind === 'keyword') ? projected.keyword : keyword
+      values = serializeSearchValues(restored.values, definition, search.registry)
+      filters = restored.filters
+    }
+    const orderedValues = Object.fromEntries(Object.entries(values).sort(([a], [b]) => a.localeCompare(b)))
+    return { keyword, search: orderedValues, filters, columnFilters: parsed.columnFilters ?? [],
       filterGroup: parsed.filterGroup?.rules.length ? parsed.filterGroup : null, sorts: parsed.sorts ?? [] }
   }
   return JSON.stringify(query(left)) === JSON.stringify(query(right))

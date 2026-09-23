@@ -34,6 +34,8 @@ npx pnpm@10.17.1 run dev -- --host 127.0.0.1
 
 新项目可以使用 `ConfiguredBusinessTable`，由 Definition 声明能力，由 Preference 保存差量。版本、列权限、Feature Gate 和 Registry 的完整接入示例见 [配置入口](docs/CONFIGURATION.md)。开发服务的 `/?example=config` 提供默认、自定义、Headless、Core-only 和远端关闭示例；原报价 Demo 在首页。
 
+Search 开启后可用 `searchDefinition` 声明稳定字段 ID、类型、默认值和高级条件；例如 `items: [{ id: 'customer', label: '客户', kind: 'select', field: 'customer', operator: 'eq', options: [{ value: 'C01', label: '客户一' }] }]`。默认界面、`#search` 自定义界面和 Headless `#before="{ search }"` 共用同一个 Search Context。`setValue` 只改草稿，`submit` 才更新查询；`reset` 按 `resetBehavior` 恢复默认值或清空。View 将已应用值写入 `search.values`，与列筛选和组合筛选分开保存。
+
 当前最高优先级规范为 [Master Handoff](docs/BUSINESS-TABLE-CODEX-MASTER-HANDOFF.md)。它描述最终目标，当前实现范围以迁移矩阵及本批验收记录为准。
 
 ## Release gate

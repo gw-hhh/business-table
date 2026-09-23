@@ -2,6 +2,7 @@ import { applyFilters, applySorts } from '../../src/core'
 import { compileFilterGroup } from '../../src/runtime/filter'
 import { readViews, type ViewSnapshot } from '../../src/features/views/runtime'
 import type { ColumnConfig, FilterConfig, Query, SortConfig, ViewConfig } from '../../src/types'
+import type { SearchDefinition } from '../../src/features/search/model'
 
 export interface Quotation extends Record<string, unknown> {
   id: string
@@ -27,6 +28,18 @@ export interface QuotationSearch {
 export interface QuotationView extends ViewConfig { keyword?: string }
 export const emptySearch = (): QuotationSearch => ({ keyword: '', customer: '', status: '', region: '', owner: '', from: '', to: '' })
 export const quotationStatuses = ['草稿', '评审中', '已批准', '已转合同', '已关闭']
+export function quotationSearchDefinition(rows: Quotation[]): SearchDefinition {
+  const options = (field: 'customer' | 'owner' | 'region') => [...new Set(rows.map(row => row[field]))].map(value => ({ value, label: value }))
+  return { resetBehavior: 'default', items: [
+    { id: 'keyword', label: '关键词', kind: 'keyword', defaultValue: '', placeholder: '报价编号 / 项目 / 客户' },
+    { id: 'customer', label: '客户', kind: 'select', field: 'customer', operator: 'eq', defaultValue: null, options: options('customer') },
+    { id: 'status', label: '状态', kind: 'select', field: 'status', operator: 'eq', defaultValue: null, options: quotationStatuses.map(value => ({ value, label: value })) },
+    { id: 'region', label: '大区', kind: 'select', field: 'region', operator: 'eq', defaultValue: null, advanced: true, options: options('region') },
+    { id: 'owner', label: '负责人', kind: 'select', field: 'owner', operator: 'eq', defaultValue: null, advanced: true, options: options('owner') },
+    { id: 'from', label: '创建开始日期', kind: 'date', field: 'createdAt', operator: 'gte', advanced: true, defaultValue: '' },
+    { id: 'to', label: '创建结束日期', kind: 'date', field: 'createdAt', operator: 'lte', advanced: true, defaultValue: '' },
+  ] }
+}
 export function makeExampleQuotations(): Quotation[] {
   return [
     { id: 'Q20260914-0181', name: '化学品储罐监测 · 181', customer: '澄川水务', amount: 237450, status: '草稿', owner: '林予安', region: '华东大区', date: '2026-11-02', createdAt: '2026-09-14', notes: '' },
@@ -60,7 +73,7 @@ export function makeQuotationQuery(search: QuotationSearch): { keyword: string; 
 export function filterQuotations(rows: Quotation[], query: Query): Quotation[] {
   const keyword = query.keyword?.trim().toLocaleLowerCase()
   const searched = keyword ? rows.filter(row => [row.id, row.name, row.customer].some(value => value.toLocaleLowerCase().includes(keyword))) : rows
-  return applySorts(applyFilters(searched, query.filters).filter(compileFilterGroup(query.filterGroup)), query.sorts, quotationColumns)
+  return applySorts(applyFilters(applyFilters(searched, query.filters), query.columnFilters ?? []).filter(compileFilterGroup(query.filterGroup)), query.sorts, quotationColumns)
 }
 
 export function createQuotationDraft(source: Quotation | undefined, rows: Quotation[], now = new Date()): Quotation {

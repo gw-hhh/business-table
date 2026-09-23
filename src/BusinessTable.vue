@@ -1,8 +1,8 @@
 <script setup lang="ts" generic="T extends RowData">
 import{computed,defineAsyncComponent,reactive,ref,useSlots,type ComponentPublicInstance,type VNodeChild}from'vue'
-import type{Action,ColumnConfig,DataSource,FilterConfig,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,UserColumnConfig,ViewConfig}from'./types'
+import type{Action,ColumnConfig,DataSource,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,UserColumnConfig,ViewConfig}from'./types'
 import{displayValue,getValue}from'./core'
-import {resolveFeatureGate,type TableFeatures} from './config/features'
+import {readFeatureDetails,resolveFeatureGate,type TableFeatures} from './config/features'
 import type {ConfigDiagnostic} from './config/diagnostics'
 import FeatureHost from './components/FeatureHost.vue'
 import CellRenderer from './components/CellRenderer'
@@ -10,6 +10,7 @@ import TableIcon from './components/TableIcon.vue'
 import {columnTextCss as textStyle} from './components/settingsTypes'
 import {useNarrowTable} from './presentation/useNarrowTable'
 import {useTableRuntime} from './runtime/useTableRuntime'
+import type {RuntimeRegistry} from './runtime/registry'
 import type {PresentationDelta,ToolDefinition} from './features/presentation/model'
 import type {SettingsCommit} from './features/settings/session'
 import BusinessCell from './components/BusinessCell.vue'
@@ -19,12 +20,13 @@ import type {FilterPlanPersistence} from './features/filters/plans'
 import type {FiltersContext} from './features/filters/context'
 import {defaultColumnFilter} from './features/filters/model'
 const FilterChips=defineAsyncComponent(()=>import('./features/filters/FilterChips.vue'))
+const defaultSearchDefinition={items:[{id:'keyword',label:'关键词',kind:'keyword',defaultValue:''}]}
 const tableElement=ref<HTMLElement>()
 const gridElement=ref<{recalculate:(full?:boolean)=>Promise<void>}>()
 const narrow=useNarrowTable(tableElement,()=>{
   void gridElement.value?.recalculate(true).catch(cause=>{error.value=cause instanceof Error?cause.message:String(cause)})
 })
-const props=withDefaults(defineProps<{filterPlanPersistence?:FilterPlanPersistence|null;presentation?:PresentationDelta;tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;preferenceTimeoutMs?:number;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default',preferenceTimeoutMs:3000})
+const props=withDefaults(defineProps<{filterPlanPersistence?:FilterPlanPersistence|null;presentation?:PresentationDelta;tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;preferenceTimeoutMs?:number;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;searchDefinition?:unknown;registry?:RuntimeRegistry<T>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default',preferenceTimeoutMs:3000})
 const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]];cellAction:[{action:'open'|'copy';row:T;column:ColumnConfig<T>}]}>()
 const slots=useSlots()
 type FeatureName=keyof TableFeatures
@@ -44,8 +46,17 @@ const sourceColumns=computed<ColumnConfig<T>[]>(()=>{
 })
 const runtime=useTableRuntime<T>({
   get tableKey(){return props.tableKey},get rowKey(){return props.rowKey},get columns(){return sourceColumns.value},get data(){return props.data},get dataSource(){return props.dataSource},get pagination(){return props.pagination},get config(){return props.config},get persistence(){return props.persistence},get preferenceTimeoutMs(){return props.preferenceTimeoutMs},get selection(){return props.selection},get density(){return props.density},get presentation(){return props.presentation},
+  get searchDefinition(){return gate('search').enabled?props.searchDefinition??defaultSearchDefinition:undefined},
+  get searchAllowedItems(){
+    if(!gate('search').enabled)return undefined
+    const definition=props.searchDefinition??defaultSearchDefinition
+    const items=typeof definition==='object'&&definition!==null&&'items' in definition?(definition as {items:unknown}).items:undefined
+    const ids=Array.isArray(items)?items.flatMap(item=>item&&typeof item==='object'&&typeof item.id==='string'?[item.id]:[]):[]
+    return readFeatureDetails(declarations.value.search,props.remoteFeatures?.search,diagnostic=>emit('diagnostic',diagnostic),ids).allowedItems
+  },
+  get registry(){return props.registry},
 },{queryChange:query=>emit('queryChange',query),configChange:config=>emit('configChange',config),viewChange:id=>emit('viewChange',id),selectionChange:rows=>emit('selectionChange',rows),diagnostic:diagnostic=>emit('diagnostic',diagnostic)})
-const {rows,total,page,pageSize,keyword,searchDraft,sorts,filters,columnFilters,filterGroup,activeView,busy,error,config,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,search,changePageSize,getState,getSelectedRows,clearSelection,selectRow,selectPage,setQuery,goPage,sort,applyView,patch,applyPatches,applySettings,setPresentation,setColumnFilters,setFilterState}=runtime
+const {rows,total,page,pageSize,sorts,columnFilters,filterGroup,activeView,busy,error,config,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,changePageSize,getState,getSelectedRows,clearSelection,selectRow,selectPage,setQuery,goPage,sort,applyView,patch,applyPatches,applySettings,setPresentation,setColumnFilters,setFilterState}=runtime
 const dataColumns=computed(()=>resolvedColumns.value.filter(column=>column.kind!=='actions'))
 const actionColumn=computed(()=>allResolvedColumns.value.find(column=>column.kind==='actions'))
 const tableStyle=computed(()=>({'--bt-font':fontFamilyCss(presentation.value.appearance.fontFamily),'--bt-body-size':presentation.value.appearance.fontSize+'px','--bt-header-size':presentation.value.appearance.headerFontSize+'px','--bt-body-color':presentation.value.appearance.color,'--bt-header-color':presentation.value.appearance.headerColor}))
@@ -58,7 +69,7 @@ const hasHeaderFeatures=computed(()=>(['title','search','views','toolbar','colum
 const hosts=new Map<FeatureName,{activate:()=>Promise<object|undefined>;getContext:()=>object|undefined}>()
 function setHost(name:FeatureName,value:Element|ComponentPublicInstance|null){if(value)hosts.set(name,value as unknown as ReturnType<typeof hosts.get> & {});else hosts.delete(name)}
 function titleContext(details:{label?:string}){return reactive({get label(){return details.label??props.title??'数据列表'},get total(){return total.value}})}
-function searchContext(){return reactive({get draft(){return searchDraft.value},set draft(value:string){searchDraft.value=value},submit(){keyword.value=searchDraft.value;search()},reset(){searchDraft.value='';keyword.value='';search()}})}
+function searchContext(){return runtime.searchContext()}
 function viewsContext(){return reactive({get views(){return props.views??[]},get activeId(){return activeView.value},apply(id:string){applyView(props.views?.find(view=>view.id===id))}})}
 function toolbarContext(){return {refresh:()=>void load()}}
 let pendingFilterColumn:string|undefined
@@ -102,7 +113,7 @@ defineExpose({openFilters,setFilterState,applySettings,setPresentation,setColumn
 <template>
 <section ref="tableElement" class="bt" :class="{'bt--narrow':narrow,'bt--fill':fill,['bt--'+presentation.appearance.density]:true,['bt-border--'+presentation.appearance.border]:true,'bt--stripe':presentation.appearance.stripe,'bt--no-hover':!presentation.appearance.hover}" :style="tableStyle" data-business-table :aria-busy="Boolean(loading||busy)">
   <div v-if="error" class="bt__error" role="alert">{{error}}</div>
-  <slot name="before"/>
+  <slot name="before" :search="gate('search').enabled?searchContext():undefined"/>
   <header v-if="hasHeaderFeatures||slots['toolbar-start']||slots['toolbar-end']" :class="{'bt__bar':showHeader||slots['toolbar-start']||slots['toolbar-end']}" :style="!showHeader&&!slots['toolbar-start']&&!slots['toolbar-end']?{display:'contents'}:undefined">
     <slot name="toolbar-start" :total="total" :rows="rows"/>
     <FeatureHost :key="tableKey" v-if="gate('title').enabled" :ref="value=>setHost('title',value)" :local="declarations.title" :remote="remoteFeatures?.title" :create-context="titleContext" :loader="()=>import('./components/TableTitle.vue')" @diagnostic="report"><template #custom="{context}"><slot name="title" :context="context"/></template></FeatureHost>

@@ -5,8 +5,7 @@
 ```
 feature/visual-parity-refinement
 
-HEAD:
-affe92948a582ef5b08e5adbd7545a1017cb160b
+HEAD: 以当前分支的 `git rev-parse HEAD` 为准；此文档不固定提交号。
 ```
 
 ## 项目定位
@@ -42,6 +41,7 @@ src/
 - Persistence
 - Column Settings
 - Filter Feature
+- Query Runtime 与 Search Feature：按稳定 ID 管理草稿/已应用值，投影关键词和类型化查询条件；View 保存 Search 值，旧平面查询迁移；Demo 使用 Headless Search Context
 - Views 基础能力
 - 历史实现文档已整理至 `docs/archive/`
 
@@ -59,7 +59,7 @@ reference/legacy-v3.1/
 
 ## 当前风险
 
-不要继续扩大 demo/App.vue 业务状态。
+View 完整创建/修改/默认/持久化仍属于 BT-02；Demo 目前保留本地视图管理。Search 自定义 UI 值目前限可保存的 JSON 数据。
 
 后续能力应迁移到：
 
@@ -67,12 +67,11 @@ features + runtime + config
 
 ## 后续方向
 
-1. Query Runtime
-2. View Runtime
-3. Mapping
-4. Formatting
-5. Template
-6. Export
-7. Data Tools
-8. Formula Engine
-9. Legacy 全量验收
+1. View Runtime（BT-02）
+2. Mapping
+3. Formatting
+4. Template
+5. Export
+6. Data Tools
+7. Formula Engine
+8. Legacy 全量验收

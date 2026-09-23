@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, h, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { BusinessTable, createLocalStoragePersistence, displayValue, type Action, type ColumnConfig, type DataSource, type FilterConfig, type Query, type RowData, type ViewConfig, type ViewSnapshot } from '../src'
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { BusinessTable, createLocalStoragePersistence, displayValue, type Action, type ColumnConfig, type DataSource, type FilterConfig, type Query, type RowData, type SearchContext, type ViewConfig, type ViewSnapshot } from '../src'
 import TableIcon from '../src/components/TableIcon.vue'
 import { viewQueryEquals } from '../src/features/views/runtime'
 import QuotationDialog from './quotation/QuotationDialog.vue'
-import { createQuotationDraft, emptySearch, filterQuotations, makeExampleQuotations, makeQuotationQuery, parseQuotationBackup, parseQuotationViews, quotationColumns, quotationStatuses, saveQuotation, serializeQuotationBackup, updateSavedView, type Quotation, type QuotationSearch, type QuotationView } from './quotation/model'
+import { createQuotationDraft, filterQuotations, makeExampleQuotations, parseQuotationBackup, parseQuotationViews, quotationColumns, quotationSearchDefinition, quotationStatuses, saveQuotation, serializeQuotationBackup, updateSavedView, type Quotation, type QuotationView } from './quotation/model'
 import './quotation.css'
 
 const dataKey = 'business-table.quotation-demo.data.v1', viewKey = 'business-table.quotation-demo.views.v1', tableKey = 'quotation.demo.visual'
@@ -32,18 +32,18 @@ function readViews(): QuotationView[] {
 const quotations = ref(readRows()), views = ref(readViews())
 const activeView = ref(views.value.find(view => view.isDefault)?.id ?? views.value[0]?.id ?? 'customer')
 const currentView = computed(() => views.value.find(view => view.id === activeView.value))
-const search = reactive<QuotationSearch>(emptySearch()), appliedSearch = ref<QuotationSearch>(emptySearch())
 const advanced = ref(true), searchVisible = ref(true), chipsVisible = ref(true), selectionVisible = ref(true), selectedRows = ref<Quotation[]>([])
 const density = ref<'compact' | 'default' | 'comfortable'>('comfortable')
-const query = ref<Query>({ page: 1, pageSize: 100, ...makeQuotationQuery(emptySearch()) }), rowCount = ref(0)
+const query = ref<Query>({ page: 1, pageSize: 100, keyword: '', filters: [], sorts: [] }), rowCount = ref(0)
 const filteredRows = computed(() => filterQuotations(quotations.value, query.value))
 const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns; searchFilters: FilterConfig[] }; clearSelection: () => void; viewSnapshot: () => ViewSnapshot }>()
+const table = ref<{ setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns; searchFilters: FilterConfig[] }; getRuntime: () => { searchContext: () => SearchContext }; clearSelection: () => void; viewSnapshot: () => ViewSnapshot }>()
+const currentSearch = () => table.value?.getRuntime().searchContext()
 const persistence = createLocalStoragePersistence(), columnsModified = ref(false)
 let savedColumns = ''
 async function columnsChanged() { await nextTick(); columnsModified.value = JSON.stringify(table.value?.getState().columns ?? []) !== savedColumns }
-const features = { title: false, search: false, views: false, toolbar: false, columnSettings: true, filters: true }
+const features = { title: false, search: { enabled: true, mode: 'headless' as const }, views: false, toolbar: false, columnSettings: true, filters: true }
 function previewCell(value: unknown, row: RowData, column: ColumnConfig) {
   const style = { fontSize: `${column.cellStyle?.fontSize ?? 14}px` }
   if (column.id === 'name') return h('div', { class: 'q-project-cell', style }, [h('span', String(row.name ?? '')), h('small', String(row.customer ?? ''))])
@@ -53,46 +53,51 @@ function previewCell(value: unknown, row: RowData, column: ColumnConfig) {
 }
 const source: DataSource<Quotation> = { async readAll(request) { return filterQuotations(quotations.value, request) }, async query(request) { const result = filterQuotations(quotations.value, request); rowCount.value = result.length; return { rows: result.slice((request.page - 1) * request.pageSize, request.page * request.pageSize), total: result.length } } }
 const customers = computed(() => [...new Set(quotations.value.map(row => row.customer))]), owners = computed(() => [...new Set(quotations.value.map(row => row.owner))]), regions = computed(() => [...new Set(quotations.value.map(row => row.region))])
+const searchDefinition = computed(() => quotationSearchDefinition(quotations.value))
 const filters = computed(() => {
   const result: { field: string; text: string }[] = []
   if (query.value.keyword) result.push({ field: 'keyword', text: `关键词：${query.value.keyword}` })
-  for (const filter of table.value?.getState().searchFilters ?? query.value.filters) {
+  for (const filter of query.value.filters) {
     const title = ({ customer: '客户', status: '状态', owner: '负责人', region: '大区', createdAt: '创建日期' } as Record<string, string>)[filter.field] ?? filter.field
     const value = Array.isArray(filter.value) ? filter.value.join(' / ') : String(filter.value)
     result.push({ field: filter.field + (filter.operator === 'gte' ? ':from' : filter.operator === 'lte' ? ':to' : ''), text: `${title}：${filter.operator === 'gte' ? '从 ' : filter.operator === 'lte' ? '至 ' : ''}${value}` })
   }
   return result
 })
-const queryPending = computed(() => JSON.stringify(search) !== JSON.stringify(appliedSearch.value))
+const queryPending = computed(() => currentSearch()?.pending ?? false)
 const viewModified = computed(() => {
   const view = currentView.value
-  return !!view && (!viewQueryEquals(view, table.value?.viewSnapshot() ?? query.value) || columnsModified.value)
+  return !!view && (!viewQueryEquals(view, table.value?.viewSnapshot() ?? query.value, { definition: searchDefinition.value }) || columnsModified.value)
 })
 const searchError = ref('')
 async function submitSearch() {
-  if (search.from && search.to && search.from > search.to) { searchError.value = '开始日期不能晚于结束日期'; return }
-  searchError.value = ''; appliedSearch.value = { ...search }
-  await table.value?.setQuery({ ...makeQuotationQuery(search), viewId: activeView.value })
+  searchError.value = ''
+  try { await currentSearch()?.submit() }
+  catch (cause) { searchError.value = cause instanceof Error ? cause.message : String(cause) }
 }
-async function resetSearch() { Object.assign(search, emptySearch()); await submitSearch() }
+async function resetSearch() {
+  searchError.value = ''
+  try { await currentSearch()?.reset() }
+  catch (cause) { searchError.value = cause instanceof Error ? cause.message : String(cause) }
+}
+function changeSearch(id: string, event: Event) {
+  const value = (event.target as HTMLInputElement | HTMLSelectElement).value
+  currentSearch()?.setValue(id, value === '' && (event.target instanceof HTMLSelectElement) ? null : value)
+}
 async function removeFilter(field: string) {
-  const key = field === 'createdAt:from' ? 'from' : field === 'createdAt:to' ? 'to' : field
-  if (key in search) search[key as keyof QuotationSearch] = ''
-  appliedSearch.value = { ...search }
-  await table.value?.setQuery(field === 'keyword' ? { keyword: '' } : { filters: (table.value?.getState().searchFilters ?? query.value.filters).filter(filter => `${filter.field}${filter.operator === 'gte' ? ':from' : filter.operator === 'lte' ? ':to' : ''}` !== field) })
+  const context = currentSearch()
+  if (field === 'keyword') { context?.setValue('keyword', ''); await context?.submit(); return }
+  const matching = searchDefinition.value.items.find(item => `${item.field}${item.operator === 'gte' ? ':from' : item.operator === 'lte' ? ':to' : ''}` === field)
+  if (matching && context) { context.setValue(matching.id, matching.kind === 'select' ? null : ''); await context.submit(); return }
+  const remaining = (table.value?.getState().searchFilters ?? []).filter(filter => `${filter.field}${filter.operator === 'gte' ? ':from' : filter.operator === 'lte' ? ':to' : ''}` !== field)
+  await table.value?.setQuery({ filters: remaining })
 }
 function persistData() { try { localStorage.setItem(dataKey, serializeQuotationBackup(quotations.value)) } catch { toast('浏览器无法保存数据，请及时备份。') } }
 function persistViews() { try { localStorage.setItem(viewKey, JSON.stringify(views.value)) } catch { toast('浏览器无法保存视图。') } }
 async function refresh() { await table.value?.reload() }
 async function applyView(view: QuotationView) {
-  activeView.value = view.id; Object.assign(search, emptySearch(), { keyword: view.keyword ?? '' })
-  for (const filter of view.filters ?? []) {
-    if (filter.operator === 'eq' && filter.field in search) search[filter.field as keyof QuotationSearch] = String(filter.value)
-    if (filter.field === 'createdAt' && filter.operator === 'gte') search.from = String(filter.value)
-    if (filter.field === 'createdAt' && filter.operator === 'lte') search.to = String(filter.value)
-  }
-  appliedSearch.value = { ...search }
-  await table.value?.applyView(view, view.keyword ?? '')
+  activeView.value = view.id
+  await table.value?.applyView(view)
   savedColumns = JSON.stringify(table.value?.getState().columns ?? []); columnsModified.value = false; closeMenu()
 }
 type MenuName = 'page' | 'views' | 'density' | 'sort' | null
@@ -184,13 +189,13 @@ function setDefaultView(id: string) { views.value = views.value.map(view => ({ .
 function moveView(index: number, offset: number) { const items = [...views.value], moved = items.splice(index, 1)[0]; if (moved) items.splice(index + offset, 0, moved); views.value = items; persistViews() }
 const viewEditor = ref<{ id?: string; name: string } | null>(null), viewError = ref('')
 function editView(view?: QuotationView) { viewError.value = ''; viewEditor.value = view ? { id: view.id, name: view.name } : { name: '' }; closeMenu() }
-function saveViewName() {
+async function saveViewName() {
   if (!viewEditor.value) return
   const name = viewEditor.value.name.trim()
   if (!name) { viewError.value = '请填写视图名称'; return }
   if (views.value.some(view => view.name === name && view.id !== viewEditor.value?.id)) { viewError.value = '已有同名视图'; return }
   if (viewEditor.value.id) views.value = views.value.map(view => view.id === viewEditor.value?.id ? { ...view, name } : view)
-  else { const id = crypto.randomUUID(); views.value.push({ id, name, ...JSON.parse(JSON.stringify(viewSnapshot())) }); activeView.value = id }
+  else { const id = crypto.randomUUID(); views.value.push({ id, name, ...JSON.parse(JSON.stringify(viewSnapshot())) }); activeView.value = id; await table.value?.setQuery({ viewId: id }) }
   savedColumns = JSON.stringify(table.value?.getState().columns ?? []); columnsModified.value = false
   persistViews(); viewEditor.value = null; toast('视图已保存')
 }
@@ -200,7 +205,7 @@ function deleteView(view: QuotationView) {
   closeMenu(); confirmation.value = { title: '删除视图', text: `确定删除“${view.name}”吗？报价数据不会改变。`, danger: true, action: async () => { views.value = views.value.filter(item => item.id !== view.id); if (activeView.value === view.id) await applyView(views.value[0]!); persistViews() } }
 }
 const editor = ref<{ mode: 'new' | 'edit' | 'view'; row: Quotation } | null>(null), editorError = ref('')
-function showQuotation(mode: 'new' | 'edit' | 'view', row?: Quotation) { editorError.value = ''; editor.value = { mode, row: row ? { ...row } : { ...createQuotationDraft(undefined, quotations.value), customer: search.customer } } }
+function showQuotation(mode: 'new' | 'edit' | 'view', row?: Quotation) { editorError.value = ''; editor.value = { mode, row: row ? { ...row } : { ...createQuotationDraft(undefined, quotations.value), customer: String(currentSearch()?.getValue('customer') ?? '') } } }
 async function saveEditor() {
   if (!editor.value) return
   try { quotations.value = saveQuotation(quotations.value, editor.value.row); persistData(); editor.value = null; await refresh(); toast('报价已保存') }
@@ -249,19 +254,19 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', dismissMenus
       </div>
     </header>
 
-    <BusinessTable ref="table" class="q-main-card" :features="features" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :preview-cell="previewCell" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 100, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @config-change="columnsChanged" @selection-change="selectedRows = $event">
-      <template #before>
-        <form v-if="searchVisible" class="q-search-panel" aria-label="报价查询" @submit.prevent="submitSearch">
+    <BusinessTable ref="table" class="q-main-card" :features="features" :search-definition="searchDefinition" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :preview-cell="previewCell" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 100, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @config-change="columnsChanged" @selection-change="selectedRows = $event">
+      <template #before="{ search: searchContext }">
+        <form v-if="searchVisible && searchContext" class="q-search-panel" aria-label="报价查询" @submit.prevent="submitSearch">
           <div class="q-search-grid">
-            <div class="q-search-field"><label for="quotation-keyword">关键词</label><div class="q-input-icon"><TableIcon name="search"/><input id="quotation-keyword" v-model="search.keyword" placeholder="报价编号 / 项目 / 客户" autocomplete="off"/></div></div>
-            <div class="q-search-field"><label for="quotation-customer">客户</label><select id="quotation-customer" v-model="search.customer"><option value="">全部客户</option><option v-for="customer in customers" :key="customer">{{ customer }}</option></select></div>
-            <div class="q-search-field"><label for="quotation-status">状态</label><select id="quotation-status" v-model="search.status"><option value="">全部状态</option><option v-for="status in quotationStatuses" :key="status">{{ status }}</option></select></div>
+            <div class="q-search-field"><label for="quotation-keyword">关键词</label><div class="q-input-icon"><TableIcon name="search"/><input id="quotation-keyword" :value="searchContext.getValue('keyword') ?? ''" placeholder="报价编号 / 项目 / 客户" autocomplete="off" @input="changeSearch('keyword', $event)"/></div></div>
+            <div class="q-search-field"><label for="quotation-customer">客户</label><select id="quotation-customer" :value="searchContext.getValue('customer') ?? ''" @change="changeSearch('customer', $event)"><option value="">全部客户</option><option v-for="customer in customers" :key="customer">{{ customer }}</option></select></div>
+            <div class="q-search-field"><label for="quotation-status">状态</label><select id="quotation-status" :value="searchContext.getValue('status') ?? ''" @change="changeSearch('status', $event)"><option value="">全部状态</option><option v-for="status in quotationStatuses" :key="status">{{ status }}</option></select></div>
             <div class="q-search-actions"><button class="q-btn" type="button" @click="resetSearch">重置</button><button class="q-btn q-primary" type="submit">查询</button><button class="q-btn q-text" type="button" :aria-expanded="advanced" @click="advanced = !advanced">{{ advanced ? '收起' : '展开' }}<TableIcon :name="advanced ? 'chevron-up' : 'chevron-down'" :size="14"/></button></div>
           </div>
           <div v-if="advanced" class="q-advanced-grid">
-            <div class="q-search-field"><label for="quotation-region">大区</label><select id="quotation-region" v-model="search.region"><option value="">全部大区</option><option v-for="region in regions" :key="region">{{ region }}</option></select></div>
-            <div class="q-search-field"><label for="quotation-owner">负责人</label><select id="quotation-owner" v-model="search.owner"><option value="">全部负责人</option><option v-for="owner in owners" :key="owner">{{ owner }}</option></select></div>
-            <div class="q-search-field q-date-field"><label for="quotation-from">创建日期</label><div class="q-date-range"><div class="q-date-input" :class="{ 'is-empty': !search.from }"><input id="quotation-from" v-model="search.from" type="date" aria-label="创建开始日期"/></div><span>至</span><div class="q-date-input" :class="{ 'is-empty': !search.to }"><input v-model="search.to" type="date" aria-label="创建结束日期"/></div></div></div>
+            <div class="q-search-field"><label for="quotation-region">大区</label><select id="quotation-region" :value="searchContext.getValue('region') ?? ''" @change="changeSearch('region', $event)"><option value="">全部大区</option><option v-for="region in regions" :key="region">{{ region }}</option></select></div>
+            <div class="q-search-field"><label for="quotation-owner">负责人</label><select id="quotation-owner" :value="searchContext.getValue('owner') ?? ''" @change="changeSearch('owner', $event)"><option value="">全部负责人</option><option v-for="owner in owners" :key="owner">{{ owner }}</option></select></div>
+            <div class="q-search-field q-date-field"><label for="quotation-from">创建日期</label><div class="q-date-range"><div class="q-date-input" :class="{ 'is-empty': !searchContext.getValue('from') }"><input id="quotation-from" :value="searchContext.getValue('from') ?? ''" type="date" aria-label="创建开始日期" @input="changeSearch('from', $event)"/></div><span>至</span><div class="q-date-input" :class="{ 'is-empty': !searchContext.getValue('to') }"><input :value="searchContext.getValue('to') ?? ''" type="date" aria-label="创建结束日期" @input="changeSearch('to', $event)"/></div></div></div>
           </div><p v-if="searchError" class="q-form-error" role="alert">{{ searchError }}</p>
         </form>
       </template>

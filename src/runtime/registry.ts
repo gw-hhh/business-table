@@ -39,7 +39,7 @@ export interface RegisteredSearch {
   component: Component
   serialize?: (value: unknown) => unknown
   deserialize?: (value: unknown) => unknown
-  toQuery?: (value: unknown) => Record<string, unknown>
+  toQuery?: (value: unknown) => FilterConfig[]
 }
 
 export type RuntimeRenderer<T extends RowData = RowData> = (value: unknown, row?: T, column?: ColumnConfig<T>) => VNodeChild

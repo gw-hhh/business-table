@@ -1,5 +1,6 @@
 import type {PresentationDelta,TablePresentation} from '../features/presentation/model'
 import type { ColumnConfig, FixedSide, UserColumnConfig } from '../types'
+import type { SearchDefinition } from '../features/search/model'
 import type { ConfigDiagnostic } from './diagnostics'
 
 export interface ColumnCapabilities {
@@ -32,6 +33,7 @@ export interface TableDefinition {
   title?: string
   columns: ColumnDefinition[]
   features?: Record<string, unknown>
+  search?: SearchDefinition
   pagination?: { pageSize?: number; pageSizeOptions?: number[] }
 }
 export interface PreferenceV2 {

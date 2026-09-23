@@ -103,7 +103,7 @@ afterEach(async()=>{
 })
 
 describe('BusinessTable query lifecycle',()=>{
-  it('嵌套响应式筛选值可独立快照并保留日期和循环引用',async()=>{
+  it('外部查询值可独立快照并保留日期和循环引用',async()=>{
     const selected=reactive({code:'draft'})
     const values=reactive(['draft'])
     const value:Record<string,unknown>={selected,values,date:new Date('2026-01-01T00:00:00Z')}
@@ -111,12 +111,11 @@ describe('BusinessTable query lifecycle',()=>{
     const calls:Query[]=[]
     const events:Query[]=[]
     const wrapper=mountTable({
-      views:[{id:'nested',name:'嵌套筛选',filters:[{field:'status',operator:'eq',value}]}],
       onQueryChange:(query:Query)=>events.push(query),
       dataSource:{query:async(query:Query)=>{calls.push(query);return{rows:[],total:0}}},
     })
     await flushPromises()
-    await wrapper.get('select[aria-label="视图"]').setValue('nested')
+    await (wrapper.vm as unknown as {setQuery:(change:{filters:FilterConfig[]})=>Promise<void>}).setQuery({filters:[{field:'status',operator:'eq',value}]})
     await flushPromises()
 
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
@@ -129,6 +128,22 @@ describe('BusinessTable query lifecycle',()=>{
     expect(selected.code).toBe('draft')
     expect(values).toEqual(['draft'])
     expect(events[1]!.filters[0]!.value).toMatchObject({selected:{code:'draft'},values:['draft']})
+  })
+
+  it('视图恢复拒绝无法持久化的筛选值',async()=>{
+    const value:Record<string,unknown>={}
+    value.self=value
+    const calls:Query[]=[],diagnostics:string[]=[]
+    const wrapper=mountTable({
+      views:[{id:'invalid',name:'无效筛选',filters:[{field:'status',operator:'eq',value}]}],
+      onDiagnostic:(diagnostic:{message:string})=>diagnostics.push(diagnostic.message),
+      dataSource:{query:async(query:Query)=>{calls.push(query);return{rows:[],total:0}}},
+    })
+    await flushPromises()
+    await wrapper.get('select[aria-label="视图"]').setValue('invalid')
+    await flushPromises()
+    expect(calls[1]!.filters).toEqual([])
+    expect(diagnostics.some(message=>message.includes('已忽略'))).toBe(true)
   })
 
   it('新查询会中止旧 Provider signal',async()=>{

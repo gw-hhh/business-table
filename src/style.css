@@ -23,6 +23,14 @@
 .bt__tools .bt__icon-button:hover,.bt__tools .bt__icon-button.is-active{color:var(--bt-primary);background:#edf4ff}
 .bt__settings-trigger{font-size:13px!important;height:32px;padding:0 9px!important}
 .bt__search{height:32px;border:1px solid var(--bt-border);border-radius:6px;padding:0 10px;width:220px;min-width:0}
+.bt-search{display:flex;flex-direction:column;gap:6px;min-width:0;max-width:100%}
+.bt-search__row{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap}
+.bt-search__field{display:flex;flex-direction:column;gap:3px;min-width:112px;color:var(--bt-muted);font-size:12px}
+.bt-search__field:has(input[placeholder="搜索当前数据"]):only-child{min-width:220px}
+.bt-search__field input,.bt-search__field select{height:32px;min-width:0;width:100%;border:1px solid var(--bt-border);border-radius:6px;background:#fff;padding:0 9px;color:var(--bt-text);font-size:13px}
+.bt-search__field input[type=date]{min-width:145px}
+.bt-search__error{margin:0;color:#b42318;font-size:12px}
+.bt-search__pending{margin:0;color:var(--bt-muted);font-size:12px}
 .bt__panel{position:absolute;right:12px;top:100%;width:330px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;background:#fff;border:1px solid var(--bt-border);border-radius:8px;box-shadow:0 14px 36px #1b2b461f;z-index:20;padding:12px}
 .bt__panel h3{font-size:14px;margin:0 0 10px}
 .bt__viewport{position:relative;z-index:0;min-width:0;border-radius:0 0 8px 8px}

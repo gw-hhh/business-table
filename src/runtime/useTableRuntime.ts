@@ -1,6 +1,7 @@
 import {computed,onBeforeUnmount,onMounted,readonly,ref,shallowRef,watch} from 'vue'
 import type {ColumnConfig,DataSource,FilterConfig,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,UserColumnConfig,ViewConfig} from '../types'
 import type {ConfigDiagnostic} from '../config/diagnostics'
+import type {RuntimeRegistry} from './registry'
 import {applyFilters,applySorts,makeConfig,mergeColumns,patchColumn} from '../core'
 import {applyColumnPatches,guardColumnPatch} from '../config/columns'
 import {createPreferenceDelta,parsePreference} from '../config/schema'
@@ -10,27 +11,27 @@ import {validateSettings,type SettingsCommit} from '../features/settings/session
 import {normalizePagination,clampPage} from './pagination'
 import {withDeadline} from './deadline'
 import {cloneData,getValue} from './value'
-import {guardFilterState,type FilterState} from './filter-state'
-import {readFilterGroup} from './filter'
+import {type FilterState} from './filter-state'
+import {useQueryRuntime,type QueryChange} from './query'
 
 export interface TableRuntimeInput<T extends RowData> {
   readonly tableKey?:string;readonly rowKey?:string;readonly columns:ColumnConfig<T>[];readonly data?:T[]
   readonly dataSource?:DataSource<T>;readonly pagination?:Partial<Pagination>;readonly config?:TableConfig|null
   readonly persistence?:Persistence|null;readonly preferenceTimeoutMs?:number;readonly selection?:boolean
   readonly presentation?:PresentationDelta;readonly density?:'compact'|'default'|'comfortable'
+  readonly searchDefinition?:unknown;readonly searchAllowedItems?:readonly string[];readonly registry?:RuntimeRegistry<T>
 }
 export interface TableRuntimeEvents<T extends RowData> {
   queryChange?:(query:Query)=>void;configChange?:(config:TableConfig)=>void;viewChange?:(id:string|null)=>void
   selectionChange?:(rows:T[])=>void;diagnostic?:(diagnostic:ConfigDiagnostic)=>void
 }
-export type QueryChange=Partial<Pick<Query,'keyword'|'filters'|'sorts'|'viewId'|'filterGroup'>>
+export type {QueryChange} from './query'
 /** The same state and commands are consumed by the default table, custom UI and headless pages. */
 export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,events:TableRuntimeEvents<T>={}){
   const key=()=>input.tableKey??'',rowKey=()=>input.rowKey??'id'
   const initial=normalizePagination({...input.pagination,pageSize:input.config?.pageSize??input.pagination?.pageSize})
   const rows=shallowRef<T[]>([]),total=ref(0),page=ref(initial.page),pageSize=ref(initial.pageSize)
-  const keyword=ref(''),searchDraft=ref(''),filters=ref<FilterConfig[]>([]),columnFilters=ref<FilterConfig[]>([]),filterGroup=ref<FilterGroup>()
-  const sorts=ref<SortConfig[]>([]),activeView=ref<string|null>(null),busy=ref(false),error=ref('')
+  const busy=ref(false),error=ref('')
   const config=ref<TableConfig>(input.config?cloneData(input.config):makeConfig(key(),input.columns))
   const viewColumns=ref<Record<string,UserColumnConfig>>({}),viewPresentation=ref<PresentationDelta>()
   const allowedPageSizes=computed(()=>normalizePagination(input.pagination).pageSizeOptions)
@@ -40,7 +41,6 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   const personalColumns=computed(()=>mergeColumns(input.columns,config.value))
   const allResolvedColumns=computed(()=>applyColumnPatches(personalColumns.value,viewColumns.value))
   const resolvedColumns=computed(()=>allResolvedColumns.value.filter(column=>column.visible!==false))
-  const query=computed<Query>(()=>({page:page.value,pageSize:pageSize.value,sorts:sorts.value,filters:[...filters.value,...columnFilters.value],keyword:keyword.value,viewId:activeView.value,...(columnFilters.value.length?{columnFilters:columnFilters.value}:{}),...(filterGroup.value?{filterGroup:filterGroup.value}:{})}))
   const pages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize.value)))
   const jumpPage=ref(1),pageButtons=computed(()=>Array.from({length:Math.min(5,pages.value)},(_,index)=>Math.max(1,Math.min(page.value-2,pages.value-4))+index))
   const selected=shallowRef(new Map<string,T>())
@@ -50,6 +50,16 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(diagnostic.code==='RuntimeExtensionError'){const fingerprint=diagnostic.path+':'+diagnostic.message;if(extensionErrors.has(fingerprint))return;extensionErrors.add(fingerprint)}
     events.diagnostic?.(diagnostic)
   }
+  const queryRuntime=useQueryRuntime({
+    searchDefinition:()=>input.searchDefinition,
+    searchAllowedItems:()=>input.searchAllowedItems,
+    registry:()=>input.registry,
+    columns:()=>allResolvedColumns.value,
+    report,
+  })
+  const {keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView}=queryRuntime
+  const query=computed<Query>(()=>({page:page.value,pageSize:pageSize.value,...queryRuntime.query.value}))
+  let lastSearchSignature=''
   const reportConfigError=(cause:unknown)=>report({code:'RemoteConfigError',path:'preference',message:cause instanceof Error?cause.message:String(cause)})
   function rowId(row:RowData){return String(getValue(row,rowKey())??'')}
   function getSelectedRows():T[]{return [...selected.value.values()]}
@@ -70,12 +80,13 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   function filterLocal(data:readonly T[],request:Query):T[]{
     let result=[...data]
     if(request.keyword){const search=request.keyword.toLocaleLowerCase();result=result.filter(row=>resolvedColumns.value.filter(column=>column.kind!=='actions').some(column=>String(getValue(row,column.field)??'').toLocaleLowerCase().includes(search)))}
-    result=applyFilters(result,request.filters).filter(compileFilterGroup(request.filterGroup))
+    result=applyFilters(result,[...request.filters,...(request.columnFilters??[])]).filter(compileFilterGroup(request.filterGroup))
     return applySorts(result,request.sorts,allResolvedColumns.value)
   }
   function validPage(request:Query,count:number){return clampPage(request.page,Math.max(1,Math.ceil(count/request.pageSize)))}
   async function load(snapshot?:Query):Promise<void>{
     if(!ready||disposed)return
+    lastSearchSignature=queryRuntime.searchSignature.value
     const requestId=++sequence;controller?.abort();const active=new AbortController();controller=active
     const current=()=>!disposed&&requestId===sequence&&!active.signal.aborted
     busy.value=true;error.value=''
@@ -132,26 +143,22 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   }
   async function patch(id:string,change:UserColumnConfig){return applyPatches({[id]:change})}
   async function setQuery(change:QueryChange){
-    if(change.filterGroup!==undefined&&!readFilterGroup(change.filterGroup))throw new Error('组合筛选配置无效。')
-    const base:Query={...query.value,filters:filters.value,...change,page:1},snapshot=copyQuery(base)
-    keyword.value=snapshot.keyword??'';searchDraft.value=keyword.value;filters.value=snapshot.filters;sorts.value=snapshot.sorts;activeView.value=snapshot.viewId??null;filterGroup.value=snapshot.filterGroup;page.value=1
+    queryRuntime.setQuery(change);page.value=1
     clearSelection();await load()
   }
   async function setFilterState(next:FilterState){
-    const accepted=guardFilterState(next,allResolvedColumns.value)
-    columnFilters.value=accepted.columnFilters;filterGroup.value=accepted.filterGroup
+    queryRuntime.setFilterState(next)
     page.value=1;clearSelection();await load()
   }
   async function setColumnFilters(next:FilterConfig[]){
     await setFilterState({columnFilters:next,filterGroup:filterGroup.value})
   }
-  function search(){keyword.value=searchDraft.value;page.value=1;clearSelection();void load()}
+  function search(){queryRuntime.commitSearch();page.value=1;clearSelection();void load()}
   function goPage(next:number){page.value=clampPage(next,pages.value);void load()}
   function changePageSize(){page.value=1;pageSize.value=normalizePagination({...input.pagination,pageSize:pageSize.value}).pageSize;void saveConfig(current=>({...current,pageSize:pageSize.value})).catch(()=>{});void load()}
   function sort(column:ColumnConfig){
     if(!column.sortable)return
-    const old=sorts.value.find(sort=>sort.field===column.field)
-    sorts.value=old?.order==='desc'?[]:[{field:column.field,order:old?'desc':'asc'}]
+    queryRuntime.sort(column)
     page.value=1;void load()
   }
   async function applySettings(change:SettingsCommit){
@@ -170,14 +177,12 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   }
   async function setPresentation(change:PresentationDelta){await applySettings({columns:{},sorts:sorts.value,presentation:resolvePresentation(change,presentation.value)})}
   async function applyView(view?:ViewConfig,searchKeyword?:string){
-    activeView.value=view?.id??null
-    filters.value=cloneData(view?.filters??[]);sorts.value=cloneData(view?.sorts??[]);columnFilters.value=cloneData(view?.columnFilters??[]);filterGroup.value=cloneData(view?.filterGroup)
+    queryRuntime.restoreView(view,searchKeyword)
     if(view?.isSystem){/* The base view clears queries, not the user's current layout. */}
     else {viewColumns.value=cloneData(view?.columns??{});viewPresentation.value=cloneData(view?.presentation)}
-    if(searchKeyword!==undefined||view?.keyword!==undefined||view?.isSystem)keyword.value=searchKeyword??view?.keyword??''
-    searchDraft.value=keyword.value
     if(view?.pageSize!==undefined)pageSize.value=normalizePagination({...input.pagination,pageSize:view.pageSize}).pageSize
     else if(view?.presentation?.appearance?.pageSize!==undefined)pageSize.value=normalizePagination({...input.pagination,pageSize:view.presentation.appearance.pageSize}).pageSize
+    else pageSize.value=normalizePagination({...input.pagination,pageSize:config.value.pageSize??input.pagination?.pageSize}).pageSize
     clearSelection();page.value=1;events.viewChange?.(activeView.value);await load()
   }
   function getState(){return {rows:[...rows.value],total:total.value,page:page.value,pageSize:pageSize.value,query:copyQuery(query.value),searchFilters:cloneData(filters.value),columnFilters:cloneData(columnFilters.value),columns:cloneData(allResolvedColumns.value),presentation:cloneData(presentation.value),config:cloneData(config.value)}}
@@ -185,7 +190,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     const columns=Object.fromEntries(allResolvedColumns.value.map((column,index)=>[column.id,{...cloneData(config.value.columns[column.id]??{}),...cloneData(viewColumns.value[column.id]??{}),visible:column.visible!==false,order:index,width:column.width,fixed:column.fixed??false,align:column.align,title:column.title,sortable:column.sortable,headerStyle:column.headerStyle,cellStyle:column.cellStyle,content:column.content,mapping:column.mapping,numberRule:column.numberRule,template:column.template,filter:column.filter}]))
     const display=presentationDelta(presentation.value,basePresentation.value)
     if(!presentation.value.toolbar.followView)delete display.toolbar
-    return {columns,keyword:keyword.value,filters:cloneData(filters.value),columnFilters:cloneData(columnFilters.value),filterGroup:cloneData(filterGroup.value),sorts:cloneData(sorts.value),pageSize:pageSize.value,presentation:display}
+    return {columns,...queryRuntime.snapshot(),pageSize:pageSize.value,presentation:display}
   }
   async function readRows(scope:'page'|'query'|'selected'|'all'='query',signal?:AbortSignal):Promise<T[]>{
     if(scope==='page')return [...rows.value]
@@ -228,10 +233,14 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(pageSize.value!==next){pageSize.value=next;page.value=1;void load()}
   })
   watch([()=>input.dataSource,()=>input.data],([source],[previous])=>{if(source!==previous)page.value=1;if(source!==previous||!source)void load()},{deep:true})
-  watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;keyword.value='';searchDraft.value='';filters.value=[];columnFilters.value=[];filterGroup.value=undefined;sorts.value=[];activeView.value=null;clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
+  watch(()=>queryRuntime.searchSignature.value,signature=>{
+    if(!ready||disposed||signature===lastSearchSignature)return
+    page.value=1;clearSelection();void load()
+  },{flush:'post'})
+  watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;preferenceController.abort();controller?.abort();commitListeners.clear()})
   const commands={reload:()=>load(),setQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,goPage,readRows,optionsFor,sort}
-  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,search,changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
+  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

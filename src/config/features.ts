@@ -25,14 +25,14 @@ export function resolveFeatureGate(local:unknown, remote?:unknown, defaultStrate
   if(!validMode||!validStrategy)report?.({code:'SchemaValidationError',path:'features',message:'无效的渲染模式或加载策略，已使用默认值'})
   return {enabled:true,mode:validMode?mode as FeatureRenderMode:'default',loadStrategy:validStrategy?strategy as FeatureLoadStrategy:defaultStrategy}
 }
-export function readFeatureDetails(local:unknown, remote?:unknown, report?:DiagnosticReporter):{label?:string;allowedItems?:string[]} {
+export function readFeatureDetails(local:unknown, remote?:unknown, report?:DiagnosticReporter, declaredItems?:readonly string[]):{label?:string;allowedItems?:string[]} {
   if(!resolveFeatureGate(local,remote,'eager',report).enabled)return {}
   const own=record(record(local)?.details),override=record(record(remote)?.details)
   const result:{label?:string;allowedItems?:string[]}={}
   const label=typeof override?.label==='string'?override.label:own?.label
   if(typeof label==='string')result.label=label
-  if(Array.isArray(own?.allowedItems)){
-    const allowed=own.allowedItems.filter((id):id is string=>typeof id==='string')
+  if(Array.isArray(own?.allowedItems)||declaredItems){
+    const allowed=(Array.isArray(own?.allowedItems)?own.allowedItems:declaredItems??[]).filter((id):id is string=>typeof id==='string')
     result.allowedItems=Array.isArray(override?.allowedItems)?allowed.filter(id=>override.allowedItems instanceof Array&&override.allowedItems.includes(id)):[...allowed]
   }
   return result

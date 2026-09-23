@@ -345,3 +345,11 @@
 **完整 Legacy 迁移仍未完成**。不得把本节筛选系统验收替代分组、对比、标记、历史、区域统计、模板生命周期、完整导出及页面剩余通用逻辑迁出等功能验收。尺寸、窄屏、键盘和既有页面回归通过，也不等于所有旧界面逐像素一致。
 
 完整范围、架构调整、已发现问题及风险：[FILTER-MIGRATION-ACCEPTANCE.md](FILTER-MIGRATION-ACCEPTANCE.md)。后续远端提交和 CI 结果以该分支实际 commit / workflow 为准，不把本地测试日志描述为远端已执行。
+
+## 12. 2026-09-23：BT-01 Query Runtime
+
+在 `feature/visual-parity-refinement` 上完成通用 Search 定义、稳定 ID 值、草稿与已应用状态、关键词/多字段/高级日期投影、默认值与清空重置、远端字段允许列表、Feature OFF 隔离、Registry 自定义组件接入，以及 View 中 `search.values` 的保存和旧平面查询迁移。查询、列筛选和组合筛选保持独立；配置变化导致有效查询变化时自动重新加载。报价 Demo 改为使用 Headless Search Context，只提供业务字段和显示交互。
+
+回归覆盖类型化值、旧视图迁移、清空重置、无关键词 Search、远端收权、动态刷新、View 恢复和浏览器中的草稿、查询、保存/重载、非法日期。完整 Release Gate 的最终数字以本次提交记录为准。
+
+BT-02 仍需迁出 Demo 的视图创建/修改/默认/持久化状态；Search 自定义 UI 值目前限可保存的 JSON 数据。完整 Legacy 迁移状态继续以本文件范围矩阵和后续任务为准。
