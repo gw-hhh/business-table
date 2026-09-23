@@ -35,8 +35,9 @@
     "audit:portability": "node scripts/portability-audit.mjs",
     "audit:sfc": "node scripts/sfc-syntax-audit.mjs",
     "test:e2e": "playwright test",
-    "verify:release": "npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e",
-    "audit:package": "node scripts/package-audit.mjs"
+    "verify:release": "npm run audit:docs && npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e",
+    "audit:package": "node scripts/package-audit.mjs",
+    "audit:docs": "node scripts/docs-audit.mjs"
   },
   "peerDependencies": {
     "vue": ">=3.5.43 <4",
