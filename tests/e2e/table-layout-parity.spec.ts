@@ -69,6 +69,8 @@ test('vertical and horizontal scrolling retain the reference header and both fix
   await page.goto('/')
   await expect(page.locator('.vxe-table--main-wrapper .vxe-body--row')).toHaveCount(6)
   const viewport = page.locator('.bt__viewport')
+  // Rows render before the async action column; wait for the intended scroll range before sending input.
+  await expect.poll(() => viewport.locator('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper').evaluate(element => element.scrollWidth - element.clientWidth)).toBeGreaterThanOrEqual(150)
   await viewport.hover()
   await page.mouse.wheel(150, 150)
   await expect.poll(() => viewport.locator('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper').evaluate(element => element.scrollTop)).toBeGreaterThanOrEqual(100)
@@ -117,7 +119,14 @@ test('overflow within the reserved vertical gutter does not consume an extra hor
   const viewport = page.locator('.bt__viewport')
   const body = viewport.locator('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper')
   await expect(page.locator('.vxe-table--main-wrapper .vxe-body--row')).toHaveCount(6)
-  await expect.poll(() => body.evaluate(element => element.clientHeight)).toBe(referenceBodyHeight)
+  // Match the other geometry checks: system font metrics can shift the page frame by 1 CSS pixel.
+  await expect.poll(async () => Math.abs(await body.evaluate(element => element.clientHeight) - referenceBodyHeight)).toBeLessThanOrEqual(1)
+  // Independently check this page's height budget so the parity tolerance cannot hide a lost scrollbar row.
+  await expect.poll(() => viewport.evaluate(element => {
+    const header = element.querySelector<HTMLElement>('.vxe-table--main-wrapper .vxe-table--header-wrapper')!
+    const content = element.querySelector<HTMLElement>('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper')!
+    return Math.abs(element.clientHeight - header.clientHeight - content.clientHeight)
+  })).toBeLessThanOrEqual(1)
   await expect.poll(() => viewport.locator('.vxe-table--scroll-x-virtual').evaluate(element => element.getBoundingClientRect().height)).toBe(0)
   await viewport.hover()
   await page.mouse.wheel(0, 100)
