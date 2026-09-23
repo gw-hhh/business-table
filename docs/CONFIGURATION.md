@@ -1,6 +1,6 @@
 # 配置入口与功能开关
 
-当前提供配置解析、能力约束、运行时注册表，以及快捷列面板和设置抽屉的草稿、应用、取消闭环。报价页面作为宿主 Demo 展示通用布局插槽。完整 Search/View/Data Headless Runtime、高级筛选、映射、模板等仍按迁移矩阵继续。
+当前提供配置解析、能力约束、运行时注册表、Search/Query Runtime，以及快捷列面板和设置抽屉的草稿、应用、取消闭环。报价页面作为宿主 Demo 展示通用布局插槽。完整 View 管理、Data Headless Runtime、映射和模板等仍按迁移矩阵继续。
 
 ## 最简入口与旧 API
 
@@ -31,6 +31,13 @@ const definition: TableDefinition = {
     },
   ],
   features: {search: true, toolbar: true, columnSettings: true},
+  search: {
+    resetBehavior: 'default',
+    items: [
+      {id: 'keyword', label: '关键词', kind: 'keyword', defaultValue: ''},
+      {id: 'name', label: '名称', kind: 'text', field: 'name', operator: 'contains'},
+    ],
+  },
 }
 ```
 
@@ -44,6 +51,8 @@ const definition: TableDefinition = {
 ```
 
 配置顺序为 Local Definition → Remote Override → Preference → View。宿主后台负责角色/项目/用户优先级，不在组件中复制后端权限决策。所有覆盖都经过同一个列 Guard。
+
+启用 Search 后，`ConfiguredBusinessTable` 使用 `definition.search`；直接使用 `BusinessTable` 时传入 `searchDefinition`。默认搜索界面、Custom 和 Headless 共用 Search Context。使用 `#search="{ context }"` 自定义界面时需设置 `features.search: { enabled: true, mode: 'custom' }`；使用 Headless `#before="{ search }"` 时设置 `mode: 'headless'`。`setValue(id, value)` 修改草稿，`submit()` 应用查询，`reset()` 按定义恢复默认值或清空。当前 View 的搜索值保存在 `search.values`，旧视图的关键词和条件会按字段与操作符迁移；完整 View 管理属于 BT-02。
 
 - access=false 的列不进入最终列集合。
 - default 设置代码默认值；未开放的 configurable 能力默认锁定。旧平面 ColumnConfig 无 configurable 时仍保留原先可编辑行为。
@@ -108,7 +117,7 @@ mode=custom 使用宿主 Slot，仍经过相同能力 Guard。mode=headless 无�
 
 BusinessTable 的 selection、fill 和 density 均为可选项。selection 使用稳定 rowKey 保存选中记录并发出 selectionChange；翻页保留、改变查询或视图清空。fill 使表体占满有确定高度的宿主容器；density 支持 compact/default/comfortable。最简入口默认不创建选择栏或报价页面。
 
-宿主可使用 before、toolbar-start、toolbar-end、toolbar-after、after-toolbar、cell、summary 插槽；toolbar-after 位于内置设置入口之后。toolbar-start/summary 提供总数和当前行，summary 另提供页码和每页条数；cell 提供 row/column/value/text。查询字段、状态标签、合计、业务表单均由宿主实现。
+宿主可使用 before、toolbar-start、toolbar-end、toolbar-after、after-toolbar、cell、summary 插槽；before 在 Search 开启时提供 Search Context，toolbar-after 位于内置设置入口之后。toolbar-start/summary 提供总数和当前行，summary 另提供页码和每页条数；cell 提供 row/column/value/text。状态标签、合计和业务表单由宿主实现。
 
 BusinessTable 的组件引用新增 setQuery({keyword,filters,sorts,viewId})、applyView(view?, keyword?)、getState()、getSelectedRows()、clearSelection()、openColumnSettings('quick'|'drawer')。setQuery/applyView 返回本次加载 Promise，复用原有取消及乱序保护；getState 包含最终列（含隐藏列），便于宿主保存完整视图。配置入口 ConfiguredBusinessTable 原有公开方法不因此自动扩展。
 
@@ -131,7 +140,7 @@ features: {rowActions: {enabled: true, details: {allowedItems: ['edit']}}}
 
 Action 新增 icon、separator、children，描述图标、分隔线和子菜单。More 浮层脱离单元格裁切，超长菜单在视口内滚动；支持方向键、Home/End、Escape、Tab 与关闭回焦。点击子项时重新检查当前动作树的所有祖先 visible/disabled 和当前处理函数，权限收窄后旧菜单不能继续执行。
 
-重复 ID 保留首次注册并诊断；未知 ID 跳过。Registry 包含 toolbar/headerAction/rowAction/search/renderer/editor/filter/exporter 类型槽，本批真正接入的是 rowAction 和 renderer，其余槽供后续 Runtime 使用。
+重复 ID 保留首次注册并诊断；未知 ID 跳过。Registry 包含 toolbar/headerAction/rowAction/search/renderer/editor/filter/exporter 类型槽，当前已接入 rowAction、renderer 和 Search 自定义组件；其他槽随对应 Runtime 继续完善。
 
 列 renderer 使用稳定字符串 ID 指向代码 renderer；未知 ID 回退文本。渲染函数返回 Vue VNode 或文本，不执行配置字符串，不使用动态 template/eval/innerHTML。Registry 自身的诊断通过 createRegistry({onDiagnostic}) 接收；表格配置诊断由 diagnostic 事件接收。
 

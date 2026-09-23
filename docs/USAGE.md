@@ -31,7 +31,7 @@
 
 默认 UI 包含表头列筛选、组合筛选、独立条件标签和方案管理。也支持 `filters: { enabled: true, mode: 'custom' }` 配合 `filters` slot，或者 `mode: 'headless'` 后通过 `activateFeature('filters')` 取得 `FiltersContext`。`openFilters(columnId?)` 打开列或组合编辑器；`setFilterState({ columnFilters, filterGroup })` 作为受校验的 Runtime 命令，不需要在业务页面另存一份正式筛选状态。
 
-基础查询、列条件与组合条件互相独立，最终同时生效。为兼容现有 Provider，`Query.filters` 已包含基础条件与列条件，**不要再把 `Query.columnFilters` 合并执行一次**；`Query.columnFilters` 用于表达该层快照。`Query.filterGroup` 是递归 `{ logic: 'and' | 'or', rules: (FilterConfig | FilterGroup)[] }`，服务端需按组逻辑处理，并对字段、操作符和访问权限再次验证。金额/百分比条件中的 value 已转换为原值，不要根据显示格式重复换算。
+基础查询、列条件与组合条件互相独立，最终同时生效。`Query.filters` 包含手动基础条件和 Search Feature 投影出的条件；`Query.columnFilters` 单独保存列筛选条件，Provider 需要将两者各执行一次。`Query.filterGroup` 是递归 `{ logic: 'and' | 'or', rules: (FilterConfig | FilterGroup)[] }`，服务端需按组逻辑处理，并对字段、操作符和访问权限再次验证。金额/百分比条件中的 value 已转换为原值，不要根据显示格式重复换算。
 
 候选项优先使用 `DataSource.options(column, query, { search, signal })`；手工/映射源直接按配置取值。数据源没有 `options` 时，data 源使用 `readAll(query, { limit, signal })` 读取完整数据（上限 10000），不会用当前页替代全集。`options` 返回 `{ value: string | number | boolean | null, label: string, count?: number }[]`，原值类型必须保留。
 
