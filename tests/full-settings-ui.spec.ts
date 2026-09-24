@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
+import { mount, flushPromises, DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import ColumnSettings from '../src/components/ColumnSettings.vue'
 import { defaultPresentation, presentActions } from '../src/features/presentation/model'
 import type { Action } from '../src/types'
@@ -10,7 +10,7 @@ import ColumnSettingsDrawer from '../src/components/ColumnSettingsDrawer.vue'
 import ColumnRuleEditor from '../src/features/settings/ColumnRuleEditor.vue'
 
 const wrappers: VueWrapper[] = []
-function setup(reject = false, override:Partial<ColumnSettingsContext> = {}) {
+function setup(reject = false, override:Partial<ColumnSettingsContext> = {}, realTeleport = false) {
   const commit = vi.fn(async (_value: unknown) => { if(reject)throw Error('保存失败') })
   const context: ColumnSettingsContext = {
     settingsPolicy:fullSettingsPolicy(),openMode:'drawer',tableKey:'settings-full',columns:[{id:'name',field:'name',title:'名称',sortable:true,width:180,configurable:{...allColumnCapabilities}},{id:'amount',field:'amount',title:'金额',type:'number',sortable:true,width:180,configurable:{...allColumnCapabilities}}],
@@ -19,17 +19,55 @@ function setup(reject = false, override:Partial<ColumnSettingsContext> = {}) {
     previewRows:[{name:'甲',amount:12}],sorts:[],setSorts:async()=>{},patch:async()=>{},commit,close:vi.fn(),
     ...override,
   }
-  const wrapper=mount(ColumnSettings,{props:{context},attachTo:document.body,global:{stubs:{teleport:true}}}) as VueWrapper
+  const wrapper=mount(ColumnSettings,{props:{context},attachTo:document.body,global:{stubs:{teleport:!realTeleport}}}) as VueWrapper
   wrappers.push(wrapper)
   return {wrapper,context,commit}
 }
-function button(wrapper: VueWrapper, name: string) {
+function button(wrapper: VueWrapper | DOMWrapper<Element>, name: string) {
   const target=wrapper.findAll('button').find(item=>item.text().trim()===name)
   if(!target)throw Error('找不到按钮 '+name)
   return target
 }
 afterEach(()=>{for(const wrapper of wrappers.splice(0))wrapper.unmount();document.body.replaceChildren()})
 describe('all settings pages share one draft transaction',()=>{
+  it.each(['hidden','readonly'] as const)('discards inaccessible numeric errors when a page becomes %s',async(mode)=>{
+    const {wrapper:owner,context}=setup(false,{},true),wrapper=new DOMWrapper(document.body)
+    await wrapper.get('[role="tab"][aria-label="表格外观"]').trigger('click')
+    await wrapper.get('[aria-label="内容字号"]').setValue('99')
+    await wrapper.get('[role="tab"][aria-label="工具栏"]').trigger('click')
+    await wrapper.get('[aria-label="工具间距"]').setValue('8')
+    expect(button(wrapper,'应用').attributes('disabled')).toBeDefined()
+    const policy=fullSettingsPolicy()
+    if(mode==='hidden')policy.pages.appearance.visible=false
+    else policy.pages.appearance.disabled=true
+    await owner.setProps({context:{...context,settingsPolicy:policy}})
+    expect(button(wrapper,'应用').attributes('disabled')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('请输入 10–32')
+  })
+  it('shares slider and numeric drafts, blocks invalid values and preserves inherited column size',async()=>{
+    const {commit}=setup(false,{},true)
+    const wrapper=new DOMWrapper(document.body)
+    const columnSize=wrapper.get('[aria-label="单元格文字字号滑动条"]')
+    await columnSize.setValue('19')
+    expect(wrapper.get('[aria-label="单元格文字字号"]').element).toHaveProperty('value','19')
+    await wrapper.get('[aria-label="单元格文字字号跟随表格"]').trigger('click')
+    await wrapper.get('[role="tab"][aria-label="表格外观"]').trigger('click')
+    await wrapper.get('[aria-label="内容字号滑动条"]').setValue('21')
+    expect(wrapper.get('[aria-label="内容字号"]').element).toHaveProperty('value','21')
+    await wrapper.get('[aria-label="内容字号"]').setValue('99')
+    expect(button(wrapper,'应用').attributes('disabled')).toBeDefined()
+    expect(commit).not.toHaveBeenCalled()
+    await wrapper.get('[role="tab"][aria-label="工具栏"]').trigger('click')
+    expect(button(wrapper,'应用').attributes('disabled')).toBeDefined()
+    await wrapper.get('[role="tab"][aria-label="表格外观"]').trigger('click')
+    expect(wrapper.get('[aria-label="内容字号"]').element).toHaveProperty('value','99')
+    await button(wrapper,'恢复当前页').trigger('click')
+    expect(wrapper.get('[aria-label="内容字号"]').element).toHaveProperty('value','14')
+    await wrapper.get('[aria-label="内容字号"]').setValue('17')
+    await button(wrapper,'应用').trigger('click');await flushPromises()
+    expect(commit.mock.calls[0][0]).toMatchObject({presentation:{appearance:{fontSize:17}}})
+    expect(commit.mock.calls[0][0]).not.toMatchObject({columns:{name:{cellStyle:{fontSize:19}}}})
+  })
   it('allows readonly action levels and toolbar groups to collapse while their inputs stay disabled',async()=>{
     const policy=fullSettingsPolicy();policy.pages.actions.disabled=true;policy.pages.toolbar.disabled=true
     const {wrapper,commit}=setup(false,{settingsPolicy:policy,actions:[{id:'export',label:'导出',children:[{id:'excel',label:'Excel',handler:()=>{}}]}]})
@@ -196,7 +234,7 @@ describe('all settings pages share one draft transaction',()=>{
     expect(commit).toHaveBeenCalledTimes(1)
     expect(context.close).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('保存失败')
-    expect((wrapper.get('[aria-label="行内最多显示"]').element as HTMLSelectElement).value).toBe('0')
+    expect((wrapper.get('[aria-label="行内最多显示"]').element as HTMLInputElement).value).toBe('0')
   })
   it('exposes column rules rather than disabled navigation placeholders',async()=>{
     const {wrapper}=setup();await flushPromises()

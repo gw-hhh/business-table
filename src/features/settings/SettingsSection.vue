@@ -24,7 +24,7 @@ const bodyId=useId()
 </template>
 
 <style>
-.bt-settings-disclosure__heading{display:flex;align-items:center;gap:10px;margin-bottom:14px;min-height:30px}
+.bt-settings-disclosure__heading{display:flex;align-items:center;gap:10px;margin-bottom:8px;min-height:26px}
 .bt-settings-disclosure.is-collapsed>.bt-settings-disclosure__heading{margin-bottom:0}
 .bt-settings-disclosure__heading>h4{flex:1;min-width:0;margin:0}
 .bt-settings-disclosure__heading>h4>button{display:flex;align-items:center;gap:7px;width:100%;min-width:0;padding:3px 0;border:0;background:transparent;color:#29384e;font:inherit;font-size:14px;font-weight:600;text-align:left;white-space:normal;cursor:pointer}

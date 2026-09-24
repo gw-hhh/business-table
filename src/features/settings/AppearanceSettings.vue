@@ -4,6 +4,7 @@ import FontSelect from '../../components/FontSelect.vue'
 import ColorSelect from '../../components/ColorSelect.vue'
 import TableIcon from '../../components/TableIcon.vue'
 import SettingsSection from './SettingsSection.vue'
+import SettingsRange from './SettingsRange.vue'
 const props = defineProps<{ disabled?:boolean; modelValue: Appearance; pageSizes?: number[] }>()
 const emit = defineEmits<{ 'update:modelValue':[value:Appearance]; backup:[]; restore:[] }>()
 function patch(value: Partial<Appearance>) { if(props.disabled)return;emit('update:modelValue', { ...props.modelValue, ...value }) }
@@ -13,8 +14,8 @@ function patch(value: Partial<Appearance>) { if(props.disabled)return;emit('upda
     <SettingsSection title="默认文字" :disabled="disabled">
       <div class="bt-settings-grid bt-settings-grid--three">
         <label class="bt-settings-field"><span>字体</span><FontSelect :model-value="modelValue.fontFamily" label="表格默认" @update:model-value="patch({fontFamily:($event||'system') as Appearance['fontFamily']})" /></label>
-        <label class="bt-settings-field"><span>内容字号</span><select aria-label="内容字号" :value="modelValue.fontSize" @change="patch({fontSize:Number(($event.target as HTMLSelectElement).value)})"><option v-for="size in [12,13,14,15,16,17,18,19,20,22,24,28,32]" :key="size" :value="size">{{size}} px</option></select></label>
-        <label class="bt-settings-field"><span>表头字号</span><select aria-label="表头字号" :value="modelValue.headerFontSize" @change="patch({headerFontSize:Number(($event.target as HTMLSelectElement).value)})"><option v-for="size in [12,13,14,15,16,17,18,19,20,22,24,28,32]" :key="size" :value="size">{{size}} px</option></select></label>
+        <div class="bt-settings-field"><span>内容字号</span><SettingsRange :path="['appearance','fontSize']" label="内容字号" :min="10" :max="32" unit="px" :model-value="modelValue.fontSize" :disabled="disabled" @update:model-value="patch({fontSize:$event??modelValue.fontSize})" /></div>
+        <div class="bt-settings-field"><span>表头字号</span><SettingsRange :path="['appearance','headerFontSize']" label="表头字号" :min="10" :max="32" unit="px" :model-value="modelValue.headerFontSize" :disabled="disabled" @update:model-value="patch({headerFontSize:$event??modelValue.headerFontSize})" /></div>
         <div class="bt-settings-field"><span>内容颜色</span><ColorSelect :model-value="modelValue.color" label="表格内容" @update:model-value="patch({color:$event||'#334155'})" /></div>
         <div class="bt-settings-field"><span>表头颜色</span><ColorSelect :model-value="modelValue.headerColor" label="表格表头" @update:model-value="patch({headerColor:$event||'#334155'})" /></div>
       </div><p class="bt-settings-note">单列设置优先于这里的默认值。字体未安装时，使用本机可用的后备字体。</p>

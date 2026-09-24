@@ -69,7 +69,7 @@ describe('column settings draft',()=>{
     await wrapper.get('button[aria-label="编辑列 项目"]').trigger('click')
     await wrapper.get('input[aria-label="显示名称"]').setValue('项目名称')
     await wrapper.get('input[aria-label="允许排序"]').setValue(false)
-    await wrapper.get('select[aria-label="表头文字字号"]').setValue('16')
+    await wrapper.get('input[aria-label="表头文字字号"]').setValue('16')
     expect(wrapper.get('[data-testid="settings-preview"]').text()).toContain('项目名称')
     expect(wrapper.get('[data-testid="settings-preview"]').text()).toContain('计量改造')
     expect(applied).toEqual([])

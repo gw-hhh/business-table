@@ -14,6 +14,8 @@ import ToolbarSettings from '../features/settings/ToolbarSettings.vue'
 import SettingsPreview from '../features/settings/SettingsPreview.vue'
 import DialogFrame from '../ui/DialogFrame.vue'
 import SettingsSection from '../features/settings/SettingsSection.vue'
+import SettingsRange from '../features/settings/SettingsRange.vue'
+import {provideNumericValidation} from '../features/settings/numericValidation'
 import {useDragReorder} from '../ui/useDragReorder'
 import {resolvePresentation,availableActions,availableTools,type TablePresentation,type ToolDefinition} from '../features/presentation/model'
 import type {SettingsIssue} from '../features/settings/session'
@@ -26,6 +28,7 @@ import type {ColumnCapabilities} from '../config/types'
 
 const props=withDefaults(defineProps<{settingsPolicy?:SettingsPolicy;tableKey?:string;presentation?:TablePresentation;basePresentation?:TablePresentation;actions?:Action[];tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};pageSizes?:number[];issues?:SettingsIssue[];changes?:Record<string,UserColumnConfig>;initialColumnId?:string;initialTab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar';columns:ColumnConfig[];baseColumns:ColumnConfig[];sorts:SortConfig[];sortingEnabled:boolean;previewRows:RowData[];previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;dirty:boolean;saving:boolean;error:string}>(),{presentation:()=>resolvePresentation(),basePresentation:()=>resolvePresentation(),actions:()=>[],tools:()=>({page:[],table:[]}),issues:()=>[],changes:()=>({})})
 const emit=defineEmits<{presentation:[value:TablePresentation];restore:[input:{columns?:Record<string,UserColumnConfig>;sorts?:SortConfig[];presentation?:unknown}];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[];move:[id:string,targetId:string]}>()
+const {errors:numericErrors,reset:resetNumericInputs,prune:pruneNumericInputs}=provideNumericValidation()
 const selectedId=ref(props.initialColumnId??props.columns.find(column=>column.visible!==false&&!column.fixed&&isColumnCapabilityEnabled(column,'rename'))?.id??props.columns[0]?.id??'')
 const selected=computed(()=>props.columns.find(column=>column.id===selectedId.value))
 const selectedBase=computed(()=>props.baseColumns.find(column=>column.id===selectedId.value))
@@ -107,8 +110,8 @@ function colorInput(key:StyleKey,value:string){
 function clearColorInputs(id?:string,part?:StyleKey){
   for(const [token,entry] of Object.entries(colorDrafts.value))if((!id||entry.id===id)&&(!part||entry.key===part))delete colorDrafts.value[token]
 }
-function resetColumn(id:string){if(id===selectedId.value&&canResetSelected.value){clearColorInputs(id);emit('reset',id)}}
-function resetStyle(key:StyleKey){clearColorInputs(selectedId.value,key);patch({[key]:selectedBase.value?.[key]??{}})}
+function resetColumn(id:string){if(id===selectedId.value&&canResetSelected.value){resetNumericInputs(['columns',id]);clearColorInputs(id);emit('reset',id)}}
+function resetStyle(key:StyleKey){if(!can(key))return;resetNumericInputs(['columns',selectedId.value,key]);clearColorInputs(selectedId.value,key);patch({[key]:selectedBase.value?.[key]??{}})}
 async function revealColorError(){
   const first=colorErrors.value[0];if(!first)return
   activeTab.value='columns';selectedId.value=first.id;setSectionOpen(first.key,true)
@@ -166,11 +169,13 @@ function moveSort(index:number,offset:number){
 }
 function resetPage(){
   if(!canPage(activeTab.value))return
+  resetNumericInputs([activeTab.value!])
   if(activeTab.value==='columns'){clearColorInputs();ruleErrors.value={};emit('reset')}
   else if(activeTab.value==='sorts')emit('resetSorts')
   else if(activeTab.value){const key=activeTab.value==='actions'?'rowActions':activeTab.value;emit('presentation',{...props.presentation,[key]:cloneData(props.basePresentation[key])})}
 }
 function resetAll(){
+  for(const page of tabs.value)if(canPage(page.id))resetNumericInputs([page.id])
   if(canPage('columns')){clearColorInputs();ruleErrors.value={};emit('reset')}
   if(canPage('sorts'))emit('resetSorts')
   const next=cloneData(props.presentation)
@@ -188,14 +193,14 @@ function exportBackup(){const url=URL.createObjectURL(new Blob([JSON.stringify(c
 async function restoreBackup(event:Event){
   if(!canPage('appearance'))return
   const input=event.target as HTMLInputElement,file=input.files?.[0];input.value='';if(!file)return
-  try{if(file.size>2_000_000)throw new Error('设置文件不能超过 2 MB');const data=JSON.parse(await file.text());if(!data||data.kind!=='business-table-settings'||data.schemaVersion!==3||!data.columns||typeof data.columns!=='object')throw new Error('请选择有效的表格设置备份');emit('restore',data);backupError.value=''}catch(cause){backupError.value=cause instanceof Error?cause.message:'设置备份无法读取'}
+  try{if(file.size>2_000_000)throw new Error('设置文件不能超过 2 MB');const data=JSON.parse(await file.text());if(!data||data.kind!=='business-table-settings'||data.schemaVersion!==3||!data.columns||typeof data.columns!=='object')throw new Error('请选择有效的表格设置备份');emit('restore',data);for(const tab of tabs.value)if(canPage(tab.id))resetNumericInputs([tab.id]);backupError.value=''}catch(cause){backupError.value=cause instanceof Error?cause.message:'设置备份无法读取'}
 }
 function rememberPreview(){try{if(experienceKey.value)localStorage.setItem(experienceKey.value,JSON.stringify({previewOpen:previewOpen.value,previewMode:previewMode.value}))}catch{/* Experience persistence is optional. */}}
 watch([previewOpen,previewMode],rememberPreview)
 
 function requestClose(){
   if(props.saving)return
-  if(props.dirty||colorErrors.value.length||allRuleErrors.value.length){discardConfirmation.value=true;void nextTick(()=>discardDialog.value?.querySelector<HTMLButtonElement>('button')?.focus())}
+  if(props.dirty||colorErrors.value.length||allRuleErrors.value.length||Object.keys(numericErrors.value).length){discardConfirmation.value=true;void nextTick(()=>discardDialog.value?.querySelector<HTMLButtonElement>('button')?.focus())}
   else emit('cancel')
 }
 function continueEditing(){discardConfirmation.value=false;void nextTick(()=>dialog.value?.querySelector<HTMLButtonElement>('[aria-label="关闭表格设置"]')?.focus())}
@@ -221,6 +226,12 @@ watch(selectedId,id=>{widthError.value='';trialRow.value=undefined;activeSection
 watch(()=>props.initialColumnId,id=>{if(id)selectColumn(id)})
 watch(()=>props.initialTab,tab=>{if(tab&&tabs.value.some(item=>item.id===tab))activeTab.value=tab})
 watch(tabs,value=>{if(!value.some(tab=>tab.id===activeTab.value))activeTab.value=value[0]?.id},{immediate:true})
+watch([()=>props.columns,settingsPolicy,tabs],()=>pruneNumericInputs(path=>{
+  if(path[0]!=='columns')return canPage(path[0] as SettingsPage)
+  const column=props.columns.find(column=>column.id===path[1]);if(!column)return false
+  const access=fieldAccess(column,path[2] as keyof UserColumnConfig)
+  return access.visible&&!access.disabled
+}),{deep:true})
 watch(sections,value=>{if(!value.some(section=>section.id===activeSection.value))activeSection.value=value[0]?.id},{immediate:true})
 watch(sampleIndex,()=>{trialRow.value=undefined})
 let previousOverflow=''
@@ -254,7 +265,7 @@ onBeforeUnmount(()=>{document.body.style.overflow=previousOverflow})
             <SettingsSection v-if="sectionAccess('basic').visible" title="基本" :open="sectionOpen('basic')" @update:open="setSectionOpen('basic',$event)">
               <div class="bt-settings-grid bt-settings-grid--two">
                 <label v-if="visible('rename')" class="bt-settings-field"><span>显示名称</span><input aria-label="显示名称" :value="selected.title" :disabled="!can('rename')" @input="patch({title:($event.target as HTMLInputElement).value})"><small>原名称：{{selectedBase?.title??selected.title}}</small></label>
-                <label v-if="visible('width')" class="bt-settings-field"><span>列宽（px）</span><input type="number" aria-label="列宽（px）" :min="getColumnWidthBounds(selected).min" :max="getColumnWidthBounds(selected).max" :value="editableColumnWidth(selected)" :disabled="!can('width')" :aria-invalid="!!widthError" @input="width(($event.target as HTMLInputElement).value)"><small v-if="!widthError">允许 {{getColumnWidthBounds(selected).min}}–{{getColumnWidthBounds(selected).max}} px</small><small v-else class="bt-settings-error">{{widthError}}</small><input class="bt-settings-width-range" type="range" :aria-label="selected.title+'列宽'" :min="getColumnWidthBounds(selected).min" :max="getColumnWidthBounds(selected).max" :value="editableColumnWidth(selected)" :disabled="!can('width')" @input="width(($event.target as HTMLInputElement).value)"></label>
+                <div v-if="visible('width')" class="bt-settings-field"><span>列宽（px）</span><SettingsRange :path="['columns',selected.id,'width']" :key="selected.id" label="列宽（px）" :slider-label="selected.title+'列宽'" :min="getColumnWidthBounds(selected).min" :max="getColumnWidthBounds(selected).max" step="any" unit="px" :model-value="editableColumnWidth(selected)" :disabled="!can('width')" @update:model-value="width(String($event))" /></div>
               </div>
               <div class="bt-settings-inline"><label v-if="visible('visible')" class="bt-settings-check"><input type="checkbox" aria-label="显示此列" :checked="selected.visible!==false" :disabled="!can('visible')" @change="patch({visible:($event.target as HTMLInputElement).checked})">显示此列</label><label v-if="visible('sortable')" class="bt-settings-check"><input type="checkbox" aria-label="允许排序" :checked="!!selected.sortable" :disabled="!can('sortable')" @change="patch({sortable:($event.target as HTMLInputElement).checked})">允许排序</label><span v-if="visible('fixed')" class="bt-settings-detail-pins">冻结位置<button v-for="side in ['left','right'] as const" :key="side" class="bt-settings-icon" :class="{'is-active':selected.fixed===side}" :disabled="!canPin(side)" :title="(side==='left'?'左冻结 ':'右冻结 ')+selected.title" :aria-pressed="selected.fixed===side" @click="pin(side)"><TableIcon :name="'pin-'+side" :size="15" /></button></span></div>
             </SettingsSection>
@@ -263,7 +274,7 @@ onBeforeUnmount(()=>{document.body.style.overflow=previousOverflow})
               <template #actions><button class="bt-settings-text" :disabled="!can(section.key)" @click="resetStyle(section.key)">恢复</button></template>
               <div class="bt-settings-grid bt-settings-grid--three">
                 <div class="bt-settings-field"><span>字体</span><FontSelect :label="section.title" :model-value="selected[section.key]?.fontFamily??''" :disabled="!can(section.key)" @update:model-value="style(section.key,'fontFamily',$event)" /></div>
-                <label class="bt-settings-field"><span>字号</span><select :aria-label="section.title+'字号'" :value="selected[section.key]?.fontSize??''" :disabled="!can(section.key)" @change="style(section.key,'fontSize',($event.target as HTMLSelectElement).value)"><option value="">跟随表格</option><option v-for="size in [10,11,12,13,14,15,16,17,18,19,20,22,24,28,32]" :key="size" :value="size">{{size}} px</option></select></label>
+                <div class="bt-settings-field"><span>字号</span><SettingsRange :path="['columns',selected.id,section.key,'fontSize']" :key="selected.id+section.key" :label="section.title+'字号'" :min="10" :max="32" unit="px" :model-value="selected[section.key]?.fontSize" :inherited-value="section.key==='headerStyle'?presentation.appearance.headerFontSize:presentation.appearance.fontSize" :disabled="!can(section.key)" @update:model-value="style(section.key,'fontSize',$event===undefined?'':String($event))" /></div>
                 <label class="bt-settings-field"><span>字重</span><select :aria-label="section.title+'字重'" :value="selected[section.key]?.fontWeight??''" :disabled="!can(section.key)" @change="style(section.key,'fontWeight',($event.target as HTMLSelectElement).value)"><option value="">默认</option><option value="normal">常规</option><option value="500">中等</option><option value="600">半粗</option><option value="bold">粗体</option></select></label>
                 <div class="bt-settings-field"><span>对齐方式</span><div class="bt-settings-segmented" role="group" :aria-label="section.title+'对齐方式'" @keydown="alignmentKey(section.key,$event)"><button :tabindex="!selected[section.key]?.align?0:-1" :aria-label="section.title+'默认对齐'" :aria-pressed="!selected[section.key]?.align" :disabled="!can(section.key)" @click="style(section.key,'align','')">默认</button><button v-for="align in alignments" :key="align.id" :tabindex="selected[section.key]?.align===align.id?0:-1" :aria-label="section.title+align.label" :aria-pressed="selected[section.key]?.align===align.id" :disabled="!can(section.key)" @click="style(section.key,'align',align.id)"><TableIcon :name="'align-'+align.id" :size="15" /></button></div></div>
                 <div class="bt-settings-field bt-settings-color"><span>文字颜色</span><ColorSelect :label="section.title" :model-value="colorValue(section.key)" :disabled="!can(section.key)" @update:model-value="colorInput(section.key,$event)" /></div>
@@ -286,9 +297,10 @@ onBeforeUnmount(()=>{document.body.style.overflow=previousOverflow})
         <p v-if="backupError" class="bt-settings-error" role="alert">{{backupError}}</p>
         <div v-if="issues.length||allRuleErrors.length" class="bt-settings-validation-summary" role="alert"><span>{{issues[0]?.message??allRuleErrors[0]}}</span><button class="bt-settings-text" @click="revealChange(issues[0]?.columnId)">查看</button></div>
         <div v-if="colorErrors.length" class="bt-settings-validation-summary" role="status"><span>有 {{colorErrors.length}} 项颜色需要修改</span><button class="bt-settings-text" aria-label="定位颜色错误" @click="revealColorError">查看</button></div>
+        <div v-if="Object.keys(numericErrors).length" class="bt-settings-validation-summary" role="alert">{{Object.values(numericErrors)[0]}}</div>
         <SettingsPreview v-model:mode="previewMode" v-model:open="previewOpen" v-model:sample-index="sampleIndex" :tab="activeTab" :section="activeSection" :selected="selected" :columns="columns" :rows="sortedSamples" :row="displayedRow" :presentation="presentation" :actions="actions" :tools="tools" :preview-cell="previewCell" />
         <p v-if="error" class="bt-settings-error" role="alert">{{error}}</p>
-        <footer class="bt-settings-drawer__footer"><div><button class="bt-settings-text" :disabled="!canPage(activeTab)" @click="resetPage">恢复当前页</button><button class="bt-settings-text" :disabled="!tabs.some(tab=>canPage(tab.id))" @click="resetAll">恢复全部</button></div><button class="bt-settings-button" :disabled="saving" @click="emit('cancel')">取消</button><button class="bt-settings-button bt-settings-button--primary" :disabled="!dirty||saving||!!widthError||colorErrors.length>0||issues.length>0||allRuleErrors.length>0" @click="emit('apply')">{{saving?'保存中…':'应用'}}</button></footer>
+        <footer class="bt-settings-drawer__footer"><div><button class="bt-settings-text" :disabled="!canPage(activeTab)" @click="resetPage">恢复当前页</button><button class="bt-settings-text" :disabled="!tabs.some(tab=>canPage(tab.id))" @click="resetAll">恢复全部</button></div><button class="bt-settings-button" :disabled="saving" @click="emit('cancel')">取消</button><button class="bt-settings-button bt-settings-button--primary" :disabled="!dirty||saving||!!widthError||Object.keys(numericErrors).length>0||colorErrors.length>0||issues.length>0||allRuleErrors.length>0" @click="emit('apply')">{{saving?'保存中…':'应用'}}</button></footer>
         <DialogFrame v-if="reviewOpen" title="本次修改" @close="reviewOpen=false"><div class="bt-change-list"><button v-for="(change,id) in changes" :key="id" class="bt-ui-button text" @click="revealChange(String(id))">{{columns.find(column=>column.id===id)?.title??id}}：{{Object.keys(change).map(key=>({title:'名称',visible:'显隐',width:'宽度',fixed:'冻结',order:'顺序',align:'对齐',headerStyle:'表头文字',cellStyle:'单元格文字',mapping:'值映射',numberRule:'数字格式',filter:'列筛选',template:'模板',content:'内容显示'} as Record<string,string>)[key]??key).join('、')}}</button><button v-if="tabs.some(tab=>tab.id==='appearance')&&JSON.stringify(presentation)!==JSON.stringify(basePresentation)" class="bt-ui-button text" @click="reviewOpen=false;openPage('appearance')">表格外观、按钮或工具栏设置</button><button v-if="tabs.some(tab=>tab.id==='sorts')&&sorts.length" class="bt-ui-button text" @click="reviewOpen=false;openPage('sorts')">排序规则</button></div><template #footer><button class="bt-ui-button primary" @click="reviewOpen=false">返回编辑</button></template></DialogFrame>
         <div v-if="discardConfirmation" class="bt-settings-discard-backdrop"><section ref="discardDialog" class="bt-settings-discard" role="alertdialog" aria-modal="true" aria-label="放弃未应用的修改"><h3>修改尚未应用</h3><p>离开后，本次修改不会保存。</p><footer><button class="bt-settings-button" @click="continueEditing">继续编辑</button><button class="bt-settings-button bt-settings-button--primary" @click="emit('cancel')">放弃修改</button></footer></section></div>
       </section>

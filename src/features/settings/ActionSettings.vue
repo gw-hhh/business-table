@@ -5,6 +5,7 @@ import { availableActions, type ActionPreference, type RowActionLayout } from '.
 import SegmentedControl from '../../ui/SegmentedControl.vue'
 import TableIcon from '../../components/TableIcon.vue'
 import SettingsSection from './SettingsSection.vue'
+import SettingsRange from './SettingsRange.vue'
 import {useDragReorder} from '../../ui/useDragReorder'
 const props = defineProps<{ disabled?:boolean; modelValue: RowActionLayout; actions: readonly Action[] }>()
 const emit = defineEmits<{ 'update:modelValue':[value:RowActionLayout] }>()
@@ -22,10 +23,10 @@ const reorder=useDragReorder({ids:()=>ordered().map(action=>action.id),disabled:
   <div class="bt-settings-page">
     <SettingsSection title="默认布局" :disabled="disabled">
       <div class="bt-settings-grid bt-settings-grid--four">
-        <label class="bt-settings-field"><span>行内最多显示</span><select aria-label="行内最多显示" :value="modelValue.maxInline" @change="patch({maxInline:Number(($event.target as HTMLSelectElement).value)})"><option :value="0">全部放入更多</option><option v-for="value in [1,2,3,4]" :key="value" :value="value">{{value}} 个按钮</option></select></label>
+        <div class="bt-settings-field"><span>行内最多显示</span><SettingsRange :path="['actions','maxInline']" label="行内最多显示" :min="0" :max="4" unit="个" :model-value="modelValue.maxInline" :disabled="disabled" @update:model-value="patch({maxInline:$event??modelValue.maxInline})" /><small v-if="modelValue.maxInline===0">全部放入更多</small></div>
         <label class="bt-settings-field"><span>默认显示形式</span><select aria-label="默认显示形式" :value="modelValue.display" @change="patch({display:($event.target as HTMLSelectElement).value as RowActionLayout['display']})"><option v-for="item in displays" :key="item.value" :value="item.value">{{item.label}}</option></select></label>
         <div class="bt-settings-field"><span>按钮对齐</span><SegmentedControl :model-value="modelValue.align" label="按钮" :options="aligns" @update:model-value="patch({align:$event as RowActionLayout['align']})" /></div>
-        <label class="bt-settings-field"><span>按钮间距</span><select aria-label="按钮间距" :value="modelValue.gap" @change="patch({gap:Number(($event.target as HTMLSelectElement).value)})"><option v-for="gap in [4,8,12,16,20,24]" :key="gap" :value="gap">{{gap}} px</option></select></label>
+        <div class="bt-settings-field"><span>按钮间距</span><SettingsRange :path="['actions','gap']" label="按钮间距" :min="0" :max="32" unit="px" :model-value="modelValue.gap" :disabled="disabled" @update:model-value="patch({gap:$event??modelValue.gap})" /></div>
       </div><label class="bt-settings-check"><input type="checkbox" :checked="modelValue.grouped" @change="patch({grouped:($event.target as HTMLInputElement).checked})">更多菜单按普通、导出、危险操作分组</label><p class="bt-settings-note">列宽不足时，末尾按钮自动放入“更多”。隐藏按钮不改变用户权限。</p>
     </SettingsSection>
     <SettingsSection title="按钮及顺序">

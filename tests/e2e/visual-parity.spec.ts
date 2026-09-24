@@ -144,7 +144,7 @@ test('full settings restores the drawer and applies a column draft only on confi
   await page.getByRole('button', { name: '列设置', exact: true }).click()
   await page.getByTestId('column-panel').getByRole('button', { name: '更多设置', exact: true }).click()
   const drawer = page.getByTestId('settings-drawer')
-  await expectBox(drawer, { x: 880, y: 0, width: 1040, height: 945 })
+  await expectBox(drawer, { x: 1000, y: 0, width: 920, height: 945 })
   await expectBox(drawer.getByTestId('settings-preview'), { y: 684, height: 200 })
   expect(await drawer.locator('.bt-settings-tabs').evaluate(element => element.scrollHeight - element.clientHeight), 'desktop settings tabs must fit without a vertical scrollbar').toBeLessThanOrEqual(0)
   await expect(drawer.getByRole('button', { name: '应用', exact: true })).toBeDisabled()
