@@ -4,6 +4,9 @@ import type { SearchDefinition } from '../features/search/model'
 import type { ConfigDiagnostic } from './diagnostics'
 import type { ControlConfig, ControlDeclaration } from './access'
 import type { SettingsDefinition } from '../features/settings/policy'
+import type {ConditionalFormattingDefinition,ConditionalRule} from '../features/conditional-formatting/model'
+import type {GroupingDefinition,CompareDefinition} from '../features/reports/model'
+import type {RangeSelectionDefinition} from '../features/range-selection/context'
 
 export interface ColumnCapabilities {
   content?:ControlConfig
@@ -37,6 +40,10 @@ export interface TableDefinition {
   columns: ColumnDefinition[]
   features?: Record<string, unknown>
   search?: SearchDefinition
+  conditionalFormatting?:ConditionalFormattingDefinition
+  grouping?:GroupingDefinition
+  compare?:CompareDefinition
+  rangeSelection?:RangeSelectionDefinition
   settings?: SettingsDefinition
   pagination?: { pageSize?: number; pageSizeOptions?: number[] }
 }
@@ -50,6 +57,7 @@ export interface PreferenceV2 {
 }
 export interface PreferenceV3 {
   presentation?:PresentationDelta
+  conditionalFormatting?:ConditionalRule[]
   kind: 'business-table-preference'
   schemaVersion: 3
   tableKey: string

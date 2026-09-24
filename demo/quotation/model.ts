@@ -5,6 +5,9 @@ import type { ColumnConfig, FilterConfig, Query, SortConfig, ViewConfig } from '
 import type { SearchDefinition } from '../../src/features/search/model'
 import { readRichDocument, type RichDocument } from '../../src/features/rich-text/document'
 import type { TemplateDefinition, TemplateField } from '../../src/features/export/template'
+import type { ConditionalFormattingDefinition } from '../../src/features/conditional-formatting/model'
+import type { GroupingDefinition, CompareDefinition } from '../../src/features/reports/model'
+import type { RangeSelectionDefinition } from '../../src/features/range-selection/context'
 
 export interface Quotation extends Record<string, unknown> {
   id: string
@@ -77,6 +80,21 @@ export const quotationColumns: ColumnConfig<Quotation>[] = baseQuotationColumns.
   headerStyle: true, cellStyle: true, content: true, format: true, mapping: true, template: true, filter: true, trial: true,
   ...(column.id === 'name' ? { width: { enabled: true, min: 180, max: 640 } } : {}),
 } }))
+export const quotationConditionalFormatting: ConditionalFormattingDefinition = {
+  allowedColumns: quotationColumns.map(column => column.id), defaultColumn: 'amount', defaultRules: [],
+}
+export const quotationGrouping: GroupingDefinition = {
+  groupColumns: ['customer', 'status', 'owner', 'region'], defaultGroups: ['customer'],
+  detailColumns: [{ columnId: 'id', label: '报价编号' }, { columnId: 'name', label: '项目名称' }, { columnId: 'amount', label: '含税金额（元）', numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true } }],
+  summaryColumns: [{ columnId: 'amount', label: '金额合计（元）', numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true, prefix: '¥ ' } }],
+  countLabel: '报价笔数', recordUnit: '笔', exportName: '分组汇总',
+}
+export const quotationCompare: CompareDefinition = {
+  searchColumns: ['id', 'name'], labelColumns: ['id', 'name'], recordLabelColumn: 'id',
+  differenceColumns: [{ columnId: 'amount', label: '与基准金额差（元）', numberFormat: { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true } }],
+  searchPlaceholder: '搜索编号 / 项目名称', recordName: '报价', exportName: '报价对比',
+}
+export const quotationRangeSelection: RangeSelectionDefinition = { summaryColumns: [{ columnId: 'amount', label: '金额' }] }
 const templateHints:Record<string,string>={id:'必填；字母、数字、下划线、短横线，最多 64 字符。作为文本填写。',name:'必填，最多 100 个字符。',customer:'必填，最多 60 个字符。',amount:'必填，非负金额，最多两位小数，不超过 99999999999.99 元。',status:'必填：草稿、评审中或已转合同。',owner:'必填，最多 40 个字符。',region:'必填，使用下拉选项中的大区。',createdAt:'必填，YYYY-MM-DD，1900-01-01 至 9999-12-31。',date:'必填，YYYY-MM-DD，不能早于创建日期。',notes:'选填，最多 1000 个字符。'}
 const templateOrder=['id','name','customer','amount','status','owner','region','createdAt','date','notes']
 export const quotationTemplateDefinition:TemplateDefinition={

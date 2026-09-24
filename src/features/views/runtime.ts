@@ -6,6 +6,7 @@ import { readFilter, readFilterGroup } from '../filters/model'
 import { normalizeSearchDefinition, projectSearchValues, readSearchJson, readSearchValues, restoreLegacySearch, serializeSearchValues, type SearchDefinition, type SearchValues } from '../search/model'
 import type { RuntimeRegistry } from '../../runtime/registry'
 import { presentationDelta, resolvePresentation } from '../presentation/model'
+import {readConditionalRules} from '../conditional-formatting/model'
 
 export interface ViewSnapshot extends Omit<ViewConfig, 'id' | 'name'> {}
 export interface ViewSummary{id:string;name:string;isSystem?:boolean;isReadOnly?:boolean;isDefault?:boolean}
@@ -68,6 +69,7 @@ function snapshot(input: unknown): ViewSnapshot {
     if (!presentation.toolbar.followView) delete delta.toolbar
     result.presentation = delta
   }
+  if (value.conditionalFormatting !== undefined) result.conditionalFormatting=readConditionalRules(value.conditionalFormatting)
   if (typeof value.searchCollapsed === 'boolean') result.searchCollapsed = value.searchCollapsed
   return result
 }

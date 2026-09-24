@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import {ref} from 'vue'
+import {computed,ref} from 'vue'
 import {BusinessTable,ConfiguredBusinessTable,createRegistry,type ColumnCapabilities,type ConfigDiagnostic,type SettingsDefinition,type TableDefinition,type PreferenceV3} from '../src'
+import {dataToolDisabled,resolveFeatureGate,type DataToolName,type TableFeatures} from '../src/config/features'
+import type {RangeSelectionContext} from '../src/features/range-selection/context'
+import type {ToolDefinition} from '../src/features/presentation/model'
 type Item={id:string;name:string;status:string;amount:number}
 const mode=new URLSearchParams(location.search).get('mode')??'default'
 const rows:Item[]=[{id:'A-001',name:'传感器',status:'已确认',amount:1280},{id:'A-002',name:'转换器',status:'草稿',amount:3600}]
 const message=ref(''),diagnostics=ref<ConfigDiagnostic[]>([]),detailsReads=ref(0),delta=ref<PreferenceV3>()
 let settingsReadCount=0
-const table=ref<{activateFeature:(name:'columnSettings')=>Promise<unknown>}>()
+const table=ref<{activateFeature:(name:'columnSettings')=>Promise<unknown>;openDataTool:(name:DataToolName)=>Promise<void>;getFeatureContext:(name:'rangeSelection')=>RangeSelectionContext|undefined;reload:()=>void|Promise<void>}>()
 const headlessContext=ref<{columns:{id:string;title:string;width?:number}[];patch:(id:string,patch:{width:number})=>Promise<void>}>()
 const registry=createRegistry<Item>({onDiagnostic:diagnostic=>diagnostics.value.push(diagnostic)})
 registry.register('rowAction','view',{id:'view',label:'查看',handler:row=>{message.value='查看 '+row.id}})
@@ -24,17 +27,27 @@ const settingsExamples:Record<string,SettingsDefinition|undefined>={
   unconfigured:undefined,
 }
 const descriptions:Record<string,string>={
-  default:'默认开放全部设置。可调整列、排序、操作按钮、表格外观和工具栏；选择金额列可查看数字格式。',
-  readonly:'编号的显示和冻结设置为只读，列宽仍可修改。表格外观也设为只读，其余设置可以编辑。',
-  unconfigured:'未声明设置模块，因此不显示列设置或表格设置入口。',
+  default:'默认开放全部设置和数据工具。可调整列、排序、操作按钮、表格外观和工具栏，也可使用条件标记、分组汇总、记录对比和区域选择。',
+  readonly:'编号的显示和冻结、表格外观与数据工具设为只读。可查看条件标记和报告，其他设置可以编辑。',
+  unconfigured:'未声明设置模块和数据工具，因此不显示相应入口。',
   core:'仅提供列和数据，展示最简表格。',
   custom:'使用自定义设置界面，通过通用设置入口调整列宽。',
   headless:'通过按钮读取设置状态并调整列宽。',
-  off:'后台配置关闭列设置和组合筛选入口。',
+  off:'后台配置关闭列设置、组合筛选和数据工具入口。',
+}
+const dataToolFeatures:TableFeatures=mode==='unconfigured'?{}:{
+  conditionalFormatting:{enabled:true,entry:false,disabled:mode==='readonly'},
+  grouping:{enabled:true,entry:false,disabled:mode==='readonly'},
+  compare:{enabled:true,entry:false,disabled:mode==='readonly'},
+  rangeSelection:{enabled:true,entry:false,disabled:mode==='readonly'},
 }
 const definition:TableDefinition={
   schemaVersion:3,tableKey:'configuration.example',title:'物料列表',
   settings:Object.hasOwn(settingsExamples,mode)?settingsExamples[mode]:allSettings,
+  conditionalFormatting:{allowedColumns:['id','name','status','amount'],defaultColumn:'amount',defaultRules:[]},
+  grouping:{groupColumns:['status','name'],defaultGroups:['status'],detailColumns:[{columnId:'id'},{columnId:'name'},{columnId:'amount'}],summaryColumns:[{columnId:'amount',label:'金额合计'}]},
+  compare:{searchColumns:['id','name'],labelColumns:['id','name'],recordLabelColumn:'id',differenceColumns:[{columnId:'amount',label:'与基准金额差'}],searchPlaceholder:'搜索编号 / 名称'},
+  rangeSelection:{summaryColumns:[{columnId:'amount',label:'金额'}]},
   columns:[
     {id:'id',field:'id',title:'编号',width:180,minWidth:100,fixed:'left',sortable:true,configurable:{...columnCapabilities,width:{enabled:true,min:120,max:260},...(mode==='readonly'?{visible:{enabled:true,disabled:true},fixed:{enabled:true,disabled:true}}:{})}},
     {id:'name',field:'name',title:'名称',width:220,sortable:true,configurable:{...columnCapabilities}},
@@ -43,11 +56,26 @@ const definition:TableDefinition={
   ],
   features:{
     search:true,toolbar:true,filters:true,
+    ...dataToolFeatures,
     columnSettings:{enabled:true,mode:mode==='custom'?'custom':mode==='headless'?'headless':'default',get details(){detailsReads.value=++settingsReadCount;return {label:'列设置'}}},
     rowActions:{enabled:true,details:{allowedItems:['view','delete']}},
   },
 }
-const remoteOverride=mode==='off'?{features:{columnSettings:{enabled:false},filters:{enabled:false}}}:undefined
+const remoteOverride=mode==='off'?{features:{columnSettings:{enabled:false},filters:{enabled:false},conditionalFormatting:{enabled:false},grouping:{enabled:false},compare:{enabled:false},rangeSelection:{enabled:false}}}:undefined
+const menuItems:readonly {name:DataToolName;label:string;icon:string}[]=[
+  {name:'conditionalFormatting',label:'条件标记',icon:'info'},
+  {name:'grouping',label:'分组汇总',icon:'density'},
+  {name:'compare',label:'记录对比',icon:'columns'},
+  {name:'rangeSelection',label:'开启区域选择',icon:'batch'},
+]
+const tools=computed<{page:ToolDefinition[];table:ToolDefinition[]}>(()=>({page:[],table:[
+  {id:'refresh',label:'刷新',handler:()=>table.value?.reload()},
+  {id:'data-tools',label:'数据工具',icon:'filter',children:menuItems.filter(item=>resolveFeatureGate(definition.features?.[item.name],remoteOverride?.features[item.name]).enabled).map(item=>({
+    id:item.name,label:item.name==='rangeSelection'&&table.value?.getFeatureContext('rangeSelection')?.enabled?'关闭区域选择':item.label,icon:item.icon,
+    disabled:item.name==='rangeSelection'&&dataToolDisabled(definition.features?.[item.name],remoteOverride?.features[item.name]),
+    handler:()=>table.value?.openDataTool(item.name),
+  }))},
+]}))
 const preference=ref<unknown>(null)
 function recordPreference(next:PreferenceV3){delta.value=next}
 async function activateHeadless(){headlessContext.value=await table.value?.activateFeature('columnSettings') as typeof headlessContext.value}
@@ -58,7 +86,7 @@ async function activateHeadless(){headlessContext.value=await table.value?.activ
     <h1>配置与列权限示例</h1>
     <p>{{descriptions[mode]??descriptions.default}}</p>
     <BusinessTable v-if="mode==='core'" :columns="definition.columns" :data="rows"/>
-    <ConfiguredBusinessTable v-else ref="table" :definition="definition" :registry="registry" :data="rows" :preference="preference" :remote-override="remoteOverride" @diagnostic="diagnostics.push($event)" @preference-change="recordPreference">
+    <ConfiguredBusinessTable v-else ref="table" :definition="definition" :registry="registry" :data="rows" :tools="tools" :preference="preference" :remote-override="remoteOverride" @diagnostic="diagnostics.push($event)" @preference-change="recordPreference">
       <template #column-settings="{context}">
         <aside class="bt__panel" data-testid="custom-settings">
           <h3>自定义字段设置</h3>

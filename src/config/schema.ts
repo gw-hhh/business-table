@@ -1,6 +1,7 @@
 import {resolvePresentation,presentationDelta,defaultPresentation,type TablePresentation} from '../features/presentation/model'
 import { z } from 'zod'
 import {ruleFieldSchemas} from '../features/columns/schema'
+import {readConditionalRules,type ConditionalRule} from '../features/conditional-formatting/model'
 import type { TableConfig } from '../types'
 import type { UserColumnConfig } from '../types'
 import type { ConfigDiagnostic, DiagnosticReporter } from './diagnostics'
@@ -79,6 +80,11 @@ export function parsePreference(input: unknown, tableKey: string, report?: Diagn
   }
   if (envelope.data.tableKey !== tableKey) { issue(report, 'preference.tableKey', '此偏好属于其他表格。'); return null }
   const columns = parsePatches(own(value, 'columns'), 'preference.columns', report)
+  let conditionalFormatting:ConditionalRule[]|undefined
+  if(Object.hasOwn(value,'conditionalFormatting')){
+    try{conditionalFormatting=readConditionalRules(own(value,'conditionalFormatting'))}
+    catch{issue(report,'preference.conditionalFormatting','条件标记规则无效，已忽略这一项。')}
+  }
   // Migrate the actual Vue v1 payload through the explicit v2 protocol, never an old quotation payload.
   let current: PreferenceV2 | PreferenceV3
   if (version === 1 || version === 2) {
@@ -94,8 +100,8 @@ export function parsePreference(input: unknown, tableKey: string, report?: Diagn
     current = { kind, schemaVersion: 3, tableKey, columns, ...(pageSize === undefined ? {} : { pagination: { pageSize } }) }
   }
   if(own(value,'presentation')!==undefined)current.presentation=presentationDelta(resolvePresentation(own(value,'presentation')))
-  if (current.schemaVersion === 2) return {...(current.presentation?{presentation:current.presentation}:{}), kind, schemaVersion: 3, tableKey, columns: current.columns, ...(current.pageSize === undefined ? {} : { pagination: { pageSize: current.pageSize } }) }
-  return current
+  if (current.schemaVersion === 2) return {...(current.presentation?{presentation:current.presentation}:{}),...(conditionalFormatting===undefined?{}:{conditionalFormatting}), kind, schemaVersion: 3, tableKey, columns: current.columns, ...(current.pageSize === undefined ? {} : { pagination: { pageSize: current.pageSize } }) }
+  return {...current,...(conditionalFormatting===undefined?{}:{conditionalFormatting})}
 }
 
 function parseCapabilities(input: unknown, path: string, report?: DiagnosticReporter): ColumnCapabilities {
@@ -206,7 +212,7 @@ export function resolveConfiguration(input: ResolveConfigurationInput, report?: 
     if(parsedPreference.presentation)presentation=resolvePresentation(parsedPreference.presentation,presentation)
     columns = applyColumnPatches(columns, parsedPreference.columns, diagnostic => collect({ ...diagnostic, path: `preference.${diagnostic.path}` }))
     pagination = parsePagination(parsedPreference.pagination, pagination, 'preference.pagination', collect)
-    preference = createPreferenceDelta(tableKey, baseColumns, { schemaVersion: 1, tableKey, columns: parsedPreference.columns, pageSize: pagination.pageSize, presentation:presentationDelta(presentation,basePresentation) }, basePageSize,basePresentation)
+    preference = createPreferenceDelta(tableKey, baseColumns, { schemaVersion: 1, tableKey, columns: parsedPreference.columns, pageSize: pagination.pageSize, presentation:presentationDelta(presentation,basePresentation),...(parsedPreference.conditionalFormatting===undefined?{}:{conditionalFormatting:parsedPreference.conditionalFormatting}) }, basePageSize,basePresentation)
   }
   columns = applyColumnPatches(columns, input.viewColumns, diagnostic => collect({ ...diagnostic, path: `view.${diagnostic.path}` }))
   return { columns, baseColumns, preference, basePageSize, presentation,basePresentation,...pagination, diagnostics }
@@ -234,5 +240,6 @@ export function createPreferenceDelta(tableKey: string, baseColumns: Configurabl
   const size = parsePageSize(config.pageSize, 'preference.pagination.pageSize')
   if (size !== undefined && size !== pageSize) result.pagination = { pageSize: size }
   if(config.presentation){const delta=presentationDelta(resolvePresentation(config.presentation,basePresentation),basePresentation);if(Object.keys(delta).length)result.presentation=delta}
+  if(config.conditionalFormatting!==undefined)result.conditionalFormatting=readConditionalRules(config.conditionalFormatting)
   return result
 }

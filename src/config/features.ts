@@ -11,7 +11,10 @@ export interface FeatureDeclaration {
   details?: {label?: string; allowedItems?: string[]}
 }
 export type FeatureConfig = boolean | FeatureDeclaration
-export type TableFeatures = Partial<Record<'title' | 'search' | 'views' | 'toolbar' | 'columnSettings' | 'rowActions' | 'filters', FeatureConfig>>
+export type DataToolName = 'conditionalFormatting' | 'grouping' | 'compare' | 'rangeSelection'
+export type DataToolFeatureConfig = boolean | (FeatureDeclaration & { disabled?: boolean })
+export type TableFeatures = Partial<Record<'title' | 'search' | 'views' | 'toolbar' | 'columnSettings' | 'rowActions' | 'filters', FeatureConfig>> & Partial<Record<DataToolName, DataToolFeatureConfig>>
+export function isDataToolName(name: string): name is DataToolName { return ['conditionalFormatting', 'grouping', 'compare', 'rangeSelection'].includes(name) }
 export interface ResolvedFeature {enabled:boolean; mode:FeatureRenderMode; loadStrategy:FeatureLoadStrategy}
 function record(value:unknown):Record<string,unknown>|undefined {
   return value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:undefined
@@ -43,4 +46,8 @@ export function readFeatureDetails(local:unknown, remote?:unknown, report?:Diagn
 export function featureEntryVisible(local:unknown,remote?:unknown):boolean {
   if(!resolveFeatureGate(local,remote).enabled)return false
   return record(local)?.entry!==false&&record(remote)?.entry!==false
+}
+
+export function dataToolDisabled(local: unknown, remote?: unknown): boolean {
+  return resolveFeatureGate(local, remote).enabled && (record(local)?.disabled === true || record(remote)?.disabled === true)
 }

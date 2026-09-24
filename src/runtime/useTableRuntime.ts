@@ -14,6 +14,7 @@ import {cloneData,getValue} from './value'
 import {type FilterState} from './filter-state'
 import {useQueryRuntime,type QueryChange} from './query'
 import {getSettingsColumnFieldAccess,guardSettingsColumnPatch,guardSettingsCommit,resolveSettingsPolicy,type SettingsDefinition} from '../features/settings/policy'
+import {compileConditionalRules,guardConditionalRules,readConditionalRules,type ConditionalFormattingDefinition,type ConditionalRule} from '../features/conditional-formatting/model'
 
 export interface TableRuntimeInput<T extends RowData> {
   readonly tableKey?:string;readonly rowKey?:string;readonly columns:ColumnConfig<T>[];readonly data?:T[]
@@ -22,6 +23,8 @@ export interface TableRuntimeInput<T extends RowData> {
   readonly presentation?:PresentationDelta;readonly density?:'compact'|'default'|'comfortable'
   readonly searchDefinition?:unknown;readonly searchAllowedItems?:readonly string[];readonly registry?:RuntimeRegistry<T>
   readonly settingsDefinition?:SettingsDefinition;readonly settingsOverride?:unknown
+  readonly conditionalFormattingEnabled?:boolean;readonly conditionalFormattingDisabled?:boolean
+  readonly conditionalFormattingDefinition?:ConditionalFormattingDefinition
 }
 export interface TableRuntimeEvents<T extends RowData> {
   queryChange?:(query:Query)=>void;configChange?:(config:TableConfig)=>void;viewChange?:(id:string|null)=>void
@@ -37,6 +40,8 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   const config=ref<TableConfig>(input.config?cloneData(input.config):makeConfig(key(),input.columns))
   const settingsPolicy=computed(()=>resolveSettingsPolicy(input.settingsDefinition,input.settingsOverride))
   const viewColumns=ref<Record<string,UserColumnConfig>>({}),viewPresentation=ref<PresentationDelta>()
+  const viewConditionalFormatting=shallowRef<ConditionalRule[]>()
+  let viewConditionalRevision=0
   const allowedPageSizes=computed(()=>normalizePagination(input.pagination).pageSizeOptions)
   const basePresentation=computed(()=>resolvePresentation(input.presentation,{...defaultPresentation(),appearance:{...defaultPresentation().appearance,density:input.density??'default',pageSize:normalizePagination(input.pagination).pageSize}}))
   const personalPresentation=computed(()=>resolvePresentation(config.value.presentation,basePresentation.value))
@@ -44,6 +49,28 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   const personalColumns=computed(()=>mergeColumns(input.columns,config.value))
   const allResolvedColumns=computed(()=>applyColumnPatches(personalColumns.value,viewColumns.value))
   const resolvedColumns=computed(()=>allResolvedColumns.value.filter(column=>column.visible!==false))
+  const conditionalRules=computed<readonly ConditionalRule[]>(()=>{
+    if(input.conditionalFormattingEnabled!==true)return []
+    let definition:ConditionalFormattingDefinition|undefined
+    try{definition=input.conditionalFormattingDefinition}
+    catch(cause){report({code:'SchemaValidationError',path:'conditionalFormatting',message:cause instanceof Error?cause.message:String(cause)});return []}
+    const candidates:[()=>unknown,string][]=[
+      [()=>viewConditionalFormatting.value,'view.conditionalFormatting'],
+      [()=>config.value.conditionalFormatting,'preference.conditionalFormatting'],
+      [()=>definition?.defaultRules,'definition.conditionalFormatting.defaultRules'],
+    ]
+    for(const [read,path] of candidates){
+      try{
+        const candidate=read()
+        if(candidate===undefined)continue
+        return guardConditionalRules(candidate,allResolvedColumns.value,definition?.allowedColumns)
+      }
+      catch(cause){report({code:'SchemaValidationError',path,message:cause instanceof Error?cause.message:String(cause)})}
+    }
+    return []
+  })
+  const compiledConditionalRules=computed(()=>compileConditionalRules(conditionalRules.value,allResolvedColumns.value))
+  function conditionalRule(row:T):ConditionalRule|undefined{const matched=compiledConditionalRules.value(row);return matched?cloneData(matched):undefined}
   const pages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize.value)))
   const jumpPage=ref(1),pageButtons=computed(()=>Array.from({length:Math.min(5,pages.value)},(_,index)=>Math.max(1,Math.min(page.value-2,pages.value-4))+index))
   const selected=shallowRef(new Map<string,T>())
@@ -132,7 +159,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
       try{
         if(persistence){
           const delta=createPreferenceDelta(tableKey,input.columns,next,basePresentation.value.appearance.pageSize,basePresentation.value)
-          await persistence.save(tableKey,{schemaVersion:1,tableKey,columns:delta.columns,...(delta.pagination?{pageSize:delta.pagination.pageSize}:{}),...(delta.presentation?{presentation:delta.presentation}:{})})
+          await persistence.save(tableKey,{schemaVersion:1,tableKey,columns:delta.columns,...(delta.pagination?{pageSize:delta.pagination.pageSize}:{}),...(delta.presentation?{presentation:delta.presentation}:{}),...(delta.conditionalFormatting===undefined?{}:{conditionalFormatting:delta.conditionalFormatting})})
         }
       }catch(cause){reportConfigError(cause);throw cause}
       if(disposed||epoch!==identity||tableKey!==key())return
@@ -223,21 +250,44 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(committed){clearSelection();await load()}
   }
   async function setPresentation(change:PresentationDelta){await applySettings({columns:{},sorts:sorts.value,presentation:resolvePresentation(change,presentation.value)})}
+  async function setConditionalRules(rules:ConditionalRule[]):Promise<void>{
+    const requested=readConditionalRules(rules)
+    let revisionAtWrite=-1
+    await saveConfig(current=>{
+      if(input.conditionalFormattingEnabled!==true||input.conditionalFormattingDisabled===true){
+        report({code:'FeatureDisabled',path:'conditionalFormatting',message:'条件标记当前不可编辑。'})
+        throw new Error('条件标记当前不可编辑。')
+      }
+      let accepted:ConditionalRule[]
+      try{accepted=guardConditionalRules(requested,allResolvedColumns.value,input.conditionalFormattingDefinition?.allowedColumns)}
+      catch(cause){report({code:'CapabilityViolation',path:'conditionalFormatting',message:cause instanceof Error?cause.message:String(cause)});throw cause}
+      revisionAtWrite=viewConditionalRevision
+      return {...current,conditionalFormatting:accepted}
+    },()=>{if(viewConditionalRevision===revisionAtWrite){viewConditionalFormatting.value=undefined;viewConditionalRevision++}})
+  }
   async function applyView(view?:ViewConfig,searchKeyword?:string){
     queryRuntime.restoreView(view,searchKeyword)
+    viewConditionalRevision++
     if(view?.isSystem){/* The base view clears queries, not the user's current layout. */}
-    else {viewColumns.value=cloneData(view?.columns??{});viewPresentation.value=cloneData(view?.presentation)}
+    else {
+      viewColumns.value=cloneData(view?.columns??{});viewPresentation.value=cloneData(view?.presentation)
+      viewConditionalFormatting.value=undefined
+      if(input.conditionalFormattingEnabled===true&&view?.conditionalFormatting!==undefined){
+        try{viewConditionalFormatting.value=guardConditionalRules(view.conditionalFormatting,allResolvedColumns.value,input.conditionalFormattingDefinition?.allowedColumns)}
+        catch(cause){report({code:'SchemaValidationError',path:'view.conditionalFormatting',message:cause instanceof Error?cause.message:String(cause)})}
+      }
+    }
     if(view?.pageSize!==undefined)pageSize.value=normalizePagination({...input.pagination,pageSize:view.pageSize}).pageSize
     else if(view?.presentation?.appearance?.pageSize!==undefined)pageSize.value=normalizePagination({...input.pagination,pageSize:view.presentation.appearance.pageSize}).pageSize
     else pageSize.value=normalizePagination({...input.pagination,pageSize:config.value.pageSize??input.pagination?.pageSize}).pageSize
     clearSelection();page.value=1;events.viewChange?.(activeView.value);await load()
   }
-  function getState(){return {rows:[...rows.value],total:total.value,page:page.value,pageSize:pageSize.value,query:copyQuery(query.value),searchFilters:cloneData(filters.value),columnFilters:cloneData(columnFilters.value),columns:cloneData(allResolvedColumns.value),presentation:cloneData(presentation.value),config:cloneData(config.value)}}
+  function getState(){return {rows:[...rows.value],total:total.value,page:page.value,pageSize:pageSize.value,query:copyQuery(query.value),searchFilters:cloneData(filters.value),columnFilters:cloneData(columnFilters.value),columns:cloneData(allResolvedColumns.value),presentation:cloneData(presentation.value),conditionalFormatting:cloneData(conditionalRules.value),config:cloneData(config.value)}}
   function viewSnapshot():Omit<ViewConfig,'id'|'name'>{
     const columns=Object.fromEntries(allResolvedColumns.value.map((column,index)=>[column.id,{...cloneData(config.value.columns[column.id]??{}),...cloneData(viewColumns.value[column.id]??{}),visible:column.visible!==false,order:index,width:column.width,fixed:column.fixed??false,align:column.align,title:column.title,sortable:column.sortable,headerStyle:column.headerStyle,cellStyle:column.cellStyle,content:column.content,mapping:column.mapping,numberRule:column.numberRule,template:column.template,filter:column.filter}]))
     const display=presentationDelta(presentation.value,basePresentation.value)
     if(!presentation.value.toolbar.followView)delete display.toolbar
-    return {columns,...queryRuntime.snapshot(),pageSize:pageSize.value,presentation:display}
+    return {columns,...queryRuntime.snapshot(),pageSize:pageSize.value,presentation:display,...(input.conditionalFormattingEnabled===true?{conditionalFormatting:readConditionalRules(conditionalRules.value)}:{})}
   }
   async function readRows(scope:'page'|'query'|'selected'|'all'='query',signal?:AbortSignal):Promise<T[]>{
     if(scope==='page')return [...rows.value]
@@ -283,7 +333,14 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(input.persistence){try{
       const stored=parsePreference(await withDeadline(signal=>input.persistence!.load(key(),{signal}),input.preferenceTimeoutMs??3000,preferenceController.signal),key(),report)
       if(disposed||epoch!==identity)return
-      if(stored){config.value={schemaVersion:1,tableKey:key(),columns:stored.columns,pageSize:stored.pagination?.pageSize,...(stored.presentation?{presentation:stored.presentation}:{})};pageSize.value=normalizePagination({...input.pagination,pageSize:stored.pagination?.pageSize??input.pagination?.pageSize}).pageSize}
+      if(stored){
+        const next:TableConfig={schemaVersion:1,tableKey:key(),columns:stored.columns,pageSize:stored.pagination?.pageSize,...(stored.presentation?{presentation:stored.presentation}:{}),...(stored.conditionalFormatting===undefined?{}:{conditionalFormatting:stored.conditionalFormatting})}
+        if(input.conditionalFormattingEnabled===true&&next.conditionalFormatting!==undefined){
+          try{next.conditionalFormatting=guardConditionalRules(next.conditionalFormatting,applyColumnPatches(mergeColumns(input.columns,next),viewColumns.value),input.conditionalFormattingDefinition?.allowedColumns)}
+          catch(cause){delete next.conditionalFormatting;report({code:'SchemaValidationError',path:'preference.conditionalFormatting',message:cause instanceof Error?cause.message:String(cause)})}
+        }
+        config.value=next;pageSize.value=normalizePagination({...input.pagination,pageSize:stored.pagination?.pageSize??input.pagination?.pageSize}).pageSize
+      }
     }catch(cause){if(!disposed&&epoch===identity)reportConfigError(cause)}}
     if(disposed||epoch!==identity)return
     ready=true;void load()
@@ -305,10 +362,10 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     if(!ready||disposed||signature===lastSearchSignature)return
     page.value=1;clearSelection();void load()
   },{flush:'post'})
-  watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
+  watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;viewConditionalFormatting.value=undefined;viewConditionalRevision++;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;cancelQuerySelection();preferenceController.abort();controller?.abort();commitListeners.clear()})
-  const commands={reload:()=>load(),setQuery,clearQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,readRows,optionsFor,sort}
-  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
+  const commands={reload:()=>load(),setQuery,clearQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,setConditionalRules,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,readRows,optionsFor,sort}
+  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,conditionalRules,conditionalRule,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

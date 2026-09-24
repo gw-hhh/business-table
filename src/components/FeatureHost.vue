@@ -6,7 +6,7 @@ import type {ConfigDiagnostic} from '../config/diagnostics'
 import TableIcon from './TableIcon.vue'
 
 const props=defineProps<{
-  local:unknown;remote?:unknown;defaultStrategy?:FeatureLoadStrategy;entryLabel?:string;entryIcon?:string;testId?:string
+  local:unknown;remote?:unknown;defaultStrategy?:FeatureLoadStrategy;entryLabel?:string;entryIcon?:string;testId?:string;declaredItems?:readonly string[]
   createContext:(details:{label?:string;allowedItems?:string[]},controls:{close:()=>void;isActive:()=>boolean;onDispose:(dispose:()=>void)=>void})=>C|Promise<C>
   loader:()=>Promise<{default:Component}>
 }>()
@@ -16,7 +16,7 @@ const gate=computed(()=>resolveFeatureGate(props.local,props.remote,props.defaul
 // This computed is never evaluated before activation. Once active it tracks only
 // the supported presentation fields, including in-place reactive allowlist edits.
 const details=computed(()=>{
-  try{return readFeatureDetails(props.local,props.remote,diagnostic=>emit('diagnostic',diagnostic))}
+  try{return readFeatureDetails(props.local,props.remote,diagnostic=>emit('diagnostic',diagnostic),props.declaredItems)}
   catch(cause){emit('diagnostic',{code:'SchemaValidationError',path:'features.details',message:cause instanceof Error?cause.message:String(cause)});return {}}
 })
 const loaded=shallowRef<Loaded>(),active=ref(false),state=ref<FeatureState>('disabled'),sentinel=ref<HTMLElement>()
@@ -80,7 +80,7 @@ function resetController(){
   })
   state.value=controller.state
 }
-function readTrackedDetails(){return details.value}
+function readTrackedDetails(){const value=details.value;return JSON.stringify([value.label??null,value.allowedItems??null])}
 watch(()=>[props.local,props.remote,gate.value.mode,gate.value.loadStrategy],()=>{
   resetController()
   void activate('eager');void activate('after-definition')

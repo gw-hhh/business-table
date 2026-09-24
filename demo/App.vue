@@ -5,6 +5,8 @@ import TableIcon from '../src/components/TableIcon.vue'
 import ToolStrip from '../src/features/toolbar/ToolStrip.vue'
 import { defaultPresentation, type TablePresentation, type ToolDefinition } from '../src/features/presentation/model'
 import type { SettingsDefinition } from '../src/features/settings/policy'
+import type { DataToolName } from '../src/config/features'
+import type { RangeSelectionContext } from '../src/features/range-selection/context'
 import { createViewsRuntime, createViewChangeTracker } from '../src/features/views/runtime'
 import ViewsPanel from '../src/features/views/ViewsPanel.vue'
 import DensityMenu from '../src/features/presentation/DensityMenu.vue'
@@ -15,7 +17,7 @@ import QuotationRecordDialog from './quotation/QuotationRecordDialog.vue'
 import ExportDialog from '../src/features/export/ExportDialog.vue'
 import TemplateDownloadDialog from '../src/features/export/TemplateDownloadDialog.vue'
 import {buildExportBook,downloadExport,exportCSV,normalizeExportOptions,type ExportField,type ExportGroup,type ExportPreset} from '../src/features/export/model'
-import { createQuotationDraft, filterQuotations, makeExampleQuotations, parseQuotationBackup, parseQuotationViews, quotationColumns, quotationSearchDefinition, quotationRegions, quotationTemplateDefinition, saveQuotation, serializeQuotationBackup, type Quotation, type QuotationView } from './quotation/model'
+import { createQuotationDraft, filterQuotations, makeExampleQuotations, parseQuotationBackup, parseQuotationViews, quotationColumns, quotationSearchDefinition, quotationRegions, quotationTemplateDefinition, quotationConditionalFormatting, quotationGrouping, quotationCompare, quotationRangeSelection, saveQuotation, serializeQuotationBackup, type Quotation, type QuotationView } from './quotation/model'
 import {createQuotationRepository} from './quotation/repository'
 import './quotation.css'
 
@@ -48,10 +50,15 @@ const filteredRows = computed(() => filterQuotations(quotations.value, query.val
 const selectedAmount=computed(()=>selectedRows.value.reduce((sum,row)=>sum+row.amount,0))
 const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const table = ref<{ openFilters:(columnId?:string)=>Promise<void>; setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
+const table = ref<{ openDataTool:(name:DataToolName)=>Promise<void>; getFeatureContext:(name:'rangeSelection')=>RangeSelectionContext|undefined; openFilters:(columnId?:string)=>Promise<void>; setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
 const currentSearch = () => table.value?.getRuntime().searchContext()
 const persistence = createLocalStoragePersistence()
-const features = { title: false, search: { enabled: true, mode: 'headless' as const }, views: false, toolbar: false, columnSettings: {enabled:true,entry:false}, filters: {enabled:true,entry:false} }
+const features = {
+  title: false, search: { enabled: true, mode: 'headless' as const }, views: false, toolbar: false,
+  columnSettings: {enabled:true,entry:false}, filters: {enabled:true,entry:false},
+  conditionalFormatting: {enabled:true,entry:false}, grouping: {enabled:true,entry:false},
+  compare: {enabled:true,entry:false}, rangeSelection: {enabled:true,entry:false},
+}
 const settingsDefinition: SettingsDefinition = {
   pages: { columns: true, sorts: true, actions: true, appearance: true, toolbar: true },
   columnSections: { basic: true, content: true, number: true, filter: true, mapping: true, template: true, trial: true },
@@ -147,6 +154,10 @@ const tools = computed<{ page: ToolDefinition[]; table: ToolDefinition[] }>(() =
     {id:'settings',label:'表格设置',icon:'settings',immutable:true,handler:()=>table.value?.openColumnSettings('drawer')},
     {id:'data-tools',label:'数据工具',icon:'filter',display:'icon',children:[
       {id:'combined-filter',label:'组合筛选',icon:'filter',handler:()=>table.value?.openFilters()},
+      {id:'conditional-formatting',label:'条件标记',icon:'info',handler:()=>table.value?.openDataTool('conditionalFormatting')},
+      {id:'grouping',label:'分组汇总',icon:'density',handler:()=>table.value?.openDataTool('grouping')},
+      {id:'compare',label:'记录对比',icon:'columns',handler:()=>table.value?.openDataTool('compare')},
+      {id:'range-selection',label:table.value?.getFeatureContext('rangeSelection')?.enabled?'关闭区域选择':'开启区域选择',icon:'batch',handler:()=>table.value?.openDataTool('rangeSelection')},
       {id:'toolbar-settings',label:'工具栏设置',icon:'settings',separator:true,handler:()=>table.value?.openColumnSettings('drawer',undefined,'toolbar')},
     ]},
   ],
@@ -172,7 +183,7 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
       </div>
     </header>
 
-    <BusinessTable ref="table" class="q-main-card" title="报价列表" :features="features" query-summary :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 10, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @selection-change="selectedRows = $event" @cell-action="event=>event.action==='open'&&showQuotation('view',event.row)">
+    <BusinessTable ref="table" class="q-main-card" title="报价列表" :features="features" query-summary :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :conditional-formatting="quotationConditionalFormatting" :grouping="quotationGrouping" :compare="quotationCompare" :range-selection="quotationRangeSelection" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 10, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @selection-change="selectedRows = $event" @cell-action="event=>event.action==='open'&&showQuotation('view',event.row)">
       <template #before="{ search: searchContext }">
         <div v-if="repository.externalChanged.value" class="q-storage-notice" role="status">数据已在其他页面更新。<button class="q-link" @click="refresh">刷新列表</button></div>
         <form v-if="searchVisible && searchContext" class="q-search-panel" aria-label="报价查询" @submit.prevent="submitSearch">
