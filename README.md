@@ -60,6 +60,8 @@ const settingsDefinition: SettingsDefinition = {
 
 工具栏设置和真实按钮共用 `tools` 声明及 `presentation.toolbar`。工具名称、顺序、显示位置和展示形式的调整会应用到按钮；没有工具的区域不显示。业务叶子工具需要提供真实 `handler`；子菜单通过 `children` 声明，空菜单自动隐藏；`features.toolbar: true` 在未传表格工具时提供内置刷新。
 
+表格设置的列编辑标题和模块导航固定，内容区域独立滚动；各级设置支持展开／收起，折叠保留未应用输入。列、操作按钮、工具、视图和导出字段排序时显示前／后插入线，松开后才改变顺序；只读项继续受权限限制。交互规则见[界面与交互规范](docs/02-架构与规范/05-界面与交互规范.md)。
+
 Search 开启后可用 `searchDefinition` 声明稳定字段 ID、类型、默认值和高级条件；例如 `items: [{ id: 'customer', label: '客户', kind: 'select', field: 'customer', operator: 'eq', options: [{ value: 'C01', label: '客户一' }] }]`。默认界面、Custom 和 Headless 共用同一个 Search Context。自定义界面需将 `features.search` 设为 `{ enabled: true, mode: 'custom' }` 并提供 `#search`；Headless 使用 `mode: 'headless'` 和 `#before="{ search }"`。`setValue` 只改草稿，`submit` 才更新查询；`reset` 按 `resetBehavior` 恢复默认值或清空。View 将已应用值写入 `search.values`，与列筛选和组合筛选分开保存。
 
 平台目标与总体设计见 [平台总体设计](docs/02-架构与规范/01-平台总体设计.md)。它描述最终目标，当前实现范围以迁移矩阵及本批验收记录为准。

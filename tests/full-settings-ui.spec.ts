@@ -19,7 +19,7 @@ function setup(reject = false, override:Partial<ColumnSettingsContext> = {}) {
     previewRows:[{name:'甲',amount:12}],sorts:[],setSorts:async()=>{},patch:async()=>{},commit,close:vi.fn(),
     ...override,
   }
-  const wrapper=mount(ColumnSettings,{props:{context},global:{stubs:{teleport:true}}}) as VueWrapper
+  const wrapper=mount(ColumnSettings,{props:{context},attachTo:document.body,global:{stubs:{teleport:true}}}) as VueWrapper
   wrappers.push(wrapper)
   return {wrapper,context,commit}
 }
@@ -28,8 +28,29 @@ function button(wrapper: VueWrapper, name: string) {
   if(!target)throw Error('找不到按钮 '+name)
   return target
 }
-afterEach(()=>{for(const wrapper of wrappers.splice(0))wrapper.unmount()})
+afterEach(()=>{for(const wrapper of wrappers.splice(0))wrapper.unmount();document.body.replaceChildren()})
 describe('all settings pages share one draft transaction',()=>{
+  it('allows readonly action levels and toolbar groups to collapse while their inputs stay disabled',async()=>{
+    const policy=fullSettingsPolicy();policy.pages.actions.disabled=true;policy.pages.toolbar.disabled=true
+    const {wrapper,commit}=setup(false,{settingsPolicy:policy,actions:[{id:'export',label:'导出',children:[{id:'excel',label:'Excel',handler:()=>{}}]}]})
+    await button(wrapper,'操作按钮').trigger('click')
+    expect(wrapper.get('[aria-label="导出按钮名称"]').element.matches(':disabled')).toBe(true)
+    const nested=wrapper.get('[aria-label="收起二级菜单"]')
+    expect(nested.element.matches(':disabled')).toBe(false)
+    await nested.trigger('click')
+    expect(wrapper.get('[aria-label="显示子菜单 Excel"]').isVisible()).toBe(false)
+    await wrapper.get('[aria-label="展开二级菜单"]').trigger('click')
+    expect(wrapper.get('[aria-label="显示子菜单 Excel"]').element.matches(':disabled')).toBe(true)
+    await wrapper.get('[aria-label="收起导出"]').trigger('click')
+    expect(wrapper.get('[aria-label="导出按钮名称"]').isVisible()).toBe(false)
+    await button(wrapper,'工具栏').trigger('click')
+    await wrapper.get('[aria-label="收起页面工具栏"]').trigger('click')
+    expect(wrapper.get('[aria-label="新增工具名称"]').isVisible()).toBe(false)
+    await wrapper.get('[aria-label="展开页面工具栏"]').trigger('click')
+    expect(wrapper.get('[aria-label="新增工具名称"]').element.matches(':disabled')).toBe(true)
+    expect(wrapper.get('[aria-label="拖动工具 新增"]').attributes('draggable')).toBe('false')
+    expect(commit).not.toHaveBeenCalled()
+  })
   it('omits the action page when local actions and recursive children are all hidden',async()=>{
     const {wrapper}=setup(false,{actions:[{id:'hidden',label:'隐藏操作',visible:false,handler:()=>{}},{id:'empty',label:'空菜单',children:[{id:'nested',label:'嵌套菜单',children:[{id:'hidden-child',label:'隐藏子项',visible:false,handler:()=>{}}]}]}]})
     await flushPromises()
@@ -126,7 +147,11 @@ describe('all settings pages share one draft transaction',()=>{
   it('shows configured readonly column sections and rejects nested edits',async()=>{
     const policy=fullSettingsPolicy();policy.columnSections.mapping.disabled=true
     const {wrapper,commit}=setup(false,{settingsPolicy:policy,columns:[{id:'name',field:'name',title:'名称',configurable:{rename:true,mapping:true},mapping:{enabled:true,type:'text',presentation:'tag',empty:'—',unknown:'未匹配',items:[{value:'a',label:'甲'}]}}]})
-    expect(wrapper.get('[data-column-section="mapping"]').attributes('disabled')).toBeDefined()
+    const collapse=wrapper.get('[aria-label="收起值映射"]')
+    expect(collapse.element.matches(':disabled')).toBe(false)
+    await collapse.trigger('click')
+    expect(wrapper.get('[aria-label="映射文案 1"]').isVisible()).toBe(false)
+    await wrapper.get('[aria-label="展开值映射"]').trigger('click')
     expect(wrapper.get('[aria-label="映射文案 1"]').element.matches(':disabled')).toBe(true)
     await wrapper.get('[aria-label="映射文案 1"]').setValue('乙')
     wrapper.getComponent(ColumnRuleEditor).vm.$emit('patch',{mapping:{enabled:false}})

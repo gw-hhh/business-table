@@ -1,0 +1,5 @@
+.bt-reorder-item{position:relative}
+.bt-reorder-item[data-reorder-source=true]{opacity:.5}
+.bt-reorder-item[data-reorder-edge]::after{content:"";position:absolute;left:0;right:0;height:2px;background:#2468e8;border-radius:2px;pointer-events:none;z-index:2}
+.bt-reorder-item[data-reorder-edge=before]::after{top:0}
+.bt-reorder-item[data-reorder-edge=after]::after{bottom:0}

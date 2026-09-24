@@ -3,6 +3,7 @@ import {computed,nextTick,onBeforeUnmount,onMounted,ref,watch} from 'vue'
 import type {ColumnConfig,UserColumnConfig} from '../types'
 import type {ColumnSettingsContext} from './settingsTypes'
 import TableIcon from './TableIcon.vue'
+import {useDragReorder} from '../ui/useDragReorder'
 import ColumnSettingsDrawer from './ColumnSettingsDrawer.vue'
 import './column-settings.css'
 import '../features/settings/settings-pages.css'
@@ -17,7 +18,7 @@ const original=copy(props.context.columns)
 const originalSorts=(props.context.sorts??[]).map(sort=>({...sort}))
 const sortDraft=ref(originalSorts.map(sort=>({...sort})))
 const draft=ref(copy(original)),drawer=ref(props.context.openMode==='drawer'),panel=ref<HTMLElement>()
-const saving=ref(false),error=ref(''),draggedId=ref<string>()
+const saving=ref(false),error=ref('')
 const fields=settingsFields
 const value=settingsValue
 const presentationDraft=ref(resolvePresentation(props.context.presentation))
@@ -64,7 +65,7 @@ function moveKey(id:string,event:KeyboardEvent){
   const target=movable[index+(event.key==='ArrowUp'?-1:1)]
   if(target)move(id,target.id)
 }
-function drop(id:string){if(draggedId.value)move(draggedId.value,id);draggedId.value=undefined}
+const reorder=useDragReorder({ids:()=>draft.value.map(column=>column.id),canMove:id=>draft.value.some(column=>column.id===id&&canField(column,'order')),move})
 function reset(id?:string){
   const bases=props.context.baseColumns??original
   draft.value.forEach(column=>{
@@ -128,9 +129,9 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(prev
   <aside v-else-if="settingsPolicy.pages.columns.visible" ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel">
     <div v-if="visibilityDeclared" class="bt-column-popup__all"><label><input type="checkbox" aria-label="显示全部列" :checked="allVisible" :indeterminate="someVisible" :disabled="!togglable.length" @change="all(($event.target as HTMLInputElement).checked)">全部</label></div>
     <div class="bt-column-popup__list">
-      <div v-for="column in draft" :key="column.id" class="bt-column-popup__row" :class="{'is-hidden':column.visible===false}" @dragover.prevent @drop.prevent="drop(column.id)">
+      <div v-for="column in draft" :key="column.id" class="bt-column-popup__row" :class="{'is-hidden':column.visible===false}" v-bind="reorder.row(column.id)">
         <input v-if="fieldAccess(column,'visible').visible" type="checkbox" :checked="column.visible!==false" :disabled="!canField(column,'visible')" :aria-label="'显示'+column.title" @change="patch(column.id,{visible:($event.target as HTMLInputElement).checked})">
-        <button v-if="fieldAccess(column,'order').visible" class="bt-settings-icon bt-column-popup__grip" :aria-label="'拖动排序 '+column.title" :disabled="!canField(column,'order')" :draggable="canField(column,'order')" title="拖动排序，或使用上下方向键" @dragstart="draggedId=column.id" @dragend="draggedId=undefined" @keydown="moveKey(column.id,$event)"><TableIcon name="grip" :size="12" /></button>
+        <button v-if="fieldAccess(column,'order').visible" class="bt-settings-icon bt-column-popup__grip" :aria-label="'拖动排序 '+column.title" :disabled="!canField(column,'order')" v-bind="reorder.handle(column.id)" title="拖动排序，或使用上下方向键" @keydown="moveKey(column.id,$event)"><TableIcon name="grip" :size="12" /></button>
         <span class="bt-column-popup__name">{{column.title}}</span>
         <div v-if="fieldAccess(column,'fixed').visible" class="bt-column-popup__pins">
           <button v-for="side in ['left','right'] as const" :key="side" class="bt-settings-icon" :class="{'is-active':column.fixed===side}" :disabled="!canPin(column,side)" :title="(side==='left'?'左冻结 ':'右冻结 ')+column.title" :aria-pressed="column.fixed===side" @click="pin(column,side)"><TableIcon :name="'pin-'+side" :size="14" /></button>

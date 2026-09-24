@@ -2,12 +2,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type CSSProperties } from 'vue'
 import DialogFrame from '../../ui/DialogFrame.vue'
 import TableIcon from '../../components/TableIcon.vue'
+import {useDragReorder} from '../../ui/useDragReorder'
 import type { ViewSnapshot, ViewsPanelRuntime } from './runtime'
 
 const props=withDefaults(defineProps<{runtime:ViewsPanelRuntime;snapshot:()=>ViewSnapshot;modified?:boolean;pending?:boolean}>(),{modified:false,pending:false})
 const emit=defineEmits<{notice:[message:string];requireApply:[];committed:[]}>()
 const opened=ref(false),root=ref<HTMLElement>(),trigger=ref<HTMLElement>(),popup=ref<HTMLElement>(),popupStyle=ref<CSSProperties>({}),error=ref(''),busy=ref(false)
-const editor=ref<{id?:string;name:string}>(),confirmation=ref<{kind:'update'|'delete';id:string;name:string}>(),dragged=ref('')
+const editor=ref<{id?:string;name:string}>(),confirmation=ref<{kind:'update'|'delete';id:string;name:string}>()
 const views=computed(()=>props.runtime.views.value),current=computed(()=>props.runtime.current.value)
 const editable=computed(()=>!!current.value&&!current.value.isSystem&&!current.value.isReadOnly)
 function position(){
@@ -26,7 +27,7 @@ function confirm(kind:'update'|'delete',id:string){if(kind==='update'&&!requireA
 async function confirmAction(){const value=confirmation.value;if(!value)return;if(await run(()=>value.kind==='delete'?props.runtime.remove(value.id):props.runtime.update(value.id,props.snapshot()),value.kind==='delete'?'视图已删除。':'视图设置已更新。')){confirmation.value=undefined;if(value.kind==='update')emit('committed')}}
 function canMove(index:number,offset:number){const target=index+offset;return target>=0&&target<views.value.length&&!views.value[index]?.isSystem&&!views.value.slice(Math.min(index,target),Math.max(index,target)+1).some(view=>view.isSystem)}
 async function move(id:string,offset:number){await run(()=>props.runtime.move(id,offset))}
-function drop(id:string){const from=views.value.findIndex(view=>view.id===dragged.value),to=views.value.findIndex(view=>view.id===id);if(from>=0&&canMove(from,to-from))void move(dragged.value,to-from);dragged.value=''}
+const reorder=useDragReorder({ids:()=>views.value.map(view=>view.id),disabled:()=>busy.value,canMove:id=>!views.value.find(view=>view.id===id)?.isSystem,canDrop:(id,target)=>{const from=views.value.findIndex(view=>view.id===id);return canMove(from,views.value.findIndex(view=>view.id===target)-from)},move:(id,target)=>{void move(id,views.value.findIndex(view=>view.id===target)-views.value.findIndex(view=>view.id===id))}})
 function outside(event:PointerEvent){if(event.target instanceof Node&&!root.value?.contains(event.target))opened.value=false}
 function escape(event:KeyboardEvent){if(event.key==='Escape'&&opened.value){event.preventDefault();event.stopPropagation();opened.value=false;trigger.value?.focus()}}
 onMounted(()=>{document.addEventListener('pointerdown',outside);window.addEventListener('resize',position)})
@@ -37,8 +38,8 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);window.
     <button ref="trigger" class="bt-views-trigger" type="button" aria-label="保存与切换视图" aria-haspopup="dialog" :aria-expanded="opened" @click="toggle"><TableIcon name="bookmark" :size="13"/><span>{{current?.name??'全部'}}</span><TableIcon name="chevron-down" :size="13"/></button>
     <div v-if="opened" ref="popup" class="bt-views-popup" role="dialog" aria-label="我的视图" :style="popupStyle">
       <header><h3>我的视图</h3><span>{{views.length}} / 50</span></header><p class="bt-views-hint">保存查询和表格设置；标为默认后，重新打开时自动应用。</p>
-      <div class="bt-views-list"><div v-for="(view,index) in views" :key="view.id" class="bt-view-row" :class="{'is-current':runtime.activeId.value===view.id}" @dragover.prevent @drop.prevent="drop(view.id)">
-        <button class="bt-view-icon" :disabled="view.isSystem||busy" :draggable="!view.isSystem" aria-label="拖动视图排序" @dragstart="dragged=view.id"><TableIcon name="grip" :size="12"/></button>
+      <div class="bt-views-list"><div v-for="(view,index) in views" :key="view.id" class="bt-view-row" :class="{'is-current':runtime.activeId.value===view.id}" v-bind="reorder.row(view.id)">
+        <button class="bt-view-icon" :disabled="view.isSystem||busy" v-bind="reorder.handle(view.id)" aria-label="拖动视图排序"><TableIcon name="grip" :size="12"/></button>
         <button class="bt-view-name" @click="apply(view.id)"><span :title="view.name">{{view.name}}</span><small v-if="view.isDefault">默认</small></button>
         <div class="bt-view-tools"><button class="bt-view-icon" :class="{'is-active':view.isDefault}" :title="`设为默认 ${view.name}`" :aria-pressed="view.isDefault===true" :disabled="busy" @click="run(()=>runtime.setDefault(view.id),'重新打开页面时将使用此视图。')"><TableIcon name="star" :size="12"/></button><button class="bt-view-icon" :title="`重命名 ${view.name}`" :disabled="view.isSystem||view.isReadOnly||busy" @click="nameView(view.id)"><TableIcon name="edit" :size="12"/></button><button class="bt-view-icon bt-view-move" :title="`上移 ${view.name}`" :disabled="!canMove(index,-1)||busy" @click="move(view.id,-1)"><TableIcon name="chevron-up" :size="12"/></button><button class="bt-view-icon bt-view-move" :title="`下移 ${view.name}`" :disabled="!canMove(index,1)||busy" @click="move(view.id,1)"><TableIcon name="chevron-down" :size="13"/></button><button class="bt-view-icon" :title="`删除 ${view.name}`" :disabled="view.isSystem||view.isReadOnly||busy" @click="confirm('delete',view.id)"><TableIcon name="trash" :size="12"/></button></div>
       </div></div><p v-if="error" role="alert" class="bt-ui-error">{{error}}</p>
