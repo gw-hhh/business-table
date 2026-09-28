@@ -44,12 +44,16 @@ try {
     const tools: ToolDefinition[] = [{id:'data',label:'数据工具',children:[{id:'clear',label:'清除',handler:async()=>{}}]}]
     export { table, configured, registry, applyFilter, applyPlan, summary, tools }
   `)
+  // Compile the actual shipped tutorials against public package exports, including Vue templates.
+  const examplePrefix = 'docs/03-业务模块/01-接入示例/'
+  const examples = pack.files.filter(file => file.path.startsWith(examplePrefix) && /\.(ts|vue)$/.test(file.path))
+  assert(examples.length > 0, 'Packaged documentation examples are missing')
   writeFileSync(join(workspace, 'tsconfig.json'), JSON.stringify({ compilerOptions: {
     target: 'ES2023', module: 'ESNext', moduleResolution: 'Bundler', strict: true,
-    lib: ['ES2023', 'DOM', 'DOM.Iterable'], skipLibCheck: false, noEmit: true,
-  }, files: ['consumer.ts'] }))
-  execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '-p', join(workspace, 'tsconfig.json')], { cwd: workspace, stdio: 'pipe' })
-  console.log(`PACKAGE AUDIT OK: ${pack.files.length} packed files; declared entries and independent TypeScript consumer`)
+    lib: ['ES2023', 'DOM', 'DOM.Iterable'], skipLibCheck: false, noEmit: true, jsx: 'preserve',
+  }, files: ['consumer.ts', ...examples.map(file => join(consumerPackage, file.path))] }))
+  execFileSync(process.execPath, [join(root, 'node_modules/vue-tsc/bin/vue-tsc.js'), '-p', join(workspace, 'tsconfig.json')], { cwd: workspace, stdio: 'pipe' })
+  console.log(`PACKAGE AUDIT OK: ${pack.files.length} packed files; independent consumer and ${examples.length} documentation examples (TypeScript + Vue templates)`)
 } catch (error) {
   if (error.stdout) process.stderr.write(error.stdout)
   throw error
