@@ -34,6 +34,8 @@ npx pnpm@10.17.1 run dev -- --host 127.0.0.1
 
 ## 快速接入
 
+设置表单按内容分配宽度：短选项紧凑排列，滑动条保留操作长度，长文本可伸展，并随面板宽度自动换行。
+
 ```vue
 <BusinessTable :columns="columns" :data="rows" />
 ```

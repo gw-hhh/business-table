@@ -100,7 +100,8 @@ test('compact settings keep tools and action controls inside desktop and mobile 
     expect(await drawer.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
     const pane=drawer.locator('.bt-settings-page,.bt-settings-sort-page')
     expect(await pane.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
-    if(tab==='操作按钮')await page.screenshot({path:info.outputPath('actions-narrow.png')})
+    const screenshotNames:Record<string,string>={'工具栏':'toolbar','操作按钮':'actions','表格外观':'appearance','排序规则':'sorts'}
+    await page.screenshot({path:info.outputPath(screenshotNames[tab]+'-narrow.png')})
   }
 })
 

@@ -130,7 +130,7 @@
 .bt-settings-sort-heading h3{font-size:14px;font-weight:600;margin:0 0 4px}
 .bt-settings-sort-heading p{margin:0;font-size:12px;color:#64748b}
 .bt-settings-sort-heading>.bt-settings-button{display:flex;gap:6px;align-items:center;font-size:13px}
-.bt-settings-sort-rule{display:grid;grid-template-columns:20px 24px minmax(0,1.5fr) minmax(0,1fr) 84px;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5ebf3;border-radius:6px;margin-bottom:8px}
+.bt-settings-sort-rule{display:grid;grid-template-columns:20px 24px minmax(0,1fr) 112px 84px;max-width:660px;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5ebf3;border-radius:6px;margin-bottom:8px}
 .bt-settings-sort-grip{align-self:center;cursor:grab}.bt-settings-sort-index{height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:#eef3fb;color:#6780a7;font-size:12px;margin-bottom:4px}
 .bt-settings-sort-actions{height:32px;display:flex;align-items:center}
 .bt-settings-sort-up{transform:rotate(180deg)}

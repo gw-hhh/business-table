@@ -22,11 +22,11 @@ const reorder=useDragReorder({ids:()=>ordered().map(action=>action.id),disabled:
 <template>
   <div class="bt-settings-page">
     <SettingsSection title="默认布局" :disabled="disabled">
-      <div class="bt-settings-grid bt-settings-grid--four">
-        <div class="bt-settings-field"><span>行内最多显示</span><SettingsRange :path="['actions','maxInline']" label="行内最多显示" :min="0" :max="4" unit="个" :model-value="modelValue.maxInline" :disabled="disabled" @update:model-value="patch({maxInline:$event??modelValue.maxInline})" /><small v-if="modelValue.maxInline===0">全部放入更多</small></div>
-        <label class="bt-settings-field"><span>默认显示形式</span><select aria-label="默认显示形式" :value="modelValue.display" @change="patch({display:($event.target as HTMLSelectElement).value as RowActionLayout['display']})"><option v-for="item in displays" :key="item.value" :value="item.value">{{item.label}}</option></select></label>
-        <div class="bt-settings-field"><span>按钮对齐</span><SegmentedControl :model-value="modelValue.align" label="按钮" :options="aligns" @update:model-value="patch({align:$event as RowActionLayout['align']})" /></div>
-        <div class="bt-settings-field"><span>按钮间距</span><SettingsRange :path="['actions','gap']" label="按钮间距" :min="0" :max="32" unit="px" :model-value="modelValue.gap" :disabled="disabled" @update:model-value="patch({gap:$event??modelValue.gap})" /></div>
+      <div class="bt-settings-form">
+        <div class="bt-settings-field bt-settings-field--range"><span>行内最多显示</span><SettingsRange :path="['actions','maxInline']" label="行内最多显示" :min="0" :max="4" unit="个" :model-value="modelValue.maxInline" :disabled="disabled" @update:model-value="patch({maxInline:$event??modelValue.maxInline})" /><small v-if="modelValue.maxInline===0">全部放入更多</small></div>
+        <label class="bt-settings-field bt-settings-field--short"><span>默认显示形式</span><select aria-label="默认显示形式" :value="modelValue.display" @change="patch({display:($event.target as HTMLSelectElement).value as RowActionLayout['display']})"><option v-for="item in displays" :key="item.value" :value="item.value">{{item.label}}</option></select></label>
+        <div class="bt-settings-field bt-settings-field--short"><span>按钮对齐</span><SegmentedControl :model-value="modelValue.align" label="按钮" :options="aligns" @update:model-value="patch({align:$event as RowActionLayout['align']})" /></div>
+        <div class="bt-settings-field bt-settings-field--range"><span>按钮间距</span><SettingsRange :path="['actions','gap']" label="按钮间距" :min="0" :max="32" unit="px" :model-value="modelValue.gap" :disabled="disabled" @update:model-value="patch({gap:$event??modelValue.gap})" /></div>
       </div><label class="bt-settings-check"><input type="checkbox" :checked="modelValue.grouped" @change="patch({grouped:($event.target as HTMLInputElement).checked})">更多菜单按普通、导出、危险操作分组</label><p class="bt-settings-note">列宽不足时，末尾按钮自动放入“更多”。隐藏按钮不改变用户权限。</p>
     </SettingsSection>
     <SettingsSection title="按钮及顺序">
