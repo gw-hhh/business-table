@@ -1,4 +1,4 @@
-import {afterEach,describe,expect,it} from 'vitest'
+import {afterEach,describe,expect,it,vi} from 'vitest'
 import {mount,type VueWrapper} from '@vue/test-utils'
 import {defineComponent,h,nextTick,ref} from 'vue'
 import Sortable from 'sortablejs'
@@ -6,7 +6,7 @@ import {useDragReorder} from '../src/ui/useDragReorder'
 import {sortableEvent} from './fixtures/sortable'
 
 const wrappers:VueWrapper[]=[]
-afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount());document.body.replaceChildren()})
+afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount());document.body.replaceChildren();vi.unstubAllGlobals();vi.useRealTimers()})
 async function setup(initial=['a','b','c','d']){
   const ids=ref(initial),disabled=ref(false),locked=ref<string[]>([]),accept=ref(true)
   const moves:string[][]=[],domAtCommit:string[][]=[]
@@ -38,6 +38,29 @@ async function setup(initial=['a','b','c','d']){
 }
 
 describe('Sortable insertion adapter shared by settings lists',()=>{
+  it('animates button or runtime order changes with the same engine and clears transforms after settling',async()=>{
+    vi.useFakeTimers()
+    const x=await setup()
+    for(const item of Array.from(x.list.children)){
+      item.getBoundingClientRect=()=>new DOMRect(0,Array.from(x.list.children).indexOf(item)*32,120,32)
+    }
+    x.ids.value=['b','c','a','d'];await nextTick()
+    expect(x.order()).toEqual(['b','c','a','d'])
+    expect(x.row('a').style.transition).toBe('transform 150ms')
+    expect(x.row('a').style.transform).toBe('translate3d(0,0,0)')
+    expect(x.row('d').style.transform).toBe('')
+    await vi.advanceTimersByTimeAsync(160)
+    expect(x.row('a').style.transform).toBe('')
+    expect(x.row('a').style.transition).toBe('')
+  })
+  it('settles non-pointer reorder immediately when reduced motion is requested',async()=>{
+    vi.stubGlobal('matchMedia',(query:string)=>({matches:query==='(prefers-reduced-motion: reduce)'}))
+    const x=await setup()
+    for(const item of Array.from(x.list.children))item.getBoundingClientRect=()=>new DOMRect(0,Array.from(x.list.children).indexOf(item)*32,120,32)
+    x.ids.value=['b','a','c','d'];await nextTick()
+    expect(x.order()).toEqual(['b','a','c','d'])
+    expect(x.row('a').style.transform).toBe('')
+  })
   it('owns a real Sortable instance and restores the original DOM before committing the indicated edge',async()=>{
     const x=await setup();x.start('a');x.over('c',1);await nextTick()
     expect(x.row('c').dataset.reorderEdge).toBe('after')

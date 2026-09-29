@@ -6,7 +6,7 @@ import type {Action,RowData} from '../src/types'
 const wrappers:VueWrapper[]=[]
 afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount());document.body.innerHTML='';vi.restoreAllMocks();vi.unstubAllGlobals()})
 function create(actions:Action<RowData>[]){
-  const wrapper=mount(RowActions,{attachTo:document.body,props:{context:{actions,rowId:row=>String(row.id),reportError:vi.fn()}},global:{stubs:{'vxe-column':{template:'<div><slot :row="{id:\'A\'}"/></div>'}}}}) as VueWrapper
+  const wrapper=mount(RowActions,{attachTo:document.body,props:{context:{actions,rowId:row=>String(row.id),reportError:vi.fn()}},global:{stubs:{transition:false,'vxe-column':{template:'<div><slot :row="{id:\'A\'}"/></div>'}}}}) as VueWrapper
   wrappers.push(wrapper);return wrapper
 }
 describe('row action floating menu',()=>{

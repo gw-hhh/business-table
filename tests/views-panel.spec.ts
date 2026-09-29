@@ -15,7 +15,7 @@ it('bounds the popup by the viewport content width when a document scrollbar is 
     return this.classList.contains('bt-views-popup')?{width:popupWidth(this),height:280,x:0,y:0,left:0,top:0,right:popupWidth(this),bottom:280,toJSON(){}}:{width:106,height:32,x:128,y:300,left:128,top:300,right:234,bottom:332,toJSON(){}}
   })
   const runtime=createViewsRuntime({tableKey:'a',initial:[{id:'all',name:'全部',isSystem:true}],apply:async()=>{}})
-  const wrapper=mount(ViewsPanel,{props:{runtime,snapshot:()=>({})}})
+  const wrapper=mount(ViewsPanel,{attachTo:document.body,props:{runtime,snapshot:()=>({})}})
   await wrapper.get('[aria-label="保存与切换视图"]').trigger('click');await flushPromises()
   const popup=wrapper.get('.bt-views-popup').element as HTMLElement
   expect(popup.style.maxWidth).toBe('289px')

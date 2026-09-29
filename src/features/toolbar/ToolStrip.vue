@@ -4,6 +4,7 @@ import TableIcon from '../../components/TableIcon.vue'
 import ToolMenu from './ToolMenu.vue'
 import {providePopupScope} from '../../ui/popupScope'
 import {useFloatingPosition} from '../../ui/useFloatingPosition'
+import {useMotion} from '../../ui/useMotion'
 import { presentTools, type ToolDefinition, type ToolPreference } from '../presentation/model'
 
 const props = withDefaults(defineProps<{
@@ -16,13 +17,15 @@ const props = withDefaults(defineProps<{
   buttonClass?: string
   iconButtonClass?: string
   menuClass?: string
-}>(), { layout: () => ({}), gap: 4, overflow: 'collapse', size:'default', moreLabel: '更多工具', buttonClass: '', iconButtonClass: '', menuClass: '' })
+  scrollStrategy?:'close'|'follow'
+}>(), { layout: () => ({}), gap: 4, overflow: 'collapse', size:'default', moreLabel: '更多工具', buttonClass: '', iconButtonClass: '', menuClass: '',scrollStrategy:'follow' })
 const popupScope=providePopupScope()
 const emit = defineEmits<{ error: [cause: unknown] }>()
 const root = ref<HTMLElement>(), trigger = ref<HTMLButtonElement>(), opened = ref(false), failure = ref('')
 const menu = ref<HTMLElement>(), narrow = ref(false)
+const motion=useMotion()
 let overflowFocus:'first'|'last'='first'
-const {styles:menuStyle}=useFloatingPosition({anchor:trigger,popup:menu,open:opened,gap:8,padding:12,onPositioned:()=>focusAt(overflowFocus==='last'?menuItems().length-1:0),onError:cause=>{close();failure.value=cause instanceof Error?cause.message:String(cause);emit('error',cause)}})
+const {styles:menuStyle}=useFloatingPosition({anchor:trigger,popup:menu,open:opened,gap:8,padding:12,scrollStrategy:()=>props.scrollStrategy,contains:node=>popupScope.contains(node),onDismiss:()=>close(),onPositioned:()=>focusAt(overflowFocus==='last'?menuItems().length-1:0),onError:cause=>{close();failure.value=cause instanceof Error?cause.message:String(cause);emit('error',cause)}})
 const activeMenu = ref<string>(), menuAnchor = ref<HTMLElement | null>(null), initialFocus = ref<'first'|'last'>('first')
 let media: MediaQueryList | undefined
 let observer: ResizeObserver | undefined
@@ -156,6 +159,7 @@ onBeforeUnmount(() => {
     </div>
     <div v-if="overflow.length" class="bt-tool-more">
       <button ref="trigger" type="button" class="bt-tool is-icon" :class="iconButtonClass" :aria-label="moreLabel" :title="moreLabel" :aria-expanded="opened" aria-haspopup="menu" @click="toggleMenu" @keydown="openFromKey"><TableIcon name="more"/></button>
+      <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel">
       <div v-if="opened" ref="menu" class="bt-tool-menu" :class="menuClass" :style="{...menuStyle,overflowY:'auto'}" role="menu" :aria-label="moreLabel" @keydown="menuKey">
         <div v-for="tool in overflow" :key="tool.id" :data-tool-id="tool.id" :class="{'has-separator':tool.separator}">
           <slot :name="`tool-${tool.id}`" :tool="tool" :invoke="(event:Event,keepOpen=false)=>invoke(tool,event,keepOpen)" :in-menu="true">
@@ -163,8 +167,9 @@ onBeforeUnmount(() => {
           </slot>
         </div>
       </div>
+      </Transition>
     </div>
-    <ToolMenu v-if="menuTool?.children" :tools="menuTool.children" :anchor="menuAnchor" :label="menuTool.label" :path="[menuTool.id]" :initial-focus="initialFocus" @select="invokePath" @close="closeToolMenu" @tab="tabAway"/>
+    <ToolMenu :open="!!menuTool?.children" :tools="menuTool?.children??[]" :anchor="menuAnchor" :label="menuTool?.label??''" :path="activeMenu?[activeMenu]:[]" :initial-focus="initialFocus" @select="invokePath" @close="closeToolMenu" @tab="tabAway"/>
     <p v-if="failure" class="bt-tool-error" role="alert">{{failure}}</p>
   </div>
 </template>

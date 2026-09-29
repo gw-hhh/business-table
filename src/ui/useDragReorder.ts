@@ -1,5 +1,5 @@
 import Sortable from 'sortablejs'
-import {nextTick,onScopeDispose,ref,watch,type ComponentPublicInstance} from 'vue'
+import {onScopeDispose,ref,watch,type ComponentPublicInstance} from 'vue'
 import './drag-reorder.css'
 
 interface ReorderOptions {
@@ -17,7 +17,8 @@ export function useDragReorder(options:ReorderOptions){
   const source=ref<string>(),marker=ref<{id:string;edge:Edge}>()
   const allowed=(id:string)=>!options.disabled?.()&&options.ids().includes(id)&&(options.canMove?.(id)??true)
   let list:HTMLElement|undefined,engine:Sortable|undefined,originalNodes:ChildNode[]=[]
-  let started=false,disposed=false
+  let started=false,disposed=false,animationPending=false,animationGeneration=0
+  let playPending:(()=>void)|undefined
   const reducedMotion=()=>typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches
 
   function restore(){
@@ -33,6 +34,7 @@ export function useDragReorder(options:ReorderOptions){
   }
   function reset(){source.value=undefined;marker.value=undefined;originalNodes=[];started=false}
   function stopEngine(){
+    animationGeneration++;animationPending=false;playPending=undefined
     const current=engine;engine=undefined
     if(!current)return
     // End the active DOM gesture first: destroy() alone does not remove native
@@ -111,18 +113,7 @@ export function useDragReorder(options:ReorderOptions){
         const target=type&&['drop','mouseup','pointerup','touchend'].includes(type)&&marker.value?destination(marker.value.id,marker.value.edge):undefined
         restore();reset()
         if(!from||!target)return
-        const current=engine
-        current?.option('animation',reducedMotion()?0:150)
-        // Sortable's runtime exposes its animation manager; @types/sortablejs
-        // omits these methods. Check their shape before using that optional API.
-        let animate:(()=>void)|undefined
-        if(current&&'captureAnimationState' in current&&typeof current.captureAnimationState==='function'&&'animateAll' in current&&typeof current.animateAll==='function'){
-          current.captureAnimationState()
-          const play=current.animateAll
-          animate=()=>play.call(current)
-        }
         options.move(from,target)
-        void nextTick(()=>{if(!disposed&&engine===current)animate?.()})
       },
     })
   }
@@ -147,6 +138,25 @@ export function useDragReorder(options:ReorderOptions){
     'data-reorder-source':source.value===id?'true':undefined,
   }}
   function handle(id:string){return {'data-reorder-handle':allowed(id)?'true':undefined}}
+  // Capture before Vue patches, regardless of whether a gesture, keyboard button,
+  // or an asynchronous runtime command produced the new order. Sortable remains
+  // the sole owner of transforms; no TransitionGroup runs on these same nodes.
+  watch(()=>[...options.ids()],(ids,previous)=>{
+    if(source.value||animationPending||ids.length!==previous.length||ids.some(id=>!previous.includes(id))||ids.every((id,index)=>id===previous[index]))return
+    const current=engine
+    current?.option('animation',reducedMotion()?0:150)
+    if(!current||reducedMotion())return
+    // These optional runtime methods are missing from @types/sortablejs.
+    if(!('captureAnimationState' in current)||typeof current.captureAnimationState!=='function'||!('animateAll' in current)||typeof current.animateAll!=='function')return
+    current.captureAnimationState()
+    const play=current.animateAll,generation=animationGeneration
+    animationPending=true
+    playPending=()=>{
+      if(disposed||engine!==current||generation!==animationGeneration)return
+      play.call(current)
+    }
+  },{flush:'sync'})
+  watch(()=>[...options.ids()],()=>{const play=playPending;playPending=undefined;animationPending=false;play?.()},{flush:'post'})
   watch(()=>JSON.stringify([options.ids(),options.ids().map(allowed),!!options.disabled?.()]),()=>{
     // Synchronous cancellation restores DOM before Vue patches changed keys.
     if(source.value)clear()

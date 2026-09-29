@@ -6,8 +6,8 @@ import { presentTools, type ToolDefinition } from '../presentation/model'
 
 const props = withDefaults(defineProps<{
   tools: readonly ToolDefinition[]; anchor: HTMLElement | null; label: string
-  path?: readonly string[]; initialFocus?: 'first' | 'last'
-}>(), { path: () => [], initialFocus: 'first' })
+  path?: readonly string[]; initialFocus?: 'first' | 'last';open?:boolean;scrollStrategy?:'close'|'follow'
+}>(), { path: () => [], initialFocus: 'first',open:true,scrollStrategy:'close' })
 const emit = defineEmits<{ select: [path: string[], event: Event]; close: [restoreFocus?: boolean]; tab: [event: KeyboardEvent] }>()
 const items = computed(() => presentTools(props.tools, {}))
 const active = ref<string>(), childAnchor = ref<HTMLElement | null>(null)
@@ -31,7 +31,7 @@ function back(event: KeyboardEvent) {
 }
 </script>
 <template>
-  <AnchoredPopup :anchor="anchor" :label="label" width="content" :min-width="174" :max-width="290" popup-class="bt-tool-popup" :initial-focus="initialFocus" @close="emit('close',$event)" @tab="emit('tab',$event)">
+  <AnchoredPopup :open="open" :scroll-strategy="scrollStrategy" :anchor="anchor" :label="label" width="content" :min-width="174" :max-width="290" popup-class="bt-tool-popup" :initial-focus="initialFocus" @close="emit('close',$event)" @tab="emit('tab',$event)">
     <div class="bt-tool-menu-items" @keydown="back">
       <template v-for="item in items" :key="item.id">
         <div v-if="item.separator" class="bt-menu-divider" role="separator"/>
@@ -39,7 +39,7 @@ function back(event: KeyboardEvent) {
           <TableIcon v-if="item.display!=='text'" :name="item.icon??'file'" :size="15"/><span>{{item.label}}</span><TableIcon v-if="item.children" class="bt-tool-child-arrow" name="chevron-right" :size="12"/>
         </button>
       </template>
-      <ToolMenu v-if="child?.children" :tools="child.children" :anchor="childAnchor" :label="child.label" :path="[...path,child.id]" @select="(path,event)=>emit('select',path,event)" @close="active=undefined" @tab="emit('tab',$event)"/>
+      <ToolMenu v-if="child?.children" :scroll-strategy="scrollStrategy" :tools="child.children" :anchor="childAnchor" :label="child.label" :path="[...path,child.id]" @select="(path,event)=>emit('select',path,event)" @close="active=undefined" @tab="emit('tab',$event)"/>
     </div>
   </AnchoredPopup>
 </template>

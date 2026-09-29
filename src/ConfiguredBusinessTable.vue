@@ -5,6 +5,7 @@ import { displayValue } from './core'
 import type { ConfigDiagnostic } from './config/diagnostics'
 import { resolveFeatureGate, type DataToolName, type TableFeatures } from './config/features'
 import { createPreferenceDelta, resolveConfiguration } from './config/schema'
+import { explainConfiguration } from './config/explanation'
 import type { PreferenceV3, TableDefinition } from './config/types'
 import { createRegistry, resolveRenderer, resolveRowActions, type RuntimeRegistry } from './runtime/registry'
 import type { FilterPlanPersistence } from './features/filters/plans'
@@ -128,6 +129,8 @@ function renderCell(value: unknown, row: RowData, column: ColumnConfig): VNodeCh
 }
 
 defineExpose({
+  // This explicitly explains supplied props, not unsaved/live Runtime state.
+  explainConfiguration: (viewColumns?: ViewConfig['columns']) => explainConfiguration({definition: props.definition, remoteOverride: props.remoteOverride, preference: props.preference, viewColumns}),
   reload: () => table.value?.reload(),
   activateFeature: (name: keyof TableFeatures) => table.value?.activateFeature(name),
   getFeatureContext: (name: keyof TableFeatures) => table.value?.getFeatureContext(name),
@@ -142,6 +145,7 @@ defineExpose({
     :row-key="definition.rowKey ?? 'id'"
     :title="definition.title"
     :columns="resolved.baseColumns"
+    :rendering="definition.rendering"
     :config="config"
     :persistence="persistence"
     :presentation="resolved.basePresentation"

@@ -7,7 +7,8 @@ import { groupRecords, normalizeGroupingDefinition, type GroupingDefinition, typ
 import { downloadReport, groupingBook } from './export'
 import './reports.css'
 
-const props = defineProps<{ context: ReportsContext<GroupingDefinition> }>()
+const props = withDefaults(defineProps<{ context: ReportsContext<GroupingDefinition>;open?:boolean }>(),{open:true})
+const emit=defineEmits<{afterLeave:[]}>()
 const definition = computed(() => normalizeGroupingDefinition(props.context.definition, props.context.columns))
 const selected = ref<string[]>([]), expanded = ref(new Set<string>()), exportError = ref(''), exportNotice = ref(''), exporting = ref(false)
 let mounted = true, exportRevision = 0
@@ -50,7 +51,7 @@ onMounted(() => { void props.context.reload() })
 onBeforeUnmount(() => { mounted = false; props.context.pause() })
 </script>
 <template>
-  <DialogFrame title="分组汇总" :subtitle="`完整查询结果 ${context.rows.length} 条。此面板只读，不改变原表格排序和分页。`" drawer class="bt-report-dialog" @close="context.close">
+  <DialogFrame :open="open" @after-leave="emit('afterLeave')" title="分组汇总" :subtitle="`完整查询结果 ${context.rows.length} 条。此面板只读，不改变原表格排序和分页。`" drawer class="bt-report-dialog" @close="context.close">
     <div v-if="firstChoices.length" class="bt-report-group-controls">
       <label class="bt-ui-field">第一分组<select :value="selected[0] ?? ''" aria-label="第一分组" :disabled="controlsDisabled" @change="selectGroup(0, ($event.target as HTMLSelectElement).value)"><option v-for="column in firstChoices" :key="column.id" :value="column.id">{{ column.title }}</option></select></label>
       <label class="bt-ui-field">第二分组<select :value="selected[1] ?? ''" aria-label="第二分组" :disabled="controlsDisabled" @change="selectGroup(1, ($event.target as HTMLSelectElement).value)"><option value="">不再分组</option><option v-for="column in secondChoices" :key="column.id" :value="column.id">{{ column.title }}</option></select></label>

@@ -8,7 +8,7 @@ const table=useTableRuntime({
   columns:[{id:'name',field:'name',title:'设备名称',sortable:true},{id:'status',field:'status',title:'状态',valueMap:[{value:1,label:'启用'},{value:2,label:'停用'}]}],
   pagination:{pageSize:10,pageSizeOptions:[10,20,50],variant:'full',showJumper:true},
   searchDefinition:{items:[{id:'name',label:'设备',kind:'text',field:'name',operator:'contains'}]},
-  searchPanel:{defaultVisible:true},
+  searchPanel:{defaultVisible:true,animateCollapse:true},
 })
 const search=table.searchContext()
 const tools=[{id:'refresh',label:'刷新',icon:'refresh',handler:()=>table.reload()}]

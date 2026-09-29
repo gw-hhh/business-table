@@ -1,4 +1,4 @@
-import { inject, onBeforeUnmount, onMounted, provide, type InjectionKey, type Ref } from 'vue'
+import { inject, onBeforeUnmount, provide, watch, type InjectionKey, type Ref } from 'vue'
 
 interface PopupScope { add: (element: HTMLElement) => void; remove: (element: HTMLElement) => void; contains: (node: Node) => boolean }
 const key: InjectionKey<PopupScope> = Symbol('business-table-popup-scope')
@@ -18,6 +18,6 @@ export function providePopupScope(): PopupScope {
 export function registerPopup(element: Ref<HTMLElement | undefined>): void {
   const scope = inject(key, undefined)
   let registered: HTMLElement | undefined
-  onMounted(() => { registered = element.value; if (registered) scope?.add(registered) })
+  watch(element,value=>{if(registered)scope?.remove(registered);registered=value;if(registered)scope?.add(registered)},{flush:'post',immediate:true})
   onBeforeUnmount(() => { if (registered) scope?.remove(registered) })
 }

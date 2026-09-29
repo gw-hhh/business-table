@@ -1,5 +1,5 @@
 import type {PresentationDelta,TablePresentation} from '../features/presentation/model'
-import type { ColumnConfig, FixedSide, UserColumnConfig, Pagination } from '../types'
+import type { ColumnConfig, FixedSide, UserColumnConfig, Pagination, TableRenderingOptions } from '../types'
 import type { SearchPanelOptions } from '../features/search/panel'
 import type { SearchDefinition } from '../features/search/model'
 import type { ConfigDiagnostic } from './diagnostics'
@@ -33,6 +33,7 @@ export interface ColumnDefinition extends ColumnConfig {
 }
 export type ConfigurableColumn = ColumnConfig & { configurable?: ColumnCapabilities }
 export interface TableDefinition {
+  rendering?: TableRenderingOptions
   presentation?:PresentationDelta
   schemaVersion: 3
   tableKey: string

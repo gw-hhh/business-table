@@ -7,7 +7,8 @@ import './action-menu.css'
 import {defaultPresentation,presentActions,type RowActionLayout} from '../features/presentation/model'
 import {splitActionLayout} from '../features/presentation/action-layout'
 import {useFloatingPosition} from '../ui/useFloatingPosition'
-const props=withDefaults(defineProps<{row:T;actions:Action<T>[];rowId:(row:T)=>string;layout?:RowActionLayout;preview?:boolean;reportError?:(cause:unknown)=>void}>(),{layout:()=>defaultPresentation().rowActions,preview:false,reportError:()=>{}})
+import {useMotion} from '../ui/useMotion'
+const props=withDefaults(defineProps<{row:T;actions:Action<T>[];rowId:(row:T)=>string;layout?:RowActionLayout;preview?:boolean;reportError?:(cause:unknown)=>void;scrollStrategy?:'close'|'follow'}>(),{layout:()=>defaultPresentation().rowActions,preview:false,reportError:()=>{},scrollStrategy:'close'})
 const host=ref<HTMLElement>(),measureHost=ref<HTMLElement>(),availableWidth=ref(0)
 let observer:ResizeObserver|undefined,frame=0
 const widths=new Map<string,number>()
@@ -22,7 +23,8 @@ function measure(){
 const measurement=ref(0)
 function scheduleMeasure(){if(frame)return;frame=requestAnimationFrame(()=>{frame=0;measure()})}
 const currentRow=shallowRef<T|null>(null),trigger=shallowRef<HTMLElement>(),menu=ref<HTMLElement>()
-const {styles:menuPosition}=useFloatingPosition({anchor:trigger,popup:menu,open:()=>!!currentRow.value,onPositioned:element=>{(element.querySelector<HTMLElement>('button:not(:disabled)')??element).focus({preventScroll:true})},onError:positionFailed})
+const motion=useMotion()
+const {styles:menuPosition}=useFloatingPosition({anchor:trigger,popup:menu,open:()=>!!currentRow.value,scrollStrategy:()=>props.scrollStrategy,onDismiss:()=>close(),onPositioned:element=>{(element.querySelector<HTMLElement>('button:not(:disabled)')??element).focus({preventScroll:true})},onError:positionFailed})
 function positionFailed(cause:unknown){close();props.reportError(cause)}
 const actions=computed(()=>presentActions(props.actions,props.layout))
 const renderedActions=computed(()=>actions.value.filter(action=>visible(action,props.row)&&(!action.children||action.children.some(child=>visible(child,props.row)))))
@@ -72,8 +74,8 @@ function keyboard(event:KeyboardEvent){
   if(index!==undefined){event.preventDefault();items[index]?.focus()}
 }
 function onScroll(event:Event){if(menu.value?.contains(event.target as Node))return;close()}
-onMounted(()=>{if(typeof ResizeObserver!=='undefined'){observer=new ResizeObserver(scheduleMeasure);if(host.value)observer.observe(host.value)}void nextTick(scheduleMeasure);document.addEventListener('pointerdown',outside);window.addEventListener('resize',onScroll);window.addEventListener('scroll',onScroll,true)})
-onBeforeUnmount(()=>{observer?.disconnect();cancelAnimationFrame(frame);document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',onScroll);window.removeEventListener('scroll',onScroll,true)})
+onMounted(()=>{if(typeof ResizeObserver!=='undefined'){observer=new ResizeObserver(scheduleMeasure);if(host.value)observer.observe(host.value)}void nextTick(scheduleMeasure);document.addEventListener('pointerdown',outside);window.addEventListener('resize',onScroll)})
+onBeforeUnmount(()=>{observer?.disconnect();cancelAnimationFrame(frame);document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',onScroll)})
 </script>
 <template>
   <div ref="host" class="bt-action-strip">
@@ -84,9 +86,11 @@ onBeforeUnmount(()=>{observer?.disconnect();cancelAnimationFrame(frame);document
     <div ref="measureHost" class="bt-action-strip__measure" aria-hidden="true" inert><span v-for="action in renderedActions" :key="action.id" :data-measure-action="action.id"><TableIcon v-if="action.display!=='text'" :name="action.icon??'file'" :size="14"/><span v-if="action.display!=='icon'">{{action.label}}</span></span></div>
   </div>
   <Teleport to="body">
+    <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel">
     <div v-if="currentRow" ref="menu" class="bt-floating bt__menu" role="menu" tabindex="-1" aria-label="行操作" :style="menuPosition" @keydown="keyboard">
       <ActionMenuItems :actions="list(currentRow,'more') as Action<RowData>[]" :is-visible="action=>visible(action as Action<T>,currentRow!)" :is-disabled="action=>disabled(action as Action<T>,currentRow!)" @select="(action,path)=>run(action as Action<T>,currentRow!,path)" @error="positionFailed"/>
     </div>
+    </Transition>
   </Teleport>
 </template>
 

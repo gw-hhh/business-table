@@ -7,6 +7,8 @@ export interface SearchPanelOptions {
   toggleButton?:boolean
   /** Omit to submit manually. Zero enables immediate automatic submission. */
   autoSubmitMs?:number
+  /** Opt in to a block wrapper and height transition. Default keeps display:contents. */
+  animateCollapse?:boolean
 }
 export interface SearchPanelPersistence {
   load(tableKey:string):unknown
@@ -40,6 +42,7 @@ export function useSearchPanel(options:{key:()=>string;enabled:()=>boolean;defin
   return {
     id:computed(()=>options.definition()?.regionId||`bt-search-${localId}`),visible,
     advanced:computed(()=>advanced.value),enabled:computed(options.enabled),
+    animateCollapse:computed(()=>options.definition()?.animateCollapse===true),
     toggleButton:computed(()=>options.enabled()&&options.definition()?.toggleButton===true),
     show:()=>{if(options.enabled())shown.value=true},hide:()=>{shown.value=false},
     toggle:()=>{if(options.enabled())shown.value=!shown.value},setAdvanced:(value:boolean)=>{advanced.value=value},

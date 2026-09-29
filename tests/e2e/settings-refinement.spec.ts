@@ -82,7 +82,8 @@ test('invalid numeric drafts participate in close confirmation and backup restor
 test('compact settings keep tools and action controls inside desktop and mobile panels',async({page})=>{
   await page.setViewportSize({width:1440,height:900})
   const drawer=await openSettings(page)
-  expect((await drawer.boundingBox())!.width).toBe(920)
+  // Composited enter transforms can introduce subpixel rounding in the rect.
+  expect((await drawer.boundingBox())!.width).toBeCloseTo(920,2)
   await drawer.getByRole('tab',{name:'工具栏',exact:true}).click()
   const rows=drawer.locator('.bt-tool-config__row')
   expect((await rows.first().boundingBox())!.height).toBeLessThanOrEqual(44)

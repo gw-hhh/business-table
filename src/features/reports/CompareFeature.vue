@@ -8,7 +8,8 @@ import { buildComparison, compareLabel, normalizeCompareDefinition, reportColumn
 import { comparisonBook, downloadReport } from './export'
 import './reports.css'
 
-const props = defineProps<{ context: ReportsContext<CompareDefinition> }>()
+const props = withDefaults(defineProps<{ context: ReportsContext<CompareDefinition>;open?:boolean }>(),{open:true})
+const emit=defineEmits<{afterLeave:[]}>()
 const definition = computed(() => normalizeCompareDefinition(props.context.definition, props.context.columns))
 const chosen = ref(new Set<string>()), baseline = ref(''), search = ref(''), differences = ref(false), exportError = ref(''), exportNotice = ref(''), exporting = ref(false)
 let mounted = true, exportRevision = 0
@@ -49,7 +50,7 @@ onMounted(() => { void props.context.reload() })
 onBeforeUnmount(() => { mounted = false; props.context.pause() })
 </script>
 <template>
-  <DialogFrame title="记录对比" :subtitle="`选择 2–4 条${definition.recordName}，只读核对。默认第一条为基准，不修改任何数据。`" drawer class="bt-report-dialog" @close="context.close">
+  <DialogFrame :open="open" @after-leave="emit('afterLeave')" title="记录对比" :subtitle="`选择 2–4 条${definition.recordName}，只读核对。默认第一条为基准，不修改任何数据。`" drawer class="bt-report-dialog" @close="context.close">
     <p v-if="context.loading" role="status" class="bt-ui-note">正在读取完整查询结果…</p>
     <p v-else-if="context.error" role="alert" class="bt-ui-error">{{ context.error }} <button type="button" class="bt-ui-button text" @click="context.reload">重新读取</button></p>
     <p v-else-if="!available" class="bt-ui-empty">没有可用的对比字段</p>

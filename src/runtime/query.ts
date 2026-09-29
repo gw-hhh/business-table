@@ -1,4 +1,4 @@
-import { computed, shallowRef, type ShallowRef } from 'vue'
+import { computed, isReactive, isShallow, shallowRef, type ComputedRef, type ShallowRef } from 'vue'
 import type { DiagnosticReporter } from '../config/diagnostics'
 import type { ColumnConfig, FilterConfig, Query, SortConfig, ViewConfig } from '../types'
 import type { RuntimeRegistry } from './registry'
@@ -25,6 +25,7 @@ interface SearchState {
   applied: ShallowRef<SearchValues>
   draft: ShallowRef<SearchValues>
 }
+interface SourceFingerprint { signature: ComputedRef<string | undefined>; cacheable: boolean }
 
 /** Owns the durable query layers. Search remains absent until its Feature gate opens. */
 export function useQueryRuntime(options: QueryRuntimeOptions) {
@@ -40,6 +41,32 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
   let allowedKey: string | undefined
   let searchState: SearchState | undefined
   const searchIdentity = shallowRef(0)
+  const sourceFingerprints = new WeakMap<object, SourceFingerprint>()
+  function fingerprint(value: unknown): string | undefined {
+    if (value === undefined) return undefined
+    const serialize = () => {
+      try { return JSON.stringify(value) } catch { /* validation reports malformed definitions below */ }
+    }
+    // Ordinary and shallow inputs can change without notifying Vue. Keep their
+    // previous read-on-access semantics; only deep reactive graphs are cacheable.
+    if (value === null || typeof value !== 'object' || !isReactive(value) || isShallow(value)) return serialize()
+    let cached = sourceFingerprints.get(value)
+    if (cached && !cached.cacheable) return serialize()
+    if (!cached) {
+      const entry: SourceFingerprint = { cacheable: true, signature: computed(() => {
+        try {
+          return JSON.stringify(value, (_key, item: unknown) => {
+            // markRaw/shallow children remain mutable even under a deep root.
+            if (item !== null && typeof item === 'object' && (!isReactive(item) || isShallow(item))) entry.cacheable = false
+            return item
+          })
+        } catch { entry.cacheable = false; return undefined }
+      }) }
+      sourceFingerprints.set(value, entry)
+      cached = entry
+    }
+    return cached.signature.value
+  }
 
   function search(): SearchState | undefined {
     // A table switch replaces the draft/applied refs even when its definition is unchanged.
@@ -52,9 +79,7 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
       return undefined
     }
     const allowed = options.searchAllowedItems()
-    const nextAllowedKey = allowed?.join('\u0000')
-    let nextFingerprint: string | undefined
-    try { nextFingerprint = JSON.stringify(nextSource) } catch { /* validation reports malformed definitions below */ }
+    const nextFingerprint = fingerprint(nextSource), nextAllowedKey = fingerprint(allowed)
     if (searchState && source === nextSource && sourceFingerprint === nextFingerprint && allowedKey === nextAllowedKey) return searchState
     const definition = normalizeSearchDefinition(nextSource, allowed, options.report)
     const registry = options.registry()
@@ -82,6 +107,9 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
     get() { const state = search(); const item = state?.definition.items.find(item => item.kind === 'keyword'); return item ? String(state?.draft.value[item.id] ?? '') : legacyDraft.value },
     set(value: string) { const state = search(); const item = state?.definition.items.find(item => item.kind === 'keyword'); if (state && item) setValue(item.id, value); else legacyDraft.value = value },
   })
+  // Internal consumers observe the owned state; public context getters still
+  // return isolated snapshots. This stays lazy while automatic search is off.
+  const searchDraftSignature = computed(() => JSON.stringify([search()?.draft.value ?? {}, searchDraft.value]))
   const query = computed(() => ({
     keyword: projected.value.keyword,
     filters: [...cloneData(filters.value), ...cloneData(projected.value.filters)],
@@ -270,7 +298,7 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
       async remove(id: string) { if (removeSearchItem(id)) await onCommit() },
     }
   }
-  return { keyword, searchSignature, searchDraft, filters, columnFilters, filterGroup, sorts, activeView, query,
+  return { keyword, searchSignature, searchDraft, searchDraftSignature, filters, columnFilters, filterGroup, sorts, activeView, query,
     getValue, setValue, pending, commitSearch, resetSearch, clearQuery, setQuery, setFilterState, sort, restoreView, snapshot, clear, context }
 }
 

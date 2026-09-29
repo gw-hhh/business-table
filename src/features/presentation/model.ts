@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { Action, RowData } from '../../types'
 import { columnFontFamilies, type ColumnFontFamily } from '../../config/font-families'
+import type {ConfigurationObserver} from '../../config/observation'
 
 export type DisplayMode = 'text' | 'icon-text' | 'icon'
 export type ItemPosition = 'direct' | 'more' | 'hidden'
@@ -33,22 +34,35 @@ const appearanceFields = {
 }
 const actionFields = { label: z.string().trim().min(1).max(80), order: z.number().int().min(0).max(500), position: z.enum(['inline', 'more', 'hidden']), display: z.enum(['text', 'icon-text', 'icon', 'inherit']), group: z.enum(['normal', 'export', 'danger']), separator: z.boolean() }
 const toolFields = { label: z.string().trim().min(1).max(80), order: z.number().int().min(0).max(500), position: z.enum(['direct', 'more', 'hidden']), display, fixed: z.boolean(), separator: z.boolean() }
-function fields<T extends object>(input: unknown, schemas: Record<string, z.ZodType>, base: T): T {
+function invalid(observer: ConfigurationObserver | undefined, path: readonly string[], message: string) {
+  observer?.reject(path, {code: 'SchemaValidationError', path: path.join('.'), message})
+}
+function fields<T extends object>(input: unknown, schemas: Record<string, z.ZodType>, base: T, path: readonly string[] = [], observer?: ConfigurationObserver): T {
   const record = object(input), result = { ...base }
+  if (observer && input !== undefined) {
+    if (input === null || typeof input !== 'object' || Array.isArray(input)) invalid(observer, path, '外观配置必须是对象，已保留原值。')
+    else for (const key of Object.keys(record)) if (!Object.hasOwn(schemas, key)) invalid(observer, [...path, key], '不支持此外观配置字段。')
+  }
   for (const [key, schema] of Object.entries(schemas)) {
     const raw = own(record, key)
     if (raw === undefined) continue
     const parsed = schema.safeParse(raw)
-    if (parsed.success) Object.defineProperty(result, key, { value: parsed.data, enumerable: true, writable: true, configurable: true })
+    if (parsed.success) {
+      Object.defineProperty(result, key, { value: parsed.data, enumerable: true, writable: true, configurable: true })
+      observer?.accept([...path, key], parsed.data)
+    } else invalid(observer, [...path, key], '外观配置字段无效，已保留原值。')
   }
   return result
 }
-function itemMap<T extends object>(input: unknown, schema: Record<string, z.ZodType>, base: Record<string, T> = {}): Record<string, T> {
+function itemMap<T extends object>(input: unknown, schema: Record<string, z.ZodType>, base: Record<string, T> = {}, path: readonly string[] = [], observer?: ConfigurationObserver): Record<string, T> {
   const result: Record<string, T> = Object.create(null)
   for (const [id, item] of Object.entries(base)) result[id] = { ...item }
-  for (const [id, item] of Object.entries(object(input)).slice(0, 200)) {
-    if (!id || id.length > 160) continue
-    result[id] = fields(item, schema, result[id] ?? {} as T)
+  const entries = Object.entries(object(input))
+  if (observer && input !== undefined && (input === null || typeof input !== 'object' || Array.isArray(input))) invalid(observer, path, '外观项目配置必须是按 ID 索引的对象。')
+  for (const [index, [id, item]] of (observer ? entries : entries.slice(0, 200)).entries()) {
+    if (index >= 200) { invalid(observer, [...path, id], '外观项目超过 200 项上限，已忽略。'); continue }
+    if (!id || id.length > 160) { invalid(observer, [...path, id], '外观项目 ID 无效，已忽略。'); continue }
+    result[id] = fields(item, schema, result[id] ?? {} as T, [...path, id], observer)
   }
   return result
 }
@@ -60,13 +74,24 @@ export function defaultPresentation(): TablePresentation {
   }
 }
 /** All entry points use the same whitelist. Invalid fields do not discard valid siblings. */
-export function resolvePresentation(input?: unknown, base = defaultPresentation()): TablePresentation {
+export function resolvePresentation(input?: unknown, base = defaultPresentation(), observer?: ConfigurationObserver): TablePresentation {
   const record = object(input)
   const actions = object(own(record, 'rowActions')), tools = object(own(record, 'toolbar'))
+  if (observer && input !== undefined && (input === null || typeof input !== 'object' || Array.isArray(input))) invalid(observer, ['presentation'], '外观配置必须是对象。')
+  if (observer) for (const key of Object.keys(record)) if (!['appearance', 'rowActions', 'toolbar'].includes(key)) invalid(observer, ['presentation', key], '不支持此外观配置字段。')
+  let actionFieldsOnly = actions, toolFieldsOnly = tools
+  if (observer) {
+    actionFieldsOnly = {...actions}; delete actionFieldsOnly.items
+    toolFieldsOnly = {...tools}; delete toolFieldsOnly.page; delete toolFieldsOnly.table
+    for (const key of ['rowActions', 'toolbar']) {
+      const value = own(record, key)
+      if (value !== undefined && (value === null || typeof value !== 'object' || Array.isArray(value))) invalid(observer, ['presentation', key], '外观配置必须是对象，已保留原值。')
+    }
+  }
   return {
-    appearance: fields(own(record, 'appearance'), appearanceFields, base.appearance),
-    rowActions: { ...fields(actions, { maxInline: z.number().int().min(0).max(4), display, align: z.enum(['left', 'center', 'right']), gap: z.number().int().min(0).max(32), grouped: z.boolean() }, base.rowActions), items: itemMap(own(actions, 'items'), actionFields, base.rowActions.items) },
-    toolbar: { ...fields(tools, { followView: z.boolean(), gap: z.number().int().min(0).max(24) }, base.toolbar), page: itemMap(own(tools, 'page'), toolFields, base.toolbar.page), table: itemMap(own(tools, 'table'), toolFields, base.toolbar.table) },
+    appearance: fields(own(record, 'appearance'), appearanceFields, base.appearance, ['presentation', 'appearance'], observer),
+    rowActions: { ...fields(observer ? actionFieldsOnly : actions, { maxInline: z.number().int().min(0).max(4), display, align: z.enum(['left', 'center', 'right']), gap: z.number().int().min(0).max(32), grouped: z.boolean() }, base.rowActions, ['presentation', 'rowActions'], observer), items: itemMap(own(actions, 'items'), actionFields, base.rowActions.items, ['presentation', 'rowActions', 'items'], observer) },
+    toolbar: { ...fields(observer ? toolFieldsOnly : tools, { followView: z.boolean(), gap: z.number().int().min(0).max(24) }, base.toolbar, ['presentation', 'toolbar'], observer), page: itemMap(own(tools, 'page'), toolFields, base.toolbar.page, ['presentation', 'toolbar', 'page'], observer), table: itemMap(own(tools, 'table'), toolFields, base.toolbar.table, ['presentation', 'toolbar', 'table'], observer) },
   }
 }
 function difference(current: unknown, base: unknown): unknown {

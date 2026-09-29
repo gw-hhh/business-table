@@ -4,11 +4,14 @@ import {resolveFeatureGate,readFeatureDetails,featureEntryVisible,type FeatureLo
 import {createFeatureController,type FeatureController,type FeatureState} from '../runtime/feature'
 import type {ConfigDiagnostic} from '../config/diagnostics'
 import TableIcon from './TableIcon.vue'
+import {motionEnabled} from '../ui/useMotion'
 
 const props=defineProps<{
   local:unknown;remote?:unknown;defaultStrategy?:FeatureLoadStrategy;entryLabel?:string;entryIcon?:string;testId?:string;declaredItems?:readonly string[]
   createContext:(details:{label?:string;allowedItems?:string[]},controls:{close:()=>void;isActive:()=>boolean;onDispose:(dispose:()=>void)=>void})=>C|Promise<C>
   loader:()=>Promise<{default:Component}>
+  /** Default UI accepts open and emits after-leave once its presence has ended. */
+  deferClose?:boolean
 }>()
 const emit=defineEmits<{diagnostic:[ConfigDiagnostic];entry:[]}>()
 type Loaded={context:C;component?:Component}
@@ -19,22 +22,32 @@ const details=computed(()=>{
   try{return readFeatureDetails(props.local,props.remote,diagnostic=>emit('diagnostic',diagnostic),props.declaredItems)}
   catch(cause){emit('diagnostic',{code:'SchemaValidationError',path:'features.details',message:cause instanceof Error?cause.message:String(cause)});return {}}
 })
-const loaded=shallowRef<Loaded>(),active=ref(false),state=ref<FeatureState>('disabled'),sentinel=ref<HTMLElement>()
+const loaded=shallowRef<Loaded>(),active=ref(false),leaving=ref(false),state=ref<FeatureState>('disabled'),sentinel=ref<HTMLElement>()
+const session=shallowRef({id:0,afterLeave:()=>{}})
 let controller:FeatureController<Loaded>|undefined,observer:IntersectionObserver|undefined
 let mounted=false,generation=0,stopDetails:WatchStopHandle|undefined
-function close(){active.value=false}
+function close(){if(!active.value)return;leaving.value=!!props.deferClose&&gate.value.mode==='default'&&!!loaded.value?.component&&motionEnabled();active.value=false}
+function open(){
+  if(!active.value){
+    const id=session.value.id+1
+    // A newly opened editor always starts from the current committed context,
+    // even if the previous editor is still finishing its exit transition.
+    session.value={id,afterLeave:()=>{if(!active.value&&session.value.id===id)leaving.value=false}}
+  }
+  active.value=true;leaving.value=false
+}
 async function activate(trigger:FeatureLoadStrategy=gate.value.loadStrategy){
   const current=controller
-  if(trigger===gate.value.loadStrategy&&gate.value.enabled)active.value=true
+  if(trigger===gate.value.loadStrategy&&gate.value.enabled)open()
   const result=await current?.activate(trigger)
   if(current!==controller)return undefined
   state.value=current?.state??'disabled'
   if(result){
-    loaded.value=result;active.value=true
+    loaded.value=result
   }
   return result?.context
 }
-async function toggle(){emit('entry');if(loaded.value){active.value=!active.value;return}await activate()}
+async function toggle(){emit('entry');if(active.value){close();return}if(loaded.value){open();return}await activate()}
 function observeVisibility(){
   observer?.disconnect()
   if(gate.value.loadStrategy!=='on-visible'||!sentinel.value)return
@@ -46,7 +59,7 @@ function observeVisibility(){
 function resetController(){
   const currentGeneration=++generation
   stopDetails?.();stopDetails=undefined;observer?.disconnect()
-  controller?.dispose();loaded.value=undefined;active.value=false
+  controller?.dispose();loaded.value=undefined;active.value=false;leaving.value=false
   const mode=gate.value.mode
   controller=createFeatureController({
     local:props.local,remote:props.remote,defaultStrategy:props.defaultStrategy,
@@ -94,6 +107,6 @@ defineExpose({activate,getContext:()=>loaded.value?.context})
   <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel&&featureEntryVisible(local,remote)" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
   <span v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-visible'" ref="sentinel" class="bt__feature-sentinel" aria-hidden="true"></span>
   <span v-if="state==='unavailable'&&gate.mode!=='headless'" class="bt__feature-error" role="status">暂时无法加载 <button @click="activate()">重试</button></span>
-  <component :is="loaded.component" v-if="loaded&&active&&gate.mode==='default'" :context="loaded.context"/>
+  <component :is="loaded.component" v-if="loaded&&(active||leaving)&&gate.mode==='default'" :key="session.id" :context="loaded.context" v-bind="deferClose?{open:active,onAfterLeave:session.afterLeave}:{}"/>
   <slot v-if="loaded&&active&&gate.mode==='custom'" name="custom" :context="loaded.context"/>
 </template>

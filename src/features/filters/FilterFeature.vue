@@ -8,7 +8,8 @@ import { cloneData } from '../../runtime/value'
 import { guardFilterState, type FilterState } from '../../runtime/filter-state'
 import type { FiltersContext } from './context'
 import './filters.css'
-const props = defineProps<{ context: FiltersContext }>()
+const props = withDefaults(defineProps<{ context: FiltersContext;open?:boolean }>(),{open:true})
+const emit=defineEmits<{afterLeave:[]}>()
 const column = computed(() => props.context.columns.find(column => column.id === props.context.columnId))
 const single = computed(() => props.context.columnId !== undefined)
 const rule = ref<FilterRuleDraft>(), group = ref<FilterGroupDraft>(createFilterGroupDraft([]))
@@ -101,7 +102,7 @@ async function removePlan() {
 }
 </script>
 <template>
-  <DialogFrame :title="single ? '筛选 · ' + (column?.title ?? '字段已不可用') : '组合筛选'" :subtitle="single ? '与当前查询及其他列条件同时生效。' : '基础查询、列筛选和这里的组合条件共同生效。'" :drawer="!single" :busy="busy" class="bt-filter-dialog" @close="context.close">
+  <DialogFrame :open="open" @after-leave="emit('afterLeave')" :title="single ? '筛选 · ' + (column?.title ?? '字段已不可用') : '组合筛选'" :subtitle="single ? '与当前查询及其他列条件同时生效。' : '基础查询、列筛选和这里的组合条件共同生效。'" :drawer="!single" :busy="busy" class="bt-filter-dialog" @close="context.close">
     <template v-if="!single && plans" #header-actions><button type="button" class="bt-ui-button text bt-filter-plan-entry" aria-haspopup="dialog" :aria-expanded="planOpen" :disabled="busy" @click="openPlans">筛选方案</button></template>
     <template v-if="single"><FilterRuleEditor v-if="column && rule" v-model="rule" autofocus :column="column" :options-for="context.optionsFor"/><p v-else class="bt-ui-error" role="alert">筛选字段已不可用，请重新打开。</p></template>
     <template v-else>
@@ -115,8 +116,8 @@ async function removePlan() {
       <button type="button" class="bt-ui-button" :disabled="busy" @click="context.close">取消</button><button type="button" class="bt-ui-button primary" :disabled="busy || unavailable || single && !column" @click="apply()">{{single ? '应用筛选' : '应用条件'}}</button>
     </template>
   </DialogFrame>
-  <DialogFrame v-if="planOpen && plans" title="筛选方案" subtitle="选择后载入当前编辑草稿，点击应用条件后才更新结果。" :busy="busy" class="bt-filter-dialog" @close="planOpen = false">
-    <div class="bt-filter-plans">
+  <DialogFrame :open="open && planOpen && !!plans" title="筛选方案" subtitle="选择后载入当前编辑草稿，点击应用条件后才更新结果。" :busy="busy" class="bt-filter-dialog" @close="planOpen = false">
+    <div v-if="plans" class="bt-filter-plans">
       <label class="bt-ui-field">选择方案<select :value="selectedPlan" aria-label="筛选方案" :disabled="plans.loading.value || !plans.ready.value || busy" @change="loadPlan(($event.target as HTMLSelectElement).value)"><option value="">选择方案</option><option v-for="plan in planItems" :key="plan.id" :value="plan.id">{{plan.name}}</option></select></label>
       <div class="bt-filter-plan-actions"><button type="button" class="bt-ui-button text" :disabled="busy || !plans.ready.value || unavailable" @click="nameDialog(false)">保存为方案</button><template v-if="selectedPlan"><button type="button" class="bt-ui-button text" :disabled="busy || !plans.ready.value || unavailable" @click="savePlan(true)">更新方案</button><button type="button" class="bt-ui-button text" :disabled="busy || !plans.ready.value" @click="nameDialog(true)">重命名</button><button type="button" class="bt-ui-button text" :disabled="busy || !plans.ready.value" @click="deleteOpen = true">删除方案</button></template></div>
       <p v-if="plans.loading.value" class="bt-ui-note" role="status">正在读取筛选方案…</p>
@@ -125,9 +126,9 @@ async function removePlan() {
     </div>
     <template #footer><button type="button" class="bt-ui-button" :disabled="busy" @click="planOpen = false">关闭</button></template>
   </DialogFrame>
-  <DialogFrame v-if="nameOpen" :title="renameMode ? '重命名筛选方案' : '保存筛选方案'" :busy="busy" class="bt-filter-dialog" @close="nameOpen = false">
+  <DialogFrame :open="open && nameOpen" :title="renameMode ? '重命名筛选方案' : '保存筛选方案'" :busy="busy" class="bt-filter-dialog" @close="nameOpen = false">
     <label class="bt-ui-field">方案名称<input v-model="planName" autofocus maxlength="40" aria-label="方案名称" @keydown.enter.prevent="savePlan()"></label><p v-if="planError" class="bt-ui-error" role="alert">{{planError}}</p>
     <template #footer><button type="button" class="bt-ui-button" :disabled="busy" @click="nameOpen = false">取消</button><button type="button" class="bt-ui-button primary" :disabled="busy" @click="savePlan()">保存</button></template>
   </DialogFrame>
-  <DialogFrame v-if="deleteOpen" title="删除筛选方案" :busy="busy" class="bt-filter-dialog" @close="deleteOpen = false"><p>删除后不会更改当前筛选条件。</p><p v-if="error" class="bt-ui-error" role="alert">{{error}}</p><template #footer><button type="button" class="bt-ui-button" :disabled="busy" @click="deleteOpen = false">取消</button><button type="button" class="bt-ui-button danger" :disabled="busy" @click="removePlan">删除</button></template></DialogFrame>
+  <DialogFrame :open="open && deleteOpen" title="删除筛选方案" :busy="busy" class="bt-filter-dialog" @close="deleteOpen = false"><p>删除后不会更改当前筛选条件。</p><p v-if="error" class="bt-ui-error" role="alert">{{error}}</p><template #footer><button type="button" class="bt-ui-button" :disabled="busy" @click="deleteOpen = false">取消</button><button type="button" class="bt-ui-button danger" :disabled="busy" @click="removePlan">删除</button></template></DialogFrame>
 </template>

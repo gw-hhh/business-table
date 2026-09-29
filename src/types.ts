@@ -18,6 +18,23 @@ export interface SortConfig{field:string;order:SortOrder}
 export interface FilterConfig{unitFactor?:number;field:string;operator:'eq'|'ne'|'contains'|'starts'|'in'|'notIn'|'gt'|'gte'|'lt'|'lte'|'between'|'empty'|'notEmpty'|'nextDays'|'pastDays';value:unknown}
 export interface Query{columnFilters?:FilterConfig[];filterGroup?:FilterGroup;page:number;pageSize:number;sorts:SortConfig[];filters:FilterConfig[];keyword?:string;viewId?:string|null;signal?:AbortSignal}
 export interface QueryResult<T extends RowData>{rows:T[];total:number}
+/** Renderer-only options. These never change query limits or saved user preferences. */
+export interface TableRenderingOptions {
+  /** Positive pixel height. Takes precedence over fill. */
+  height?:number
+  /** Positive pixel maximum height for a table that grows with its content. */
+  maxHeight?:number
+  /** Opt in to VXE's native vertical window; requires height, maxHeight or measured fill. */
+  virtualRows?:boolean|{enabled?:boolean;threshold?:number;overscan?:number}
+}
+export interface TableEmptyContext {
+  /** no-results means query conditions exist; it does not assert the remote database has rows. */
+  reason:'empty'|'no-results'|'error'|'loading'
+  query:Query
+  error:string
+  reload:()=>Promise<void>
+  clearQuery:()=>Promise<void>
+}
 export interface DataSource<T extends RowData>{
   query(query:Query):Promise<QueryResult<T>>
   readAll?:(query:Query,options:{limit:number;signal?:AbortSignal})=>Promise<T[]>

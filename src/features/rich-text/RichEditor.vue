@@ -137,7 +137,7 @@ defineExpose({focus,getDocument:()=>structuredClone(current),getSelection:()=>{
     </div>
     <EditorContent :editor="editor" />
     <footer><span v-if="error" role="alert">{{error}}</span><span>{{count}} / {{maxChars}}</span></footer>
-    <DialogFrame v-if="linkOpen" title="编辑链接" @close="linkOpen=false"><label class="bt-ui-field">链接地址<input v-model="link" autofocus placeholder="https://" aria-label="链接地址" /></label><p v-if="error" class="bt-ui-error" role="alert">{{error}}</p><template #footer><button class="bt-ui-button" @click="linkOpen=false">取消</button><button class="bt-ui-button primary" @click="saveLink">确定</button></template></DialogFrame>
+    <DialogFrame :open="linkOpen" title="编辑链接" @close="linkOpen=false"><label class="bt-ui-field">链接地址<input v-model="link" autofocus placeholder="https://" aria-label="链接地址" /></label><p v-if="error" class="bt-ui-error" role="alert">{{error}}</p><template #footer><button class="bt-ui-button" @click="linkOpen=false">取消</button><button class="bt-ui-button primary" @click="saveLink">确定</button></template></DialogFrame>
   </div>
 </template>
 <style>

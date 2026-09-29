@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed,nextTick,onBeforeUnmount,onMounted,ref,watch,type VNodeChild} from 'vue'
+import {computed,nextTick,onMounted,ref,watch,type VNodeChild} from 'vue'
 import type {ColumnConfig,ColumnTextStyle,RowData,SortConfig,UserColumnConfig} from '../types'
 import {getColumnWidthBounds,isColumnCapabilityEnabled} from '../config/columns'
 import {applySorts} from '../core'
@@ -17,6 +17,8 @@ import SettingsSection from '../features/settings/SettingsSection.vue'
 import SettingsRange from '../features/settings/SettingsRange.vue'
 import {provideNumericValidation} from '../features/settings/numericValidation'
 import {useDragReorder} from '../ui/useDragReorder'
+import {useOverlay} from '../ui/useOverlay'
+import {useMotion} from '../ui/useMotion'
 import {resolvePresentation,availableActions,availableTools,type TablePresentation,type ToolDefinition} from '../features/presentation/model'
 import type {SettingsIssue} from '../features/settings/session'
 import type {Action} from '../types'
@@ -26,8 +28,8 @@ import {getColumnSectionAccess,getSettingsColumnFieldAccess,guardSettingsColumnP
 import type {ColumnCapabilities} from '../config/types'
 
 
-const props=withDefaults(defineProps<{settingsPolicy?:SettingsPolicy;tableKey?:string;presentation?:TablePresentation;basePresentation?:TablePresentation;actions?:Action[];tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};pageSizes?:number[];issues?:SettingsIssue[];changes?:Record<string,UserColumnConfig>;initialColumnId?:string;initialTab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar';columns:ColumnConfig[];baseColumns:ColumnConfig[];sorts:SortConfig[];sortingEnabled:boolean;previewRows:RowData[];previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;dirty:boolean;saving:boolean;error:string}>(),{presentation:()=>resolvePresentation(),basePresentation:()=>resolvePresentation(),actions:()=>[],tools:()=>({page:[],table:[]}),issues:()=>[],changes:()=>({})})
-const emit=defineEmits<{presentation:[value:TablePresentation];restore:[input:{columns?:Record<string,UserColumnConfig>;sorts?:SortConfig[];presentation?:unknown}];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[];move:[id:string,targetId:string]}>()
+const props=withDefaults(defineProps<{open?:boolean;settingsPolicy?:SettingsPolicy;tableKey?:string;presentation?:TablePresentation;basePresentation?:TablePresentation;actions?:Action[];tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};pageSizes?:number[];issues?:SettingsIssue[];changes?:Record<string,UserColumnConfig>;initialColumnId?:string;initialTab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar';columns:ColumnConfig[];baseColumns:ColumnConfig[];sorts:SortConfig[];sortingEnabled:boolean;previewRows:RowData[];previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;dirty:boolean;saving:boolean;error:string}>(),{open:true,presentation:()=>resolvePresentation(),basePresentation:()=>resolvePresentation(),actions:()=>[],tools:()=>({page:[],table:[]}),issues:()=>[],changes:()=>({})})
+const emit=defineEmits<{afterLeave:[];presentation:[value:TablePresentation];restore:[input:{columns?:Record<string,UserColumnConfig>;sorts?:SortConfig[];presentation?:unknown}];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[];move:[id:string,targetId:string]}>()
 const {errors:numericErrors,reset:resetNumericInputs,prune:pruneNumericInputs}=provideNumericValidation()
 const selectedId=ref(props.initialColumnId??props.columns.find(column=>column.visible!==false&&!column.fixed&&isColumnCapabilityEnabled(column,'rename'))?.id??props.columns[0]?.id??'')
 const selected=computed(()=>props.columns.find(column=>column.id===selectedId.value))
@@ -199,12 +201,13 @@ function rememberPreview(){try{if(experienceKey.value)localStorage.setItem(exper
 watch([previewOpen,previewMode],rememberPreview)
 
 function requestClose(){
-  if(props.saving)return
+  if(!props.open||props.saving)return
   if(props.dirty||colorErrors.value.length||allRuleErrors.value.length||Object.keys(numericErrors.value).length){discardConfirmation.value=true;void nextTick(()=>discardDialog.value?.querySelector<HTMLButtonElement>('button')?.focus())}
   else emit('cancel')
 }
 function continueEditing(){discardConfirmation.value=false;void nextTick(()=>dialog.value?.querySelector<HTMLButtonElement>('[aria-label="关闭表格设置"]')?.focus())}
 function keydown(event:KeyboardEvent){
+  if(event.defaultPrevented||event.isComposing||!overlay.isTop())return
   if(event.key==='Escape'){event.stopPropagation();event.preventDefault();if(discardConfirmation.value)continueEditing();else requestClose();return}
   if(event.key!=='Tab'||!dialog.value)return
   const scope=discardConfirmation.value?discardDialog.value:dialog.value
@@ -234,13 +237,16 @@ watch([()=>props.columns,settingsPolicy,tabs],()=>pruneNumericInputs(path=>{
 }),{deep:true})
 watch(sections,value=>{if(!value.some(section=>section.id===activeSection.value))activeSection.value=value[0]?.id},{immediate:true})
 watch(sampleIndex,()=>{trialRow.value=undefined})
-let previousOverflow=''
-onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getItem(experienceKey.value)??'null'):null;if(saved){previewOpen.value=saved.previewOpen!==false;previewMode.value=saved.previewMode==='table'?'table':'column'}}catch{}previousOverflow=document.body.style.overflow;document.body.style.overflow='hidden';void nextTick(()=>dialog.value?.focus())})
-onBeforeUnmount(()=>{document.body.style.overflow=previousOverflow})
+const overlay=useOverlay(dialog,requestClose),motion=useMotion('drawer')
+function beforeLeave(element:Element){element.setAttribute('inert','');overlay.beforeLeave()}
+function afterLeave(){overlay.afterLeave();emit('afterLeave')}
+function cancelLeave(element:Element){element.removeAttribute('inert');motion.cancel(element);overlay.leaveCancelled()}
+onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getItem(experienceKey.value)??'null'):null;if(saved){previewOpen.value=saved.previewOpen!==false;previewMode.value=saved.previewMode==='table'?'table':'column'}}catch{}})
 </script>
 <template>
   <Teleport to="body">
-    <div class="bt-settings-overlay" @click.self="requestClose">
+    <Transition appear :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @before-leave="beforeLeave" @after-leave="afterLeave" @leave-cancelled="cancelLeave">
+    <div v-if="open" class="bt-settings-overlay" @click.self="requestClose">
       <section ref="dialog" class="bt-settings-drawer" data-testid="settings-drawer" role="dialog" aria-modal="true" aria-label="表格设置" tabindex="-1" @keydown="keydown">
         <header class="bt-settings-drawer__header"><div><h2>表格设置</h2><p>修改先预览，应用后生效。</p></div><button class="bt-settings-icon" aria-label="关闭表格设置" :disabled="saving" @click="requestClose"><TableIcon name="close" :size="16" /></button></header>
         <nav class="bt-settings-tabs" role="tablist" aria-label="表格设置分类" @keydown="pageKey"><button v-for="tab in tabs" :key="tab.id" :aria-label="tab.label" :class="{'is-active':activeTab===tab.id}" role="tab" :aria-selected="activeTab===tab.id" :tabindex="activeTab===tab.id?0:-1" @click="activeTab=tab.id">{{tab.label}}<span v-if="tab.id==='sorts'&&sorts.length" class="bt-settings-tab-count">{{sorts.length}}</span></button></nav>
@@ -301,9 +307,10 @@ onBeforeUnmount(()=>{document.body.style.overflow=previousOverflow})
         <SettingsPreview v-model:mode="previewMode" v-model:open="previewOpen" v-model:sample-index="sampleIndex" :tab="activeTab" :section="activeSection" :selected="selected" :columns="columns" :rows="sortedSamples" :row="displayedRow" :presentation="presentation" :actions="actions" :tools="tools" :preview-cell="previewCell" />
         <p v-if="error" class="bt-settings-error" role="alert">{{error}}</p>
         <footer class="bt-settings-drawer__footer"><div><button class="bt-settings-text" :disabled="!canPage(activeTab)" @click="resetPage">恢复当前页</button><button class="bt-settings-text" :disabled="!tabs.some(tab=>canPage(tab.id))" @click="resetAll">恢复全部</button></div><button class="bt-settings-button" :disabled="saving" @click="emit('cancel')">取消</button><button class="bt-settings-button bt-settings-button--primary" :disabled="!dirty||saving||!!widthError||Object.keys(numericErrors).length>0||colorErrors.length>0||issues.length>0||allRuleErrors.length>0" @click="emit('apply')">{{saving?'保存中…':'应用'}}</button></footer>
-        <DialogFrame v-if="reviewOpen" title="本次修改" @close="reviewOpen=false"><div class="bt-change-list"><button v-for="(change,id) in changes" :key="id" class="bt-ui-button text" @click="revealChange(String(id))">{{columns.find(column=>column.id===id)?.title??id}}：{{Object.keys(change).map(key=>({title:'名称',visible:'显隐',width:'宽度',fixed:'冻结',order:'顺序',align:'对齐',headerStyle:'表头文字',cellStyle:'单元格文字',mapping:'值映射',numberRule:'数字格式',filter:'列筛选',template:'模板',content:'内容显示'} as Record<string,string>)[key]??key).join('、')}}</button><button v-if="tabs.some(tab=>tab.id==='appearance')&&JSON.stringify(presentation)!==JSON.stringify(basePresentation)" class="bt-ui-button text" @click="reviewOpen=false;openPage('appearance')">表格外观、按钮或工具栏设置</button><button v-if="tabs.some(tab=>tab.id==='sorts')&&sorts.length" class="bt-ui-button text" @click="reviewOpen=false;openPage('sorts')">排序规则</button></div><template #footer><button class="bt-ui-button primary" @click="reviewOpen=false">返回编辑</button></template></DialogFrame>
+        <DialogFrame :open="reviewOpen" title="本次修改" @close="reviewOpen=false"><div class="bt-change-list"><button v-for="(change,id) in changes" :key="id" class="bt-ui-button text" @click="revealChange(String(id))">{{columns.find(column=>column.id===id)?.title??id}}：{{Object.keys(change).map(key=>({title:'名称',visible:'显隐',width:'宽度',fixed:'冻结',order:'顺序',align:'对齐',headerStyle:'表头文字',cellStyle:'单元格文字',mapping:'值映射',numberRule:'数字格式',filter:'列筛选',template:'模板',content:'内容显示'} as Record<string,string>)[key]??key).join('、')}}</button><button v-if="tabs.some(tab=>tab.id==='appearance')&&JSON.stringify(presentation)!==JSON.stringify(basePresentation)" class="bt-ui-button text" @click="reviewOpen=false;openPage('appearance')">表格外观、按钮或工具栏设置</button><button v-if="tabs.some(tab=>tab.id==='sorts')&&sorts.length" class="bt-ui-button text" @click="reviewOpen=false;openPage('sorts')">排序规则</button></div><template #footer><button class="bt-ui-button primary" @click="reviewOpen=false">返回编辑</button></template></DialogFrame>
         <div v-if="discardConfirmation" class="bt-settings-discard-backdrop"><section ref="discardDialog" class="bt-settings-discard" role="alertdialog" aria-modal="true" aria-label="放弃未应用的修改"><h3>修改尚未应用</h3><p>离开后，本次修改不会保存。</p><footer><button class="bt-settings-button" @click="continueEditing">继续编辑</button><button class="bt-settings-button bt-settings-button--primary" @click="emit('cancel')">放弃修改</button></footer></section></div>
       </section>
     </div>
+    </Transition>
   </Teleport>
 </template>

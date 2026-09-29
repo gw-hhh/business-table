@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import {computed,nextTick,onBeforeUnmount,onMounted,ref,useId,watch} from 'vue'
 import {useFloatingPosition} from '../ui/useFloatingPosition'
-const props=withDefaults(defineProps<{modelValue:string;label:string;disabled?:boolean;fallback?:string}>(),{disabled:false,fallback:'#334155'})
+import {useMotion} from '../ui/useMotion'
+const props=withDefaults(defineProps<{modelValue:string;label:string;disabled?:boolean;fallback?:string;scrollStrategy?:'close'|'follow'}>(),{disabled:false,fallback:'#334155',scrollStrategy:'close'})
 const emit=defineEmits<{'update:modelValue':[value:string]}>()
 const id=useId(),palette=ref<HTMLDetailsElement>(),anchor=ref<HTMLElement>(),grid=ref<HTMLElement>(),opened=ref(false)
-const {styles:paletteStyle}=useFloatingPosition({anchor,popup:grid,open:opened,gap:0,padding:0,boundary:()=>palette.value?.closest<HTMLElement>('.bt-settings-detail')??undefined,onError:()=>closePalette()})
+const motion=useMotion()
+const {styles:paletteStyle}=useFloatingPosition({anchor,popup:grid,open:opened,gap:0,padding:0,scrollStrategy:()=>props.scrollStrategy,onDismiss:()=>closePalette(),boundary:()=>palette.value?.closest<HTMLElement>('.bt-settings-detail')??undefined,onError:()=>closePalette()})
 const invalid=computed(()=>props.modelValue.trim()!==''&&!/^#[\da-f]{6}$/i.test(props.modelValue.trim()))
 const swatch=computed(()=>!invalid.value&&props.modelValue.trim()?props.modelValue.trim():props.fallback)
 const presets=[
@@ -28,10 +30,10 @@ function viewportChanged(event:Event){
 }
 function choose(color:string){update(color);closePalette(true)}
 function escape(event:KeyboardEvent){if(palette.value?.open){event.preventDefault();event.stopPropagation();closePalette(true)}}
-function outside(event:PointerEvent){if(event.target instanceof Node&&!palette.value?.contains(event.target))closePalette()}
+function outside(event:PointerEvent){if(event.target instanceof Node&&!palette.value?.contains(event.target)&&!grid.value?.contains(event.target))closePalette()}
 watch(()=>props.disabled,disabled=>{if(disabled)closePalette()})
-onMounted(()=>{document.addEventListener('pointerdown',outside);document.addEventListener('scroll',viewportChanged,true);window.addEventListener('resize',viewportChanged)})
-onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('scroll',viewportChanged,true);window.removeEventListener('resize',viewportChanged)})
+onMounted(()=>{document.addEventListener('pointerdown',outside);window.addEventListener('resize',viewportChanged)})
+onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',viewportChanged)})
 </script>
 <template>
   <div class="bt-color-select" :data-color-picker="label">
@@ -41,10 +43,12 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);documen
       <button type="button" class="bt-settings-text" :disabled="disabled" @click="update('')">默认</button>
       <details ref="palette" class="bt-color-presets" @toggle="togglePalette" @keydown.esc="escape">
         <summary ref="anchor" :aria-label="label+'常用颜色'" title="常用颜色" :aria-disabled="disabled" :tabindex="disabled?-1:0" @click="disabled&&$event.preventDefault()">色板</summary>
-        <div v-if="opened" ref="grid" class="bt-color-presets__grid" :style="paletteStyle" :aria-label="label+'色板'">
+      </details>
+      <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel">
+        <div v-if="opened" ref="grid" class="bt-color-presets__grid" :style="paletteStyle" :aria-label="label+'色板'" @keydown.esc="escape">
           <button v-for="preset in presets" :key="preset.color" type="button" :data-color-preset="preset.color" :style="{backgroundColor:preset.color}" :disabled="disabled" :aria-label="'使用'+preset.name+(preset.name.endsWith('色')?'':'色')" :title="preset.name+' '+preset.color" @click="choose(preset.color)"></button>
         </div>
-      </details>
+      </Transition>
     </div>
     <small v-if="invalid" :id="id+'-error'" class="bt-settings-error" role="alert">请输入六位颜色值，例如 #2468e8。</small>
   </div>

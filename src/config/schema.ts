@@ -7,6 +7,7 @@ import type { UserColumnConfig } from '../types'
 import type { ConfigDiagnostic, DiagnosticReporter } from './diagnostics'
 import type { ColumnCapabilities, ConfigurableColumn, PreferenceV2, PreferenceV3, ResolveConfigurationInput, ResolvedConfiguration } from './types'
 import { applyColumnPatches, columnTextStyleSchema, guardColumnPatch, isColumnCapabilityApplicable, isRecord, own, parseColumnPatch } from './columns'
+import type {ConfigurationObserver, ConfigurationObservers} from './observation'
 
 const kind = 'business-table-preference' as const
 const positiveInteger = z.number().int().positive()
@@ -45,12 +46,17 @@ function readObject(input: unknown, path: string, report?: DiagnosticReporter, c
   return value
 }
 
-function parsePatches(input: unknown, path: string, report?: DiagnosticReporter): Record<string, UserColumnConfig> {
+function parsePatches(input: unknown, path: string, report?: DiagnosticReporter, observer?: ConfigurationObserver): Record<string, UserColumnConfig> {
   const result: Record<string, UserColumnConfig> = Object.create(null)
   if (!isRecord(input)) { issue(report, path, '列配置必须是按列 ID 索引的对象。'); return result }
   for (const id of Object.keys(input)) {
     if (!id) { issue(report, path, '列 ID 不能为空。'); continue }
-    const patch = parseColumnPatch(input[id], report, `${path}.${id}`)
+    const prefix = `${path}.${id}`
+    const patch = parseColumnPatch(input[id], observer ? diagnostic => {
+      report?.(diagnostic)
+      const field = diagnostic.path.slice(prefix.length + 1)
+      observer.reject(['columns', id, ...(field ? [field] : [])], diagnostic)
+    } : report, prefix)
     if (Object.keys(patch).length) result[id] = patch
   }
   return result
@@ -64,8 +70,17 @@ function parsePageSize(value: unknown, path: string, report?: DiagnosticReporter
   return undefined
 }
 
-export function parsePreference(input: unknown, tableKey: string, report?: DiagnosticReporter): PreferenceV3 | null {
+export function parsePreference(input: unknown, tableKey: string, report?: DiagnosticReporter, observer?: ConfigurationObserver): PreferenceV3 | null {
   if (input === null || input === undefined) return null
+  const externalReport = report
+  if (observer) report = diagnostic => {
+    externalReport?.(diagnostic)
+    if (diagnostic.path.startsWith('preference.columns.')) return
+    const path = diagnostic.path.startsWith('preference.pagination.') ? ['pagination', diagnostic.path.slice('preference.pagination.'.length)]
+      : diagnostic.path === 'preference.pageSize' ? ['pagination', 'pageSize']
+      : diagnostic.path === 'preference.columns' ? ['columns'] : diagnostic.path.split('.')
+    observer.reject(path, diagnostic)
+  }
   const value = readObject(input, 'preference', report)
   if (!value) return null
   const envelope = preferenceEnvelope.safeParse({ schemaVersion: own(value, 'schemaVersion'), tableKey: own(value, 'tableKey') })
@@ -79,7 +94,7 @@ export function parsePreference(input: unknown, tableKey: string, report?: Diagn
     return null
   }
   if (envelope.data.tableKey !== tableKey) { issue(report, 'preference.tableKey', '此偏好属于其他表格。'); return null }
-  const columns = parsePatches(own(value, 'columns'), 'preference.columns', report)
+  const columns = parsePatches(own(value, 'columns'), 'preference.columns', report, observer)
   let conditionalFormatting:ConditionalRule[]|undefined
   if(Object.hasOwn(value,'conditionalFormatting')){
     try{conditionalFormatting=readConditionalRules(own(value,'conditionalFormatting'))}
@@ -99,7 +114,18 @@ export function parsePreference(input: unknown, tableKey: string, report?: Diagn
     }
     current = { kind, schemaVersion: 3, tableKey, columns, ...(pageSize === undefined ? {} : { pagination: { pageSize } }) }
   }
-  if(own(value,'presentation')!==undefined)current.presentation=presentationDelta(resolvePresentation(own(value,'presentation')))
+  if(own(value,'presentation')!==undefined){
+    const accepted: string[][] | undefined = observer ? [] : undefined
+    const presentationObserver: ConfigurationObserver | undefined = observer ? {
+      ...observer, accept: path => accepted?.push([...path]),
+    } : undefined
+    current.presentation=presentationDelta(resolvePresentation(own(value,'presentation'), undefined, presentationObserver))
+    if (observer && accepted) for (const path of accepted) {
+      let child: unknown = current.presentation
+      for (const key of path.slice(1)) child = isRecord(child) ? own(child, key) : undefined
+      if (child === undefined) observer.omit(path, '此值在偏好差量归一化时被省略，未覆盖当前基线。')
+    }
+  }
   if (current.schemaVersion === 2) return {...(current.presentation?{presentation:current.presentation}:{}),...(conditionalFormatting===undefined?{}:{conditionalFormatting}), kind, schemaVersion: 3, tableKey, columns: current.columns, ...(current.pageSize === undefined ? {} : { pagination: { pageSize: current.pageSize } }) }
   return {...current,...(conditionalFormatting===undefined?{}:{conditionalFormatting})}
 }
@@ -118,111 +144,193 @@ function parseCapabilities(input: unknown, path: string, report?: DiagnosticRepo
   return result
 }
 
-function parseColumns(input: unknown, report?: DiagnosticReporter): ConfigurableColumn[] {
-  if (!Array.isArray(input)) { issue(report, 'definition.columns', '表格列必须是数组。'); return [] }
+function parseColumns(input: unknown, report?: DiagnosticReporter, observers?: ConfigurationObservers): ConfigurableColumn[] {
+  if (!Array.isArray(input)) {
+    issue(report, 'definition.columns', '表格列必须是数组。')
+    observers?.declaration.reject(['columns'], {code: 'SchemaValidationError', path: 'definition.columns', message: '表格列必须是数组。'})
+    return []
+  }
   const ids = new Set<string>()
   const columns: { column: ConfigurableColumn; index: number; order: number }[] = []
   input.forEach((value, index) => {
     const path = `definition.columns.${index}`
-    if (!isRecord(value)) { issue(report, path, '列定义必须是对象。'); return }
+    let columnId: string | undefined
+    const reportColumn: DiagnosticReporter = diagnostic => {
+      report?.(diagnostic)
+      const tail = diagnostic.path.slice(path.length + 1).split('.').filter(Boolean)
+      observers?.declaration.reject(columnId === undefined ? ['definition', 'columns', String(index), ...tail] : ['columns', columnId, ...tail], diagnostic)
+    }
+    if (!isRecord(value)) { issue(reportColumn, path, '列定义必须是对象。'); return }
     const core = requiredColumn.safeParse({ id: own(value, 'id'), field: own(value, 'field'), title: own(value, 'title') })
-    if (!core.success) { issue(report, path, '列必须包含有效的 ID、字段名和标题。'); return }
-    if (ids.has(core.data.id)) { issue(report, `${path}.id`, '列 ID 重复，已保留第一次定义。'); return }
+    if (!core.success) { issue(reportColumn, path, '列必须包含有效的 ID、字段名和标题。'); return }
+    columnId = core.data.id
+    if (ids.has(core.data.id)) { issue(reportColumn, `${path}.id`, '列 ID 重复，已保留第一次定义。'); return }
     ids.add(core.data.id)
     const access = own(value, 'access')
-    if (access !== undefined && typeof access !== 'boolean') { issue(report, `${path}.access`, '列访问权限无效，已移除此列。'); return }
-    if (access === false) return
+    if (access !== undefined && typeof access !== 'boolean') { issue(reportColumn, `${path}.access`, '列访问权限无效，已移除此列。'); return }
+    if (access === false) {
+      observers?.declaration.reject(['columns', core.data.id], {code: 'CapabilityViolation', path: `${path}.access`, message: '列访问权限关闭，已移除此列。'})
+      return
+    }
     // Keep trusted local extension functions opaque; never serialize or JSON-clone code declarations.
     const column: Record<string, unknown> = { ...value, ...core.data }
     delete column.access
     delete column.default
+    if (observers) for (const [key, field] of Object.entries(core.data)) observers.declaration.accept(['columns', core.data.id, key], field)
     for (const key of Object.keys(optionalColumnSchemas) as (keyof typeof optionalColumnSchemas)[]) {
       const field = own(value, key)
       if (field === undefined) continue
       const parsed = optionalColumnSchemas[key].safeParse(field)
-      if (parsed.success) column[key] = parsed.data
-      else { delete column[key]; issue(report, `${path}.${key}`, '列字段无效，已使用默认值。') }
+      if (parsed.success) {
+        column[key] = parsed.data
+        observers?.declaration.accept(['columns', core.data.id, key], parsed.data)
+      } else {
+        delete column[key]; issue(reportColumn, `${path}.${key}`, '列字段无效，已使用默认值。')
+      }
     }
-    column.configurable = parseCapabilities(own(value, 'configurable'), `${path}.configurable`, report)
+    column.configurable = parseCapabilities(own(value, 'configurable'), `${path}.configurable`, reportColumn)
     const defaults = own(value, 'default')
-    const { order, ...fields } = defaults === undefined ? {} : parseColumnPatch(defaults, report, `${path}.default`)
+    const { order, ...fields } = defaults === undefined ? {} : parseColumnPatch(defaults, observers ? diagnostic => {
+      report?.(diagnostic)
+      const field = diagnostic.path.slice(`${path}.default`.length + 1)
+      observers.default.reject(['columns', core.data.id, ...(field ? [field] : [])], diagnostic)
+    } : report, `${path}.default`)
+    if (observers) {
+      observers.declaration.accept(['columns', core.data.id, 'configurable'], column.configurable)
+      for (const [key, field] of Object.entries(fields)) observers.default.accept(['columns', core.data.id, key], field)
+      observers.declaration.accept(['columns', core.data.id, 'order'], columns.length)
+      if (order !== undefined) observers.default.accept(['columns', core.data.id, 'order'], order)
+    }
     columns.push({ column: { ...column, ...fields } as unknown as ConfigurableColumn, index, order: order ?? index })
   })
-  return columns.sort((a, b) => a.order - b.order || a.index - b.index).map(entry => entry.column)
+  const positions = observers ? new Map(columns.map((entry, index) => [entry.column.id, index])) : undefined
+  return columns.sort((a, b) => a.order - b.order || a.index - b.index).map((entry, index) => {
+    if (positions && index !== positions.get(entry.column.id) && entry.order === entry.index) observers?.default.accept(['columns', entry.column.id, 'order'], index)
+    observers?.default.effective(['columns', entry.column.id, 'order'], index)
+    return entry.column
+  })
 }
 
-function parsePagination(input: unknown, fallback: Partial<import('../types').Pagination> & { pageSize: number; pageSizeOptions: number[] }, path: string, report?: DiagnosticReporter) {
+function parsePagination(input: unknown, fallback: Partial<import('../types').Pagination> & { pageSize: number; pageSizeOptions: number[] }, path: string, report?: DiagnosticReporter, observer?: ConfigurationObserver) {
+  const reportIssue: DiagnosticReporter = diagnostic => {
+    report?.(diagnostic)
+    observer?.reject(['pagination', ...diagnostic.path.slice(path.length + 1).split('.').filter(Boolean)], diagnostic)
+  }
   const result = { ...fallback, pageSize: fallback.pageSize, pageSizeOptions: [...fallback.pageSizeOptions] }
   if (input === undefined) return result
-  if (!isRecord(input)) { issue(report, path, '分页配置必须是对象。'); return result }
+  if (!isRecord(input)) { issue(reportIssue, path, '分页配置必须是对象。'); return result }
   const extras={page:positiveInteger,enabled:z.boolean(),visible:z.boolean(),hideOnSinglePage:z.boolean(),showTotal:z.boolean(),showPageSize:z.boolean(),showPageNumbers:z.boolean(),showJumper:z.boolean(),align:z.enum(['left','center','right']),variant:z.enum(['simple','full']),unpagedLimit:positiveInteger.max(10000)}
   for(const [key,schema] of Object.entries(extras)){
     const value=own(input,key)
     if(value===undefined)continue
     const parsed=schema.safeParse(value)
-    if(parsed.success)Object.assign(result,{[key]:parsed.data})
-    else issue(report,`${path}.${key}`,'分页配置无效，已保留默认值。')
+    if(parsed.success){Object.assign(result,{[key]:parsed.data});observer?.accept(['pagination',key],parsed.data)}
+    else issue(reportIssue,`${path}.${key}`,'分页配置无效，已保留默认值。')
   }
   const options = own(input, 'pageSizeOptions')
   if (options !== undefined) {
     if (Array.isArray(options)) {
       const valid = options.flatMap((value, index) => {
-        const size = parsePageSize(value, `${path}.pageSizeOptions.${index}`, report)
+        const size = parsePageSize(value, `${path}.pageSizeOptions.${index}`, reportIssue)
         return size === undefined ? [] : [size]
       })
-      if (valid.length) result.pageSizeOptions = [...new Set(valid)]
-      else issue(report, `${path}.pageSizeOptions`, '没有合法的每页条数选项，已保留默认选项。')
-    } else issue(report, `${path}.pageSizeOptions`, '每页条数选项必须是数组。')
+      if (valid.length) {result.pageSizeOptions = [...new Set(valid)];observer?.accept(['pagination','pageSizeOptions'],result.pageSizeOptions)}
+      else issue(reportIssue, `${path}.pageSizeOptions`, '没有合法的每页条数选项，已保留默认选项。')
+    } else issue(reportIssue, `${path}.pageSizeOptions`, '每页条数选项必须是数组。')
   }
-  if (!result.pageSizeOptions.includes(result.pageSize)) result.pageSize = result.pageSizeOptions[0]!
-  const size = parsePageSize(own(input, 'pageSize'), `${path}.pageSize`, report)
+  if (!result.pageSizeOptions.includes(result.pageSize)) {
+    result.pageSize = result.pageSizeOptions[0]!
+    observer?.accept(['pagination','pageSize'],result.pageSize)
+  }
+  const size = parsePageSize(own(input, 'pageSize'), `${path}.pageSize`, reportIssue)
   if (size !== undefined) {
-    if (result.pageSizeOptions.includes(size)) result.pageSize = size
-    else issue(report, `${path}.pageSize`, '每页条数不在允许的选项中，已保留合法值。')
+    if (result.pageSizeOptions.includes(size)) {result.pageSize = size;observer?.accept(['pagination','pageSize'],size)}
+    else issue(reportIssue, `${path}.pageSize`, '每页条数不在允许的选项中，已保留合法值。')
   }
   return result
 }
 
-export function resolveConfiguration(input: ResolveConfigurationInput, report?: DiagnosticReporter): ResolvedConfiguration {
+function applyObservedColumns(columns: ConfigurableColumn[], patches: unknown, report: DiagnosticReporter, observer?: ConfigurationObserver) {
+  if (!observer) return applyColumnPatches(columns, patches, report)
+  const ordered = new Set<string>()
+  const result = applyColumnPatches(columns, patches, report, observer ? {
+    accept(id, patch) {
+      for (const [key, value] of Object.entries(patch)) {
+        observer.accept(['columns', id, key], value)
+        if (key === 'order') ordered.add(id)
+      }
+    },
+    reject(id, diagnostic) {
+      const prefix = id === undefined ? 'columns' : `columns.${id}`
+      const field = diagnostic.path.slice(prefix.length + 1)
+      observer.reject(['columns', ...(id === undefined ? [] : [id]), ...(field ? [field] : [])], diagnostic)
+    },
+  } : undefined)
+  if (observer) result.forEach((column, index) => {
+    if (columns[index]?.id !== column.id && !ordered.has(column.id)) observer.accept(['columns', column.id, 'order'], index)
+    observer.effective(['columns', column.id, 'order'], index)
+  })
+  return result
+}
+
+function observeDefaults(value: unknown, path: readonly string[], observer: ConfigurationObserver) {
+  if (isRecord(value)) {
+    for (const [key, child] of Object.entries(value)) observeDefaults(child, [...path, key], observer)
+  } else observer.accept(path, value)
+}
+
+export function resolveConfiguration(input: ResolveConfigurationInput, report?: DiagnosticReporter, observers?: ConfigurationObservers): ResolvedConfiguration {
   const diagnostics: ConfigDiagnostic[] = []
   const collect: DiagnosticReporter = diagnostic => { diagnostics.push(diagnostic); report?.(diagnostic) }
-  const local = readObject(input.definition, 'definition', collect)
+  const local = readObject(input.definition, 'definition', diagnostic => {
+    collect(diagnostic); observers?.declaration.reject(['definition'], diagnostic)
+  })
   let columns: ConfigurableColumn[] = []
   let pagination = { pageSize: 20, pageSizeOptions: [20, 50, 100] }
   let tableKey = ''
   let presentation=defaultPresentation()
+  if (observers) {
+    observeDefaults(presentation, ['presentation'], observers.default)
+    observeDefaults(pagination, ['pagination'], observers.default)
+  }
   if (local) {
     // Deliberately project the envelope. A broad parse/spread would read disabled Feature getters.
     const envelope = definitionEnvelope.safeParse({ schemaVersion: own(local, 'schemaVersion'), tableKey: own(local, 'tableKey') })
     if (envelope.success) {
       tableKey = envelope.data.tableKey
-      columns = parseColumns(own(local, 'columns'), collect)
-      if(own(local,'presentation')!==undefined)presentation=resolvePresentation(own(local,'presentation'),presentation)
-      pagination = parsePagination(own(local, 'pagination'), pagination, 'definition.pagination', collect)
-    } else issue(collect, 'definition', '表格定义版本或标识无效。')
+      columns = parseColumns(own(local, 'columns'), collect, observers)
+      if(own(local,'presentation')!==undefined)presentation=resolvePresentation(own(local,'presentation'),presentation,observers?.declaration)
+      pagination = parsePagination(own(local, 'pagination'), pagination, 'definition.pagination', collect, observers?.declaration)
+    } else {
+      issue(collect, 'definition', '表格定义版本或标识无效。')
+      observers?.declaration.reject(['definition'], {code: 'SchemaValidationError', path: 'definition', message: '表格定义版本或标识无效。'})
+    }
   }
   if (input.remoteOverride !== undefined && input.remoteOverride !== null) {
-    const remote = readObject(input.remoteOverride, 'remoteOverride', collect, 'RemoteConfigError')
+    const remote = readObject(input.remoteOverride, 'remoteOverride', diagnostic => {collect(diagnostic);observers?.remote.reject(['remoteOverride'],diagnostic)}, 'RemoteConfigError')
     if (remote) {
       const scoped: DiagnosticReporter = diagnostic => collect({ ...diagnostic, path: `remoteOverride.${diagnostic.path}` })
-      columns = applyColumnPatches(columns, own(remote, 'columns'), scoped)
-      if(own(remote,'presentation')!==undefined)presentation=resolvePresentation(own(remote,'presentation'),presentation)
-      pagination = parsePagination(own(remote, 'pagination'), pagination, 'remoteOverride.pagination', collect)
+      columns = applyObservedColumns(columns, own(remote, 'columns'), scoped, observers?.remote)
+      if(own(remote,'presentation')!==undefined)presentation=resolvePresentation(own(remote,'presentation'),presentation,observers?.remote)
+      pagination = parsePagination(own(remote, 'pagination'), pagination, 'remoteOverride.pagination', collect, observers?.remote)
     }
   }
   const baseColumns = columns
   presentation={...presentation,appearance:{...presentation.appearance,pageSize:pagination.pageSize}}
+  // This is a resolver-derived presentation value, whose input is the resolved pagination.
+  observers?.default.derive(['presentation','appearance','pageSize'],['pagination','pageSize'],pagination.pageSize)
   const basePresentation=presentation
   const basePageSize = pagination.pageSize
-  const parsedPreference = tableKey ? parsePreference(input.preference, tableKey, collect) : null
+  const parsedPreference = tableKey ? parsePreference(input.preference, tableKey, collect, observers?.preference) : null
+  if (!tableKey && input.preference !== undefined && input.preference !== null) observers?.preference.omit(['preference'], '表格定义标识无效，未读取用户偏好。')
   let preference: PreferenceV3 | null = null
   if (parsedPreference) {
-    if(parsedPreference.presentation)presentation=resolvePresentation(parsedPreference.presentation,presentation)
-    columns = applyColumnPatches(columns, parsedPreference.columns, diagnostic => collect({ ...diagnostic, path: `preference.${diagnostic.path}` }))
-    pagination = parsePagination(parsedPreference.pagination, pagination, 'preference.pagination', collect)
+    if(parsedPreference.presentation)presentation=resolvePresentation(parsedPreference.presentation,presentation,observers?.preference)
+    columns = applyObservedColumns(columns, parsedPreference.columns, diagnostic => collect({ ...diagnostic, path: `preference.${diagnostic.path}` }), observers?.preference)
+    pagination = parsePagination(parsedPreference.pagination, pagination, 'preference.pagination', collect, observers?.preference)
     preference = createPreferenceDelta(tableKey, baseColumns, { schemaVersion: 1, tableKey, columns: parsedPreference.columns, pageSize: pagination.pageSize, presentation:presentationDelta(presentation,basePresentation),...(parsedPreference.conditionalFormatting===undefined?{}:{conditionalFormatting:parsedPreference.conditionalFormatting}) }, basePageSize,basePresentation)
   }
-  columns = applyColumnPatches(columns, input.viewColumns, diagnostic => collect({ ...diagnostic, path: `view.${diagnostic.path}` }))
+  columns = applyObservedColumns(columns, input.viewColumns, diagnostic => collect({ ...diagnostic, path: `view.${diagnostic.path}` }), observers?.view)
   return { columns, baseColumns, preference, basePageSize, presentation,basePresentation,...pagination,paginationOptions:pagination, diagnostics }
 }
 

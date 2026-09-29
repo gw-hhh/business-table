@@ -1,0 +1,5 @@
+
+> @company/business-table@1.0.0 benchmark:runtime
+> node scripts/runtime-benchmark.mjs
+
+RUNTIME BENCHMARK OK: {"rows":10000,"queryMs":18.08,"queryReads":10000,"pages":100,"pagingMs":43.46,"pagingFieldReads":0,"environment":"Node + JSDOM; excludes UI rendering"}

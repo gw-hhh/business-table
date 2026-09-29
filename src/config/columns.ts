@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {ruleFieldSchemas} from '../features/columns/schema'
 import {columnFontFamilies} from './font-families'
 import type { UserColumnConfig } from '../types'
-import type { DiagnosticReporter } from './diagnostics'
+import type { ConfigDiagnostic, DiagnosticReporter } from './diagnostics'
 import type { ColumnCapabilities, ConfigurableColumn } from './types'
 import { resolveControlAccess, type ControlAccess } from './access'
 
@@ -114,20 +114,35 @@ export function guardColumnPatch(column: ConfigurableColumn, patch: unknown, rep
   return result
 }
 
+export interface ColumnPatchObserver {
+  accept(id: string, patch: UserColumnConfig): void
+  reject(id: string | undefined, diagnostic: ConfigDiagnostic): void
+}
 /** Sort movable columns into movable slots, keeping every locked column in its slot. */
-export function applyColumnPatches<T extends ConfigurableColumn>(columns: T[], patches: unknown, report?: DiagnosticReporter): T[] {
+export function applyColumnPatches<T extends ConfigurableColumn>(columns: T[], patches: unknown, report?: DiagnosticReporter, observer?: ColumnPatchObserver): T[] {
   if (patches === undefined || patches === null) return columns.map(column => ({ ...column }))
   if (!isRecord(patches)) {
-    report?.({ code: 'SchemaValidationError', path: 'columns', message: '列配置必须是按列 ID 索引的对象。' })
+    const diagnostic: ConfigDiagnostic = { code: 'SchemaValidationError', path: 'columns', message: '列配置必须是按列 ID 索引的对象。' }
+    report?.(diagnostic)
+    observer?.reject(undefined, diagnostic)
     return columns.map(column => ({ ...column }))
   }
   const ids = new Set(columns.map(column => column.id))
   for (const id of Object.keys(patches)) {
-    if (!ids.has(id)) report?.({ code: 'SchemaValidationError', path: `columns.${id}`, message: '列不存在或无权访问，已忽略配置。' })
+    if (!ids.has(id)) {
+      const diagnostic: ConfigDiagnostic = { code: 'SchemaValidationError', path: `columns.${id}`, message: '列不存在或无权访问，已忽略配置。' }
+      report?.(diagnostic)
+      observer?.reject(id, diagnostic)
+    }
   }
   const entries = columns.map((column, index) => {
     const patch = own(patches, column.id)
-    const { order, ...fields } = patch === undefined ? {} : guardColumnPatch(column, patch, report, 'read')
+    const guarded = patch === undefined ? {} : guardColumnPatch(column, patch, observer ? diagnostic => {
+      report?.(diagnostic)
+      observer.reject(column.id, diagnostic)
+    } : report, 'read')
+    if (patch !== undefined) observer?.accept(column.id, guarded)
+    const { order, ...fields } = guarded
     return { column: { ...column, ...fields }, index, order: order ?? index }
   })
   const movable = entries.filter(entry => isColumnCapabilityApplicable(entry.column, 'order'))

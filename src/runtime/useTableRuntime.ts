@@ -10,7 +10,7 @@ import {defaultPresentation,resolvePresentation,presentationDelta,type Presentat
 import {validateSettings,type SettingsCommit} from '../features/settings/session'
 import {normalizePagination,clampPage} from './pagination'
 import {withDeadline} from './deadline'
-import {cloneData,getValue} from './value'
+import {cloneData,getValue,typedKey} from './value'
 import {type FilterState} from './filter-state'
 import {useQueryRuntime,type QueryChange} from './query'
 import {getSettingsColumnFieldAccess,guardSettingsColumnPatch,guardSettingsCommit,resolveSettingsPolicy,type SettingsDefinition} from '../features/settings/policy'
@@ -98,11 +98,15 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   let searchTimer:ReturnType<typeof setTimeout>|undefined
   function cancelAutoSearch(){if(searchTimer!==undefined){clearTimeout(searchTimer);searchTimer=undefined}}
   const searchContext=()=>queryRuntime.context(async()=>{cancelAutoSearch();page.value=1;clearSelection();await load()})
-  watch(()=>JSON.stringify([searchContext().values,searchContext().draft]),()=>{
-    cancelAutoSearch()
+  const autoSearchDelay=computed(()=>{
     const delay=input.searchPanel?.autoSubmitMs
-    if(input.searchDefinition===undefined||!searchContext().pending||typeof delay!=='number'||!Number.isFinite(delay)||delay<0)return
-    searchTimer=setTimeout(()=>{searchTimer=undefined;void searchContext().submit().catch(cause=>{error.value=cause instanceof Error?cause.message:String(cause)})},Math.min(delay,10000))
+    return input.searchDefinition!==undefined&&typeof delay==='number'&&Number.isFinite(delay)&&delay>=0?Math.min(delay,10000):undefined
+  })
+  watch(()=>autoSearchDelay.value===undefined?undefined:queryRuntime.searchDraftSignature.value,()=>{
+    cancelAutoSearch()
+    const delay=autoSearchDelay.value
+    if(delay===undefined||!queryRuntime.pending.value)return
+    searchTimer=setTimeout(()=>{searchTimer=undefined;void searchContext().submit().catch(cause=>{error.value=cause instanceof Error?cause.message:String(cause)})},delay)
   },{flush:'sync'})
   watch([()=>input.tableKey,()=>input.searchDefinition,()=>input.searchPanel?.autoSubmitMs],cancelAutoSearch)
   onBeforeUnmount(cancelAutoSearch)
@@ -136,10 +140,22 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     result=applyFilters(result,[...request.filters,...(request.columnFilters??[])]).filter(compileFilterGroup(request.filterGroup))
     return applySorts(result,request.sorts,allResolvedColumns.value)
   }
+  function localColumnsSignature(request:Query):string{
+    // Only keyword fields and mapping order affect local results. Read mapping
+    // values on each load because ordinary nested column objects can be mutated
+    // without notifying Vue; presentation metadata never belongs in this key.
+    return JSON.stringify({
+      fields:request.keyword?resolvedColumns.value.filter(column=>column.kind!=='actions').map(column=>column.field):undefined,
+      mappings:request.sorts.map(sort=>{
+        const mapping=allResolvedColumns.value.find(column=>column.field===sort.field)?.mapping
+        return mapping?.enabled&&mapping.sort?mapping.items.map(item=>typedKey(item.value)):undefined
+      }),
+    })
+  }
   let localCache:{source:readonly T[];criteria:string;columns:string;rows:T[]}|undefined
   function localResult(request:Query):T[]{
     const source=input.data??[],{page:_page,pageSize:_size,signal:_signal,...criteria}=request
-    const criteriaKey=JSON.stringify(criteria),columnKey=JSON.stringify(allResolvedColumns.value)
+    const criteriaKey=JSON.stringify(criteria),columnKey=localColumnsSignature(request)
     if(!localCache||localCache.source!==source||localCache.criteria!==criteriaKey||localCache.columns!==columnKey)
       localCache={source,criteria:criteriaKey,columns:columnKey,rows:filterLocal(source,request)}
     return localCache.rows

@@ -6,6 +6,7 @@
 
 | 文件 | 说明 | 依赖与可观察结果 |
 | --- | --- | --- |
+| [RenderingTable.vue](RenderingTable.vue) | 1 万行虚拟窗口和自定义空状态 | runtime/components 子入口；maxHeight 约束、虚拟滚动与恢复命令 |
 | [assets.ts](assets.ts) | 公共行类型、三条物料数据、四个字段 | 状态原值为数字 0/1，显示草稿/已确认 |
 | [MinimalTable.vue](MinimalTable.vue) | 最小本地表格 | 仅依赖 assets；显示行、分页与格式化金额 |
 | [ConfiguredTable.vue](ConfiguredTable.vue) | 完整配置入口 | 全部设置模块、查询/筛选、查看动作、刷新、四项数据工具；本地保存 PreferenceV3 |

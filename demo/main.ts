@@ -7,6 +7,7 @@ const examples={
   quotation:()=>import('./App.vue'),
   config:()=>import('./ConfigExample.vue'),
   composition:()=>import('./CompositionExample.vue'),
+  performance:()=>import('./PerformanceExample.vue'),
 }
 function isExample(value:string|null):value is keyof typeof examples{return value!==null&&Object.hasOwn(examples,value)}
 const example=new URLSearchParams(location.search).get('example')

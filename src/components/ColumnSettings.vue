@@ -4,6 +4,7 @@ import type {ColumnConfig,UserColumnConfig} from '../types'
 import type {ColumnSettingsContext} from './settingsTypes'
 import TableIcon from './TableIcon.vue'
 import {useDragReorder} from '../ui/useDragReorder'
+import {useMotion} from '../ui/useMotion'
 import ColumnSettingsDrawer from './ColumnSettingsDrawer.vue'
 import './column-settings.css'
 import '../features/settings/settings-pages.css'
@@ -12,7 +13,9 @@ import {resolvePresentation} from '../features/presentation/model'
 import {columnDifference,validateSettings,settingsFields,settingsValue} from '../features/settings/session'
 import {getSettingsColumnFieldAccess,guardSettingsColumnPatch,guardSettingsCommit,resolveSettingsPolicy,type SettingsPage} from '../features/settings/policy'
 
-const props=defineProps<{context:ColumnSettingsContext}>()
+const props=withDefaults(defineProps<{context:ColumnSettingsContext;open?:boolean}>(),{open:true})
+const emit=defineEmits<{afterLeave:[]}>()
+const motion=useMotion()
 const copy=(columns:ColumnConfig[])=>cloneData(columns)
 const original=copy(props.context.columns)
 const originalSorts=(props.context.sorts??[]).map(sort=>({...sort}))
@@ -125,8 +128,8 @@ onMounted(()=>{previousFocus=document.activeElement as HTMLElement;document.addE
 onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(previousFocus?.isConnected)previousFocus.focus()})
 </script>
 <template>
-  <ColumnSettingsDrawer v-if="drawer" :settings-policy="settingsPolicy" :table-key="context.tableKey" :presentation="presentationDraft" :base-presentation="context.basePresentation" :actions="context.actions??[]" :tools="context.tools??{page:[],table:[]}" :page-sizes="context.pageSizeOptions" :issues="issues" :changes="patches" :initial-column-id="context.selectedColumnId" :initial-tab="context.initialTab" @presentation="updatePresentation" @restore="restoreBackup" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="updateSorts" @reset-sorts="updateSorts(originalSorts.map(sort=>({...sort})))" @apply="apply" @cancel="cancel" @move="move" />
-  <aside v-else-if="settingsPolicy.pages.columns.visible" ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel">
+  <ColumnSettingsDrawer v-if="drawer" :open="open" @after-leave="emit('afterLeave')" :settings-policy="settingsPolicy" :table-key="context.tableKey" :presentation="presentationDraft" :base-presentation="context.basePresentation" :actions="context.actions??[]" :tools="context.tools??{page:[],table:[]}" :page-sizes="context.pageSizeOptions" :issues="issues" :changes="patches" :initial-column-id="context.selectedColumnId" :initial-tab="context.initialTab" @presentation="updatePresentation" @restore="restoreBackup" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="updateSorts" @reset-sorts="updateSorts(originalSorts.map(sort=>({...sort})))" @apply="apply" @cancel="cancel" @move="move" />
+  <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel" @after-leave="emit('afterLeave')"><aside v-if="!drawer&&open&&settingsPolicy.pages.columns.visible" ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel">
     <div v-if="visibilityDeclared" class="bt-column-popup__all"><label><input type="checkbox" aria-label="显示全部列" :checked="allVisible" :indeterminate="someVisible" :disabled="!togglable.length" @change="all(($event.target as HTMLInputElement).checked)">全部</label></div>
     <div :ref="reorder.setList" class="bt-column-popup__list">
       <div v-for="column in draft" :key="column.id" class="bt-column-popup__row" :class="{'is-hidden':column.visible===false}" v-bind="reorder.row(column.id)">
@@ -142,5 +145,5 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(prev
     <p v-if="error||issues.length" class="bt-settings-error" role="alert">{{error||issues[0]?.message}}</p>
     <button v-if="Object.values(settingsPolicy.pages).some(page=>page.visible)" class="bt-column-popup__more bt-settings-text" @click="drawer=true"><TableIcon name="settings" :size="14" />更多设置</button>
     <footer class="bt-column-popup__footer"><button class="bt-settings-text bt-settings-muted" :disabled="!canResetColumns" @click="reset()">恢复默认</button><span></span><button class="bt-settings-text" :disabled="saving" @click="cancel">取消</button><button class="bt-settings-text" :disabled="saving||issues.length>0" @click="apply">{{saving?'保存中…':'确认'}}</button></footer>
-  </aside>
+  </aside></Transition>
 </template>

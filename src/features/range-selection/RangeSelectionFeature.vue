@@ -19,7 +19,7 @@ function copy() { void props.context.copy() }
     <button class="bt-range-button" :disabled="!context.count || context.copying" @click="copy">复制区域</button>
     <button class="bt-range-button" @click="context.toggle()">退出</button>
   </div>
-  <DialogFrame v-if="context.manualCopy !== undefined" title="复制区域" subtitle="浏览器未允许自动复制，请选中以下内容手动复制。" @close="context.dismissCopy()">
+  <DialogFrame :open="context.manualCopy !== undefined" title="复制区域" subtitle="浏览器未允许自动复制，请选中以下内容手动复制。" @close="context.dismissCopy()">
     <label class="bt-ui-field">复制内容<textarea readonly rows="8" aria-label="复制内容" :value="context.manualCopy" @focus="($event.target as HTMLTextAreaElement).select()" /></label>
     <template #footer><button class="bt-ui-button primary" @click="context.dismissCopy()">关闭</button></template>
   </DialogFrame>

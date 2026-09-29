@@ -81,6 +81,8 @@ Search 开启后可用 `searchDefinition` 声明稳定字段 ID、类型、默�
 
 ## 当前进度
 
+新增可选原生虚拟滚动、自定义空状态、弹窗/搜索动效和配置来源解释；`/?example=performance` 提供 1,000/10,000 行交互对比。配置见[渲染性能与空状态](docs/02-架构与规范/16-渲染性能与空状态.md)、[配置来源诊断](docs/02-架构与规范/17-配置来源诊断.md)，本批结果见[验收](docs/06-验收记录/2026-09/2026-09-29-渲染性能与交互诊断优化/README.md)。
+
 2026-09-29 接入共用 `useTableRuntime` 的 BusinessTableGrid、SearchRegion、SearchToggle、TablePagination 和 TableTools；根入口兼容，新增 ESM `runtime`/`components` 子入口。`/?example=composition` 提供双实例示例。搜索区隐藏保留草稿，分页栏显隐与关闭分页分别配置；Tiptap、SortableJS 和 Floating UI 进入共享编辑、拖动和定位层。接法见[组件组合](docs/02-架构与规范/12-组件组合与分页.md)，本轮完整门禁及提交状态见[本批验收](docs/06-验收记录/2026-09/2026-09-29-组件组合与交互基础升级/README.md)，本轮完整本地发布门禁已通过。
 
 Query/Search、视图创建/更新/重命名/默认/重排/删除、列头菜单/列宽调整、设置预览、Excel/CSV 导出与模板下载已接入通用组件。报价详情、新增、修改、复制使用业务抽屉。此次按旧版实际操作修正首屏及交互；验证范围和结果见 [本批验收](docs/06-验收记录/2026-09/2026-09-23-旧版交互与视觉对齐/README.md)。实际进度见 [当前状态](docs/01-项目入门/03-当前状态.md)和[迁移历史](docs/07-参考与归档/01-旧版迁移历史.md)。

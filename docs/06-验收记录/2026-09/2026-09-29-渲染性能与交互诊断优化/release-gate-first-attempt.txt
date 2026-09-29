@@ -1,0 +1,71 @@
+
+> @company/business-table@1.0.0 verify:release
+> npm run audit:docs && npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e
+
+
+> @company/business-table@1.0.0 audit:docs
+> node scripts/docs-audit.mjs
+
+DOCS AUDIT OK: 86 篇 docs Markdown，目录、链接、锚点和索引均有效。
+
+> @company/business-table@1.0.0 audit:portability
+> node scripts/portability-audit.mjs
+
+PORTABILITY AUDIT OK
+
+> @company/business-table@1.0.0 audit:sfc
+> node scripts/sfc-syntax-audit.mjs
+
+SFC SYNTAX AUDIT OK: 59 Vue SFCs
+
+> @company/business-table@1.0.0 type-check
+> vue-tsc --noEmit
+
+
+> @company/business-table@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 <repo>
+
+ ❯ tests/toolbar-runtime.spec.ts (8 tests | 1 failed) 3723ms
+     × collapses only nonfixed tools on narrow screens and preserves preferences across resize 63ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/toolbar-runtime.spec.ts > registered toolbar tools share the persisted presentation > collapses only nonfixed tools on narrow screens and preserves preferences across resize
+Error: Unable to get [role="menu"] [data-tool-id="ordinary"] button within: <div data-v-2f5b38ae="" class="bt-tool-strip" style="gap: 4px;">
+  <div data-v-2f5b38ae="" class="bt-tool-measure" aria-hidden="true" inert=""><span data-v-2f5b38ae="" data-measure-tool="ordinary" class="bt-tool-item"><span data-v-2f5b38ae="" class="bt-tool"><svg data-v-2f5b38ae="" class="bt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8m-8 4h6" fill="none" stroke="currentColor" fill-rule="evenodd"></path></svg><span data-v-2f5b38ae="">普通工具</span></span></span><span data-v-2f5b38ae="" data-measure-tool="fixed" class="bt-tool-item"><span data-v-2f5b38ae="" class="bt-tool"><svg data-v-2f5b38ae="" class="bt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8m-8 4h6" fill="none" stroke="currentColor" fill-rule="evenodd"></path></svg><span data-v-2f5b38ae="">固定工具</span></span></span><span data-v-2f5b38ae="" data-measure-tool="settings" class="bt-tool-item"><span data-v-2f5b38ae="" class="bt-tool"><svg data-v-2f5b38ae="" class="bt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8m-8 4h6" fill="none" stroke="currentColor" fill-rule="evenodd"></path></svg><span data-v-2f5b38ae="">设置入口</span></span></span></div>
+  <div data-v-2f5b38ae="" class="bt-tool-item is-fixed" data-tool-id="fixed"><button data-v-2f5b38ae="" type="button" class="bt-tool" title="固定工具" aria-label="固定工具"><svg data-v-2f5b38ae="" class="bt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8m-8 4h6" fill="none" stroke="currentColor" fill-rule="evenodd"></path>
+      </svg><span data-v-2f5b38ae="">固定工具</span></button></div>
+  <div data-v-2f5b38ae="" class="bt-tool-item is-fixed" data-tool-id="settings"><button data-v-2f5b38ae="" type="button" class="bt-tool" title="设置入口" aria-label="设置入口"><svg data-v-2f5b38ae="" class="bt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M14 2H5v20h14V7l-5-5Zm0 0v6h5M8 12h8m-8 4h6" fill="none" stroke="currentColor" fill-rule="evenodd"></path>
+      </svg><span data-v-2f5b38ae="">设置入口</span></button></div>
+  <div data-v-2f5b38ae="" class="bt-tool-more"><button data-v-2f5b38ae="" type="button" class="bt-tool is-icon" aria-label="更多工具" title="更多工具" aria-expanded="false" aria-haspopup="menu"><svg data-v-2f5b38ae="" class="bt-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M5 12h.01M12 12h.01M19 12h.01" fill="none" stroke="currentColor" fill-rule="evenodd"></path>
+      </svg></button>
+    <transition-stub data-v-2f5b38ae="" appear="false" persisted="false" css="false">
+      <!--v-if-->
+    </transition-stub>
+  </div>
+  <!--teleport start-->
+  <!--teleport end-->
+  <!--v-if-->
+</div>
+ ❯ VueWrapper.get node_modules/.pnpm/@vue+test-utils@2.5.1_@vue+_6ab6903c47147bcb6f606b6f6d2d6e9c/node_modules/@vue/test-utils/dist/vue-test-utils.cjs.js:7333:15
+ ❯ tests/toolbar-runtime.spec.ts:60:20
+     58|     expect(wrapper.findAll('.bt-tool-item[data-tool-id]').map(item => …
+     59|     await wrapper.get('button[aria-haspopup="menu"]').trigger('click')
+     60|     expect(wrapper.get('[role="menu"] [data-tool-id="ordinary"] button…
+       |                    ^
+     61|     await wrapper.setProps({ layout: { ...layout, ordinary: { position…
+     62|     expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 81 passed (82)
+      Tests  1 failed | 645 passed (646)
+   Start at  14:16:41
+   Duration  78.86s (transform 8.08s, setup 0ms, import 53.02s, tests 77.77s, environment 147.75s)

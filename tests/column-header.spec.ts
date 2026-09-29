@@ -16,6 +16,18 @@ function setup(overrides: Partial<ColumnHeaderContext> = {}) {
   return { wrapper, context }
 }
 describe('column header controls', () => {
+  it('shows clamped pixels while dragging and clears feedback on cancellation',async()=>{
+    const {wrapper,context}=setup()
+    wrapper.get('[role=separator]').element.dispatchEvent(new MouseEvent('pointerdown',{bubbles:true,button:0,clientX:100,clientY:60}))
+    document.dispatchEvent(new MouseEvent('pointermove',{clientX:1000}))
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector('.bt-column-resize-value')?.textContent).toBe('500 px')
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))
+    await wrapper.vm.$nextTick()
+    expect(document.querySelector('.bt-column-resize-value')).toBeNull()
+    expect(context.patch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
   it('opens the shared settings and preserves raw column identity when sorting', async () => {
     const { wrapper, context } = setup()
     await wrapper.get('[aria-label="金额列菜单"]').trigger('click')

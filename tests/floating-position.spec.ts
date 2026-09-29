@@ -3,6 +3,7 @@ import {flushPromises,mount,type VueWrapper} from '@vue/test-utils'
 import {defineComponent,h,ref} from 'vue'
 import AnchoredPopup from '../src/ui/AnchoredPopup.vue'
 import {useFloatingPosition} from '../src/ui/useFloatingPosition'
+import {providePopupScope,registerPopup} from '../src/ui/popupScope'
 
 const wrappers:VueWrapper[]=[]
 const observers=new Set<{callback:ResizeObserverCallback;elements:Set<Element>}>()
@@ -107,5 +108,44 @@ it('ignores a positioning rejection after the popup was already unmounted',async
   await flushPromises()
   expect(wrapper.emitted('close')).toBeUndefined()
   expect(document.querySelector('[aria-label="菜单"]')).toBeNull()
+  expect(observers.size).toBe(0)
+})
+
+it('can follow external scrolling while retaining focus and using the latest anchor position',async()=>{
+  const element=anchor(90,40),wrapper=setup(element)
+  await wrapper.setProps({scrollStrategy:'follow'});await flushPromises()
+  await new Promise(resolve=>requestAnimationFrame(resolve))
+  element.getBoundingClientRect=()=>rect(120,70,60,30)
+  window.dispatchEvent(new Event('scroll'));await flushPromises()
+  expect(wrapper.emitted('close')).toBeUndefined()
+  const popup=document.querySelector<HTMLElement>('[aria-label="菜单"]')!
+  expect(parseFloat(popup.style.left)).toBe(60)
+  expect(parseFloat(popup.style.top)).toBe(106)
+  expect(document.activeElement?.textContent).toBe('执行')
+})
+
+it('uses the shared close strategy only for external scroll and releases it when closed',async()=>{
+  const opened=ref(true),dismissed=vi.fn(),element=anchor(90,40)
+  const child=defineComponent({setup(){const popup=ref<HTMLElement>();registerPopup(popup);return()=>h('div',{ref:popup,id:'nested-popup'},'子浮层')}})
+  const wrapper=mount(defineComponent({setup(){
+    const popup=ref<HTMLElement>(),children=providePopupScope()
+    useFloatingPosition({anchor:element,popup,open:opened,scrollStrategy:'close',contains:node=>children.contains(node),onDismiss:dismissed})
+    return()=>h('div',[h('div',{ref:popup,id:'scroll-popup'},'滚动内容'),h(child)])
+  }}),{attachTo:document.body});wrappers.push(wrapper);await flushPromises()
+  document.querySelector('#scroll-popup')!.dispatchEvent(new Event('scroll'))
+  document.querySelector('#nested-popup')!.dispatchEvent(new Event('scroll'))
+  expect(dismissed).not.toHaveBeenCalled()
+  document.dispatchEvent(new Event('scroll'))
+  expect(dismissed).toHaveBeenCalledTimes(1)
+  opened.value=false;await flushPromises()
+  document.dispatchEvent(new Event('scroll'))
+  expect(dismissed).toHaveBeenCalledTimes(1)
+})
+
+it('dismisses a follow popup whose anchor is removed before the next scroll',async()=>{
+  const element=anchor(90,40),wrapper=setup(element)
+  await wrapper.setProps({scrollStrategy:'follow'});await flushPromises()
+  element.remove();window.dispatchEvent(new Event('scroll'));await flushPromises()
+  expect(wrapper.emitted('close')).toEqual([[false]])
   expect(observers.size).toBe(0)
 })

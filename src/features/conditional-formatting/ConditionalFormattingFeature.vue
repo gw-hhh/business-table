@@ -9,7 +9,8 @@ import { conditionalColumn, guardConditionalRules, type ConditionalRule } from '
 import type { ConditionalFormattingContext } from './context'
 import './conditional-formatting.css'
 
-const props = defineProps<{ context: ConditionalFormattingContext }>()
+const props = withDefaults(defineProps<{ context: ConditionalFormattingContext;open?:boolean }>(),{open:true})
+const emit=defineEmits<{afterLeave:[]}>()
 interface RuleDraft { id: string; enabled: boolean; label: string; color: string; background: string; columnId: string; filter: FilterRuleDraft }
 const columns = computed(() => props.context.columns.filter(column => column.kind !== 'actions'))
 const columnById = (id: string) => columns.value.find(column => column.id === id)
@@ -69,7 +70,7 @@ function clearUnavailable() { draft.value = []; unavailable.value = false; error
 </script>
 
 <template>
-  <DialogFrame title="条件标记" subtitle="按顺序命中第一条启用规则；条件使用原值。只标记显示，不改变业务状态。" drawer :busy="busy" class="bt-conditional-dialog" @close="context.close">
+  <DialogFrame :open="open" @after-leave="emit('afterLeave')" title="条件标记" subtitle="按顺序命中第一条启用规则；条件使用原值。只标记显示，不改变业务状态。" drawer :busy="busy" class="bt-conditional-dialog" @close="context.close">
     <fieldset class="bt-conditional-fields" :disabled="context.disabled || busy || unavailable">
       <section v-for="(item,index) in draft" :key="item.id" class="bt-conditional-rule">
         <div class="bt-conditional-rule-header">
