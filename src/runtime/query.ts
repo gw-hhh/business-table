@@ -39,8 +39,11 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
   let sourceFingerprint: string | undefined
   let allowedKey: string | undefined
   let searchState: SearchState | undefined
+  const searchIdentity = shallowRef(0)
 
   function search(): SearchState | undefined {
+    // A table switch replaces the draft/applied refs even when its definition is unchanged.
+    void searchIdentity.value
     const nextSource = options.searchDefinition()
     if (nextSource === undefined) {
       source = undefined
@@ -248,6 +251,7 @@ export function useQueryRuntime(options: QueryRuntimeOptions) {
     legacyKeyword.value = ''; legacyDraft.value = ''; filters.value = []; columnFilters.value = []
     filterGroup.value = undefined; sorts.value = []; activeView.value = null
     source = undefined; sourceFingerprint = undefined; allowedKey = undefined; searchState = undefined
+    searchIdentity.value++
   }
   function context(onCommit: () => Promise<void>) {
     return {

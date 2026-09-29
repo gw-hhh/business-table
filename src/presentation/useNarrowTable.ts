@@ -1,4 +1,4 @@
-import { nextTick, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import './narrow-table.css'
 
 const narrowWidth = 700
@@ -11,6 +11,8 @@ export function useNarrowTable(element: Ref<HTMLElement | undefined>, afterResiz
   let pendingWidth = 0
   let appliedWidth = 0
   let disposed = false
+  let mounted = false
+  let observed:HTMLElement|undefined
   const schedule = (width: number) => {
     if (disposed || width <= 0 || !Number.isFinite(width)) return
     pendingWidth = width
@@ -25,17 +27,24 @@ export function useNarrowTable(element: Ref<HTMLElement | undefined>, afterResiz
     })
   }
   const measure = () => { if (element.value) schedule(element.value.getBoundingClientRect().width) }
-  onMounted(() => {
+  const observe=()=>{
+    if(!mounted||element.value===observed)return
+    if(observed)observer?.unobserve(observed)
+    observed=element.value
+    if(observed)observer?.observe(observed)
     measure()
-    if (!element.value) return
+  }
+  watch(element,observe,{flush:'post'})
+  onMounted(() => {
+    mounted=true
     if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(entries => {
         for (const entry of entries) {
           if (entry.target === element.value) schedule(entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width)
         }
       })
-      observer.observe(element.value)
     } else window.addEventListener('resize', measure)
+    observe()
   })
   onBeforeUnmount(() => {
     disposed = true

@@ -2,7 +2,7 @@ import {test,expect} from './runtime'
 
 test('core-only entry never loads feature modules',async({page})=>{
   const featureRequests:string[]=[]
-  page.on('request',request=>{if(/ColumnSettings|TableSearch|ViewSwitcher|TableToolbar|RowActions|ViewsPanel|ExportDialog|TemplateDownloadDialog|DensityMenu|SearchSummary/.test(request.url()))featureRequests.push(request.url())})
+  page.on('request',request=>{if(/ColumnSettings|TableSearch|ViewSwitcher|TableToolbar|RowActions|ViewsPanel|ExportDialog|TemplateDownloadDialog|DensityMenu|SearchSummary|RichEditor/.test(request.url()))featureRequests.push(request.url())})
   await page.goto('/?example=config&mode=core')
   await expect(page.locator('[data-business-table]')).toContainText('A-001')
   await expect(page.locator('.bt__bar')).toHaveCount(0)

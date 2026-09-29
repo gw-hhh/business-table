@@ -1,0 +1,12 @@
+/** Headless entry: no VXE, component modules or stylesheet side effects. */
+export {useTableRuntime} from '../runtime/useTableRuntime'
+export type {TableRuntime,TableRuntimeInput,TableRuntimeEvents} from '../runtime/useTableRuntime'
+export type {SearchContext} from '../runtime/query'
+export type {SearchPanelOptions,SearchPanelPersistence,SearchPanelContext} from '../features/search/panel'
+export type {SearchDefinition,SearchItem,SearchValues} from '../features/search/model'
+export {createRegistry} from '../runtime/registry'
+export {createViewsRuntime,createViewChangeTracker} from '../features/views/runtime'
+export type {ViewsPanelRuntime,ViewSnapshot} from '../features/views/runtime'
+export * from '../types'
+export * from '../core'
+export * from '../persistence'

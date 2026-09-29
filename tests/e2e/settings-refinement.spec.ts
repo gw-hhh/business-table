@@ -269,30 +269,77 @@ test('toolbar and action settings collapse by level while preserving edited valu
 })
 
 for(const scenario of [
-  {tab:'列设置',source:'拖动排序 负责人',target:'拖动排序 项目名称 / 客户',row:'.bt-settings-pick'},
+  {tab:'列设置',source:'拖动排序 状态',target:'拖动排序 项目名称 / 客户',row:'.bt-settings-pick'},
   {tab:'操作按钮',source:'拖动操作 删除',target:'拖动操作 查看',row:'.bt-action-setting'},
   {tab:'工具栏',source:'拖动工具 新增报价',target:'拖动工具 模板下载',row:'.bt-tool-config__row'},
 ])test(`${scenario.tab} reorders at the indicated edge and clears canceled drags`,async({page})=>{
+  await page.setViewportSize({width:1440,height:1000})
   const drawer=await openSettings(page)
   await drawer.getByRole('tab',{name:scenario.tab,exact:true}).click()
   const source=drawer.getByRole('button',{name:scenario.source,exact:true})
+  await expect(source).toBeVisible()
+  if(scenario.tab==='操作按钮'){
+    const headings=drawer.locator('.bt-action-setting > header button[aria-expanded="true"]')
+    while(await headings.count())await headings.first().click()
+  }
   const target=drawer.locator(scenario.row).filter({has:page.getByRole('button',{name:scenario.target,exact:true})})
-  const data=await page.evaluateHandle(()=>new DataTransfer())
-  await source.dispatchEvent('dragstart',{dataTransfer:data})
-  const box=(await target.boundingBox())!
-  await target.dispatchEvent('dragover',{dataTransfer:data,clientY:box.y+2})
+  const before=await drawer.locator(scenario.row+' [data-reorder-handle]').evaluateAll(elements=>elements.map(el=>el.getAttribute('aria-label')))
+  async function begin(){
+    await source.scrollIntoViewIfNeeded()
+    const handle=(await source.boundingBox())!,box=(await target.boundingBox())!
+    await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2)
+    await page.mouse.down();await page.mouse.move(handle.x+handle.width/2+8,handle.y+handle.height/2,{steps:3})
+    await page.mouse.move(box.x+box.width/2,box.y+2,{steps:6})
+    await page.mouse.move(box.x+box.width/2+1,box.y+2)
+  }
+  await begin()
   await expect(target).toHaveAttribute('data-reorder-edge','before')
-  await source.dispatchEvent('dragend',{dataTransfer:data})
+  await page.keyboard.press('Escape');await page.mouse.up()
   await expect(drawer.locator('[data-reorder-edge]')).toHaveCount(0)
-  await source.dispatchEvent('dragstart',{dataTransfer:data})
-  await target.dispatchEvent('drop',{dataTransfer:data,clientY:box.y+2})
-  const handles=await drawer.locator(scenario.row+' button[draggable]').evaluateAll(elements=>elements.map(el=>el.getAttribute('aria-label')))
+  expect(await drawer.locator(scenario.row+' [data-reorder-handle]').evaluateAll(elements=>elements.map(el=>el.getAttribute('aria-label')))).toEqual(before)
+  await begin();await expect(target).toHaveAttribute('data-reorder-edge','before');await page.mouse.up()
+  const handles=await drawer.locator(scenario.row+' [data-reorder-handle]').evaluateAll(elements=>elements.map(el=>el.getAttribute('aria-label')))
   expect(handles.indexOf(scenario.source)).toBe(handles.indexOf(scenario.target)-1)
   await expect(drawer.locator('[data-reorder-edge]')).toHaveCount(0)
+  await expect(page.locator('.bt-reorder-fallback,.bt-reorder-ghost,.bt-reorder-chosen')).toHaveCount(0)
+})
+
+test('dragging near the scroll edge scrolls the list and Escape leaves order unchanged',async({page})=>{
+  await page.goto('/');await page.getByRole('button',{name:'列设置',exact:true}).click()
+  const panel=page.getByTestId('column-panel'),list=panel.locator('.bt-column-popup__list')
+  await expect(panel.getByRole('button',{name:'拖动排序 状态',exact:true})).toBeVisible()
+  const original=await panel.locator('.bt-column-popup__name').allTextContents()
+  const handle=(await panel.getByRole('button',{name:'拖动排序 状态',exact:true}).boundingBox())!,box=(await list.boundingBox())!
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down()
+  await page.mouse.move(handle.x+handle.width/2+8,handle.y+handle.height/2,{steps:3})
+  await page.mouse.move(box.x+box.width/2,box.y+box.height-5,{steps:6})
+  await page.mouse.move(box.x+box.width/2+1,box.y+box.height-5)
+  await expect.poll(()=>list.evaluate(element=>element.scrollTop)).toBeGreaterThan(0)
+  await page.keyboard.press('Escape');await page.mouse.up()
+  await expect(page.locator('.bt-reorder-fallback,.bt-reorder-ghost,.bt-reorder-chosen,[data-reorder-edge]')).toHaveCount(0)
+  expect(await panel.locator('.bt-column-popup__name').allTextContents()).toEqual(original)
 })
 
 test.describe('touch controls',()=>{
   test.use({hasTouch:true,viewport:{width:390,height:900}})
+  test('touch dragging uses insertion edges and removes its fallback ghost after release',async({page})=>{
+    await page.goto('/');await page.getByRole('button',{name:'列设置',exact:true}).click()
+    const panel=page.getByTestId('column-panel'),rows=panel.locator('.bt-column-popup__row')
+    const handle=(await panel.getByRole('button',{name:'拖动排序 状态',exact:true}).boundingBox())!
+    const target=rows.filter({has:page.getByRole('checkbox',{name:'显示项目名称 / 客户',exact:true})}),box=(await target.boundingBox())!
+    const touch=await page.context().newCDPSession(page)
+    await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:handle.x+handle.width/2,y:handle.y+handle.height/2}]})
+    // Exercise the intentional long-press threshold before starting a touch drag.
+    await page.waitForTimeout(160)
+    await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:handle.x+handle.width/2+8,y:handle.y+handle.height/2}]})
+    await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:box.x+box.width/2,y:box.y+2}]})
+    await expect(target).toHaveAttribute('data-reorder-edge','before')
+    await expect(page.locator('.bt-reorder-fallback')).toHaveCount(1)
+    await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+    await expect(page.locator('.bt-reorder-fallback,.bt-reorder-ghost,.bt-reorder-chosen')).toHaveCount(0)
+    expect((await rows.locator('.bt-column-popup__name').allTextContents()).slice(0,3)).toEqual(['报价编号','状态','项目名称 / 客户'])
+    await touch.detach()
+  })
   test('supports explicit move controls and nested font dialog without page overflow',async({page},info)=>{
     await page.goto('/');await page.getByRole('button',{name:'列设置',exact:true}).click()
     const panel=page.getByTestId('column-panel')

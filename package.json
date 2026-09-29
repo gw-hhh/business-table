@@ -14,7 +14,15 @@
       "import": "./dist/business-table.js",
       "require": "./dist/business-table.umd.cjs"
     },
-    "./style.css": "./dist/business-table.css"
+    "./style.css": "./dist/business-table.css",
+    "./runtime": {
+      "types": "./dist/types/entries/runtime.d.ts",
+      "import": "./dist/runtime.js"
+    },
+    "./components": {
+      "types": "./dist/types/entries/components.d.ts",
+      "import": "./dist/components.js"
+    }
   },
   "files": [
     "dist",
@@ -29,7 +37,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:types": "vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json && node scripts/finalize-types.mjs",
-    "build:lib": "npm run type-check && vite build && npm run build:types && npm run audit:package",
+    "build:lib": "npm run type-check && vite build && vite build --mode umd && npm run build:types && npm run audit:package && npm run audit:bundle",
     "build:demo": "vite build --config vite.demo.config.ts",
     "build": "npm run build:lib && npm run build:demo",
     "audit:portability": "node scripts/portability-audit.mjs",
@@ -37,31 +45,42 @@
     "test:e2e": "playwright test",
     "verify:release": "npm run audit:docs && npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e",
     "audit:package": "node scripts/package-audit.mjs",
-    "audit:docs": "node scripts/docs-audit.mjs"
+    "audit:docs": "node scripts/docs-audit.mjs",
+    "audit:bundle": "node scripts/bundle-audit.mjs",
+    "benchmark:runtime": "node scripts/runtime-benchmark.mjs"
   },
   "peerDependencies": {
     "vue": ">=3.5.43 <4",
     "vxe-table": ">=4.21.10 <5"
   },
   "dependencies": {
-    "zod": "^4.4.3",
+    "@floating-ui/vue": "^2.0.1",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-text-align": "^3.31.3",
+    "@tiptap/extension-text-style": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "@tiptap/vue-3": "^3.31.3",
     "@vxe-ui/core": "^4.4.24",
     "dom-zindex": "^1.0.7",
-    "xe-utils": "^4.0.13"
+    "sortablejs": "^1.15.7",
+    "xe-utils": "^4.0.13",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^26.0.1",
+    "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue/test-utils": "^2.4.11",
-    "@types/node": "^26.0.1",
+    "jsdom": "30.1.0",
     "typescript": "^6.0.0",
     "vite": "^8.3.0",
     "vitest": "^4.1.10",
     "vue": "3.5.43",
     "vue-tsc": "^3.3.11",
-    "vxe-table": "4.21.10",
-    "jsdom": "30.1.0",
-    "@playwright/test": "1.63.0",
-    "vxe-pc-ui": "^4.18.0"
+    "vxe-pc-ui": "^4.18.0",
+    "vxe-table": "4.21.10"
   },
   "engines": {
     "node": ">=20.19.0 || >=22.12.0"

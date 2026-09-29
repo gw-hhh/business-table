@@ -10,6 +10,7 @@ import { createRegistry, resolveRenderer, resolveRowActions, type RuntimeRegistr
 import type { FilterPlanPersistence } from './features/filters/plans'
 import type { ColumnConfig, DataSource, Persistence, Query, RowData, TableConfig, ViewConfig } from './types'
 import type { ToolDefinition } from './features/presentation/model'
+import type {SearchPanelPersistence} from './features/search/panel'
 
 const props = defineProps<{
   definition: TableDefinition
@@ -24,12 +25,14 @@ const props = defineProps<{
   filterPlanPersistence?: FilterPlanPersistence | null
   querySummary?: boolean
   loading?: boolean
+  searchPanelPersistence?:SearchPanelPersistence
 }>()
 const emit = defineEmits<{
   preferenceChange: [PreferenceV3]
   queryChange: [Query]
   viewChange: [string | null]
   diagnostic: [ConfigDiagnostic]
+  paginationChange:[{page:number;pageSize:number}]
 }>()
 
 const table = ref<{
@@ -52,6 +55,7 @@ const config = computed<TableConfig>(() => ({
   pageSize: resolved.value.pageSize,
 }))
 const pagination = computed(() => ({
+  ...resolved.value.paginationOptions,
   pageSize: resolved.value.pageSize,
   pageSizeOptions: resolved.value.pageSizeOptions,
 }))
@@ -145,6 +149,8 @@ defineExpose({
     :features="features"
     :remote-features="remoteFeatures"
     :search-definition="searchDefinition"
+    :search-panel="searchDefinition?definition.searchPanel:undefined"
+    :search-panel-persistence="searchPanelPersistence"
     :settings-definition="settingsDefinition"
     :settings-override="settingsOverride"
     :conditional-formatting="conditionalFormatting"
@@ -163,6 +169,7 @@ defineExpose({
     :cell-renderer="renderCell"
     @config-change="changeConfig"
     @query-change="emit('queryChange', $event)"
+    @pagination-change="emit('paginationChange',$event)"
     @view-change="emit('viewChange', $event)"
     @diagnostic="report"
   >

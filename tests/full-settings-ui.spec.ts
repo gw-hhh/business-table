@@ -86,7 +86,7 @@ describe('all settings pages share one draft transaction',()=>{
     expect(wrapper.get('[aria-label="新增工具名称"]').isVisible()).toBe(false)
     await wrapper.get('[aria-label="展开页面工具栏"]').trigger('click')
     expect(wrapper.get('[aria-label="新增工具名称"]').element.matches(':disabled')).toBe(true)
-    expect(wrapper.get('[aria-label="拖动工具 新增"]').attributes('draggable')).toBe('false')
+    expect(wrapper.get('[aria-label="拖动工具 新增"]').element.matches(':disabled')).toBe(true)
     expect(commit).not.toHaveBeenCalled()
   })
   it('omits the action page when local actions and recursive children are all hidden',async()=>{

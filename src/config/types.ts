@@ -1,5 +1,6 @@
 import type {PresentationDelta,TablePresentation} from '../features/presentation/model'
-import type { ColumnConfig, FixedSide, UserColumnConfig } from '../types'
+import type { ColumnConfig, FixedSide, UserColumnConfig, Pagination } from '../types'
+import type { SearchPanelOptions } from '../features/search/panel'
 import type { SearchDefinition } from '../features/search/model'
 import type { ConfigDiagnostic } from './diagnostics'
 import type { ControlConfig, ControlDeclaration } from './access'
@@ -40,12 +41,13 @@ export interface TableDefinition {
   columns: ColumnDefinition[]
   features?: Record<string, unknown>
   search?: SearchDefinition
+  searchPanel?:SearchPanelOptions
   conditionalFormatting?:ConditionalFormattingDefinition
   grouping?:GroupingDefinition
   compare?:CompareDefinition
   rangeSelection?:RangeSelectionDefinition
   settings?: SettingsDefinition
-  pagination?: { pageSize?: number; pageSizeOptions?: number[] }
+  pagination?: Partial<Pagination>
 }
 export interface PreferenceV2 {
   presentation?:PresentationDelta
@@ -71,6 +73,7 @@ export interface ResolveConfigurationInput {
   viewColumns?: unknown
 }
 export interface ResolvedConfiguration {
+  paginationOptions:Partial<Pagination>
   presentation:TablePresentation
   basePresentation:TablePresentation
   columns: ConfigurableColumn[]

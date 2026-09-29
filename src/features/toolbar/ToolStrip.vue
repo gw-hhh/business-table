@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import TableIcon from '../../components/TableIcon.vue'
 import ToolMenu from './ToolMenu.vue'
 import {providePopupScope} from '../../ui/popupScope'
+import {useFloatingPosition} from '../../ui/useFloatingPosition'
 import { presentTools, type ToolDefinition, type ToolPreference } from '../presentation/model'
 
 const props = withDefaults(defineProps<{
@@ -19,7 +20,9 @@ const props = withDefaults(defineProps<{
 const popupScope=providePopupScope()
 const emit = defineEmits<{ error: [cause: unknown] }>()
 const root = ref<HTMLElement>(), trigger = ref<HTMLButtonElement>(), opened = ref(false), failure = ref('')
-const menu = ref<HTMLElement>(), menuStyle = ref<CSSProperties>({ position: 'fixed', right: 'auto' }), narrow = ref(false)
+const menu = ref<HTMLElement>(), narrow = ref(false)
+let overflowFocus:'first'|'last'='first'
+const {styles:menuStyle}=useFloatingPosition({anchor:trigger,popup:menu,open:opened,gap:8,padding:12,onPositioned:()=>focusAt(overflowFocus==='last'?menuItems().length-1:0),onError:cause=>{close();failure.value=cause instanceof Error?cause.message:String(cause);emit('error',cause)}})
 const activeMenu = ref<string>(), menuAnchor = ref<HTMLElement | null>(null), initialFocus = ref<'first'|'last'>('first')
 let media: MediaQueryList | undefined
 let observer: ResizeObserver | undefined
@@ -54,15 +57,7 @@ const menuTool = computed(() => presented.value.find(tool => tool.id === activeM
 const menuItems = () => [...(root.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ?? [])]
 function closeToolMenu(focus = false) { activeMenu.value = undefined; if (focus && menuAnchor.value?.isConnected) menuAnchor.value.focus() }
 function close(focus = false) { closeToolMenu(); opened.value = false; if (focus) trigger.value?.focus() }
-function positionMenu() {
-  if (!opened.value || !trigger.value || !menu.value) return
-  const anchor = trigger.value.getBoundingClientRect(), box = menu.value.getBoundingClientRect(), margin = 12
-  const left = Math.max(margin, Math.min(anchor.right - box.width, window.innerWidth - box.width - margin))
-  const below = anchor.bottom + 8, above = anchor.top - box.height - 8
-  const top = Math.max(margin, Math.min(below + box.height <= window.innerHeight - margin ? below : above, window.innerHeight - box.height - margin))
-  menuStyle.value = { position: 'fixed', right: 'auto', left: `${left}px`, top: `${top}px`, maxHeight: `${window.innerHeight - margin * 2}px`, overflowY: box.height > window.innerHeight - margin * 2 ? 'auto' : 'visible' }
-}
-async function toggleMenu() { closeToolMenu(); opened.value = !opened.value; if (opened.value) { await nextTick(); positionMenu(); focusAt(0) } }
+function toggleMenu() { closeToolMenu(); overflowFocus='first'; opened.value = !opened.value }
 function currentTool(path: readonly string[]): ToolDefinition | undefined {
   let items = presentTools(props.tools, props.layout), current: ToolDefinition | undefined
   for (const id of path) {
@@ -94,10 +89,11 @@ function toolKey(tool: ToolDefinition, event: KeyboardEvent, inMenu = false) {
   event.preventDefault(); event.stopPropagation(); void invoke(tool,event)
 }
 function focusAt(index: number) { const items = menuItems(); items[index]?.focus() }
-async function openFromKey(event: KeyboardEvent) {
+function openFromKey(event: KeyboardEvent) {
   if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return
   event.preventDefault(); event.stopPropagation(); closeToolMenu(); opened.value = true
-  await nextTick(); positionMenu(); focusAt(event.key === 'ArrowUp' ? menuItems().length - 1 : 0)
+  overflowFocus=event.key==='ArrowUp'?'last':'first'
+  if(menu.value)focusAt(overflowFocus==='last'?menuItems().length-1:0)
 }
 function tabAway(event: KeyboardEvent) {
   if (event.defaultPrevented || event.isComposing) return
@@ -127,8 +123,8 @@ function menuKey(event: KeyboardEvent) {
 }
 function outside(event: PointerEvent) { if (event.target instanceof Node && !root.value?.contains(event.target) && !popupScope.contains(event.target)) close() }
 function classes(tool: ToolDefinition) { return ['bt-tool', tool.display === 'icon' ? props.iconButtonClass : props.buttonClass, { 'is-active': tool.active, 'is-primary': tool.variant === 'primary', 'is-icon': tool.display === 'icon' }] }
-function resize() { narrow.value = media?.matches ?? window.innerWidth <= 700; void nextTick(positionMenu) }
-watch(overflow, items => { if (!items.length && opened.value) close(); else void nextTick(positionMenu) })
+function resize() { narrow.value = media?.matches ?? window.innerWidth <= 700 }
+watch(overflow, items => { if (!items.length && opened.value) close() })
 watch(menuTool, tool => { if (!tool?.children?.length) closeToolMenu() })
 watch(()=>JSON.stringify([presented.value.map(tool=>[tool.id,tool.label,tool.display,tool.position,tool.separator]),props.size,props.gap]),()=>void nextTick(measureContainer),{flush:'post'})
 function observeContainer(){observer?.disconnect();if(root.value?.parentElement)observer?.observe(root.value.parentElement);measureContainer()}
@@ -141,14 +137,12 @@ onMounted(() => {
   media?.addEventListener('change', resize)
   document.addEventListener('pointerdown', outside)
   window.addEventListener('resize', resize)
-  window.addEventListener('scroll', positionMenu, true)
 })
 onBeforeUnmount(() => {
   observer?.disconnect()
   media?.removeEventListener('change', resize)
   document.removeEventListener('pointerdown', outside)
   window.removeEventListener('resize', resize)
-  window.removeEventListener('scroll', positionMenu, true)
 })
 </script>
 
@@ -162,7 +156,7 @@ onBeforeUnmount(() => {
     </div>
     <div v-if="overflow.length" class="bt-tool-more">
       <button ref="trigger" type="button" class="bt-tool is-icon" :class="iconButtonClass" :aria-label="moreLabel" :title="moreLabel" :aria-expanded="opened" aria-haspopup="menu" @click="toggleMenu" @keydown="openFromKey"><TableIcon name="more"/></button>
-      <div v-if="opened" ref="menu" class="bt-tool-menu" :class="menuClass" :style="menuStyle" role="menu" :aria-label="moreLabel" @keydown="menuKey">
+      <div v-if="opened" ref="menu" class="bt-tool-menu" :class="menuClass" :style="{...menuStyle,overflowY:'auto'}" role="menu" :aria-label="moreLabel" @keydown="menuKey">
         <div v-for="tool in overflow" :key="tool.id" :data-tool-id="tool.id" :class="{'has-separator':tool.separator}">
           <slot :name="`tool-${tool.id}`" :tool="tool" :invoke="(event:Event,keepOpen=false)=>invoke(tool,event,keepOpen)" :in-menu="true">
             <button type="button" role="menuitem" tabindex="-1" :disabled="tool.disabled === true" :title="tool.label" :aria-label="tool.label" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event,true)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span>{{tool.label}}</span><TableIcon v-if="tool.children" name="chevron-right" :size="12"/></button>

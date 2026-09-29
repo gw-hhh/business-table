@@ -23,7 +23,15 @@ export interface DataSource<T extends RowData>{
   readAll?:(query:Query,options:{limit:number;signal?:AbortSignal})=>Promise<T[]>
   options?:(column:ColumnConfig<T>,query:Query,options:{search:string;signal?:AbortSignal;values?:readonly import('./features/filters/model').FilterOption['value'][]})=>Promise<import('./features/filters/model').FilterOption[]>
 }
-export interface Pagination{page:number;pageSize:number;total:number;pageSizeOptions?:number[]}
+export interface Pagination {
+  page:number;pageSize:number;total:number;pageSizeOptions?:number[]
+  /** Hidden controls keep paging active; disabled paging reads the complete bounded result. */
+  enabled?:boolean;visible?:boolean;hideOnSinglePage?:boolean
+  showTotal?:boolean;showPageSize?:boolean;showPageNumbers?:boolean;showJumper?:boolean
+  align?:'left'|'center'|'right';variant?:'simple'|'full'
+  /** Maximum complete remote result; readAll must reject truncation. */
+  unpagedLimit?:number
+}
 export interface UserColumnConfig{content?:ContentDisplay;mapping?:MappingConfig;numberRule?:NumberRule;template?:TemplateConfig;filter?:ColumnFilterConfig;filterable?:boolean;emptyText?:string;numberFormat?:NumberFormat;valueMap?:ValueMapItem[];title?:string;visible?:boolean;order?:number;width?:number;fixed?:FixedSide;align?:'left'|'center'|'right';sortable?:boolean;headerStyle?:ColumnTextStyle;cellStyle?:ColumnTextStyle}
 export interface TableConfig{presentation?:PresentationDelta;conditionalFormatting?:ConditionalRule[];schemaVersion:1;tableKey:string;columns:Record<string,UserColumnConfig>;pageSize?:number}
 export interface ViewConfig{search?:{values:SearchValues};keyword?:string;pageSize?:number;isSystem?:boolean;isReadOnly?:boolean;columnFilters?:FilterConfig[];filterGroup?:FilterGroup;presentation?:PresentationDelta;conditionalFormatting?:ConditionalRule[];searchCollapsed?:boolean;id:string;name:string;isDefault?:boolean;filters?:FilterConfig[];sorts?:SortConfig[];columns?:Record<string,UserColumnConfig>}

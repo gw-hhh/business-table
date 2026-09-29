@@ -91,6 +91,8 @@ describe('legacy settings refinement',()=>{
     const {wrapper,saves}=setup()
     const palette=wrapper.find('[data-color-picker="表头文字"]')
     expect(palette.exists()).toBe(true)
+    ;(palette.get('details').element as HTMLDetailsElement).open=true
+    await palette.get('details').trigger('toggle');await flushPromises()
     expect(palette.findAll('[data-color-preset]')).toHaveLength(8)
     await palette.get('button[aria-label="使用深蓝色"]').trigger('click')
     expect(wrapper.get('input[aria-label="表头文字文字颜色"]').element).toHaveProperty('value','#2468e8')

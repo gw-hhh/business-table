@@ -36,6 +36,14 @@ describe('row action floating menu',()=>{
     expect(exported).toBe('A')
     expect(document.querySelector('[role="menu"]')).toBeNull()
   })
+  it('enters an already open submenu with ArrowRight after the pointer opened it',async()=>{
+    const wrapper=create([{id:'export',label:'导出',position:'more',children:[{id:'csv',label:'CSV'}]}])
+    await wrapper.get('button').trigger('click');await flushPromises()
+    const parent=document.querySelector<HTMLButtonElement>('[data-action="export"]')!
+    parent.click();await flushPromises();parent.focus()
+    parent.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));await flushPromises()
+    expect(document.activeElement?.getAttribute('data-action')).toBe('csv')
+  })
   it('closes on outside pointer interaction without running a disabled action',async()=>{
     let calls=0
     const wrapper=create([{id:'delete',label:'删除',position:'more',disabled:true,handler:()=>{calls++}}])
@@ -62,7 +70,12 @@ describe('row action floating menu',()=>{
   })
   it('bounds a long menu and nested menu to the viewport and retains keyboard access',async()=>{
     vi.stubGlobal('innerHeight',240);vi.stubGlobal('innerWidth',390)
+    vi.spyOn(document.documentElement,'clientWidth','get').mockReturnValue(390)
+    vi.spyOn(document.documentElement,'clientHeight','get').mockReturnValue(240)
+    vi.spyOn(HTMLElement.prototype,'offsetWidth','get').mockImplementation(function(this:HTMLElement){return this.getAttribute('role')==='menu'?174:162})
+    vi.spyOn(HTMLElement.prototype,'offsetHeight','get').mockImplementation(function(this:HTMLElement){return this.getAttribute('role')==='menu'?224:35})
     vi.spyOn(HTMLElement.prototype,'getBoundingClientRect').mockImplementation(function(this:HTMLElement){
+      if(this===document.documentElement||this===document.body)return {x:0,y:0,left:0,top:0,right:390,bottom:240,width:390,height:240,toJSON(){}}
       if(this.classList.contains('bt__more-trigger'))return {x:315,y:190,left:315,top:190,right:370,bottom:220,width:55,height:30,toJSON(){}} as DOMRect
       if(this.getAttribute('role')==='menu')return {x:0,y:0,left:0,top:0,right:174,bottom:224,width:174,height:224,toJSON(){}} as DOMRect
       return {x:220,y:180,left:220,top:180,right:382,bottom:215,width:162,height:35,toJSON(){}} as DOMRect

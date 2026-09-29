@@ -15,6 +15,15 @@ export {ConfiguredBusinessTable}
 export*from'./types';export*from'./core';export*from'./persistence';export{BusinessTable}
 export const BusinessTablePlugin:Plugin={install(app:App){app.use(VxeUITable);app.component('BusinessTable',BusinessTable);app.component('ConfiguredBusinessTable',ConfiguredBusinessTable)}}
 export default BusinessTablePlugin
+export {useTableRuntime} from './runtime/useTableRuntime'
+export type {TableRuntime,TableRuntimeInput,TableRuntimeEvents} from './runtime/useTableRuntime'
+export type {SearchPanelOptions,SearchPanelPersistence,SearchPanelContext} from './features/search/panel'
+export {default as BusinessTableGrid} from './components/BusinessTableGrid.vue'
+export {default as TablePagination} from './components/TablePagination.vue'
+export {default as SearchRegion} from './components/SearchRegion.vue'
+export {default as SearchToggle} from './components/SearchToggle.vue'
+export const TableSearch=defineAsyncComponent(()=>import('./components/TableSearch.vue'))
+export {default as TableTools} from './features/toolbar/ToolStrip.vue'
 
 export type { FilterGroup } from './runtime/filter'
 export type { FilterState } from './runtime/filter-state'

@@ -17,6 +17,7 @@ const VxeTableStub = defineComponent({
   template: '<div><slot /><slot v-if="data.length === 0" name="empty" /></div>',
 })
 const VxeColumnStub = defineComponent({
+  name: 'TestVxeColumn',
   props: ['field', 'title', 'width', 'fixed'],
   setup() { return { rows: inject<Ref<Row[]>>('test-grid-rows') } },
   template: '<div :data-column="field" :data-width="width" :data-fixed="fixed"><slot name="header" /><div v-for="row in rows" :key="row.id"><slot :row="row" /></div></div>',

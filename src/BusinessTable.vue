@@ -1,23 +1,28 @@
 <script setup lang="ts" generic="T extends RowData">
 import{computed,defineAsyncComponent,reactive,ref,shallowReactive,useSlots,type ComponentPublicInstance,type VNodeChild}from'vue'
 import type{Action,ColumnConfig,DataSource,Pagination,Persistence,Query,RowData,SortConfig,TableConfig,UserColumnConfig,ViewConfig}from'./types'
-import{displayValue,getValue}from'./core'
+
 import {readFeatureDetails,resolveFeatureGate,featureEntryVisible,dataToolDisabled,isDataToolName,type DataToolName,type TableFeatures} from './config/features'
 import type {ConfigDiagnostic} from './config/diagnostics'
 import FeatureHost from './components/FeatureHost.vue'
-import CellRenderer from './components/CellRenderer'
+import TableSurface from './components/TableSurface.vue'
+import TablePagination from './components/TablePagination.vue'
+import SearchRegion from './components/SearchRegion.vue'
+import SearchToggle from './components/SearchToggle.vue'
+import type {SearchPanelOptions,SearchPanelPersistence} from './features/search/panel'
+
 import TableIcon from './components/TableIcon.vue'
-import {columnTextCss as textStyle} from './components/settingsTypes'
-import {useNarrowTable} from './presentation/useNarrowTable'
-import {useTableViewport,scrollViewportByKey} from './presentation/useTableViewport'
+
+
+
 import {resolveColumnLayout} from './presentation/columnLayout'
 import {useTableRuntime} from './runtime/useTableRuntime'
 import type {RuntimeRegistry} from './runtime/registry'
 import type {PresentationDelta,ToolDefinition} from './features/presentation/model'
 import type {SettingsCommit} from './features/settings/session'
 import {guardSettingsColumnPatch,resolveSettingsPolicy,type SettingsDefinition} from './features/settings/policy'
-import BusinessCell from './components/BusinessCell.vue'
-import ColumnHeader from './features/columns/ColumnHeader.vue'
+
+
 import type {ColumnHeaderContext} from './features/columns/header'
 import {getSettingsColumnFieldAccess} from './features/settings/policy'
 import {cloneData} from './runtime/value'
@@ -30,20 +35,16 @@ import type {DataToolsHandle} from './features/data-tools'
 import type {ConditionalFormattingDefinition} from './features/conditional-formatting/model'
 import type {GroupingDefinition,CompareDefinition} from './features/reports/model'
 import type {RangeSelectionDefinition} from './features/range-selection/context'
-import {rangePointer,rangeKey} from './features/range-selection/surface'
+
 const QuerySummary=defineAsyncComponent(()=>import('./components/QuerySummary.vue'))
 const FilterChips=defineAsyncComponent(()=>import('./features/filters/FilterChips.vue'))
 const defaultSearchDefinition={items:[{id:'keyword',label:'关键词',kind:'keyword',defaultValue:''}]}
 const tableElement=ref<HTMLElement>()
-const viewportElement=ref<HTMLElement>()
-const gridElement=ref<{recalculate:(full?:boolean)=>Promise<void>}>()
-function recalculateGrid(){
-  void gridElement.value?.recalculate(true).catch(cause=>{error.value=cause instanceof Error?cause.message:String(cause)})
-}
-const narrow=useNarrowTable(tableElement,recalculateGrid)
-const viewportSize=useTableViewport(viewportElement,recalculateGrid,()=>viewportElement.value?.querySelector<HTMLElement>('.vxe-table--main-wrapper .vxe-table--header-wrapper')??undefined)
-const props=withDefaults(defineProps<{conditionalFormatting?:ConditionalFormattingDefinition;grouping?:GroupingDefinition;compare?:CompareDefinition;rangeSelection?:RangeSelectionDefinition;querySummary?:boolean;settingsDefinition?:SettingsDefinition;settingsOverride?:unknown;filterPlanPersistence?:FilterPlanPersistence|null;presentation?:PresentationDelta;tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;preferenceTimeoutMs?:number;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;searchDefinition?:unknown;registry?:RuntimeRegistry<T>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default',preferenceTimeoutMs:3000})
-const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]];cellAction:[{action:'open'|'copy';row:T;column:ColumnConfig<T>}]}>()
+const surface=ref<{narrow:boolean;columnLayout:ReturnType<typeof resolveColumnLayout>}>()
+const narrow=computed(()=>surface.value?.narrow??false)
+const columnLayout=computed(()=>surface.value?.columnLayout??{widths:{} as Record<string,number>,totalWidth:0})
+const props=withDefaults(defineProps<{conditionalFormatting?:ConditionalFormattingDefinition;grouping?:GroupingDefinition;compare?:CompareDefinition;rangeSelection?:RangeSelectionDefinition;querySummary?:boolean;settingsDefinition?:SettingsDefinition;settingsOverride?:unknown;filterPlanPersistence?:FilterPlanPersistence|null;presentation?:PresentationDelta;tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};tableKey?:string;rowKey?:string;title?:string;data?:T[];dataSource?:DataSource<T>;columns:ColumnConfig<T>[];pagination?:Partial<Pagination>;config?:TableConfig|null;views?:ViewConfig[];actions?:Action<T>[];persistence?:Persistence|null;preferenceTimeoutMs?:number;loading?:boolean;features?:TableFeatures;remoteFeatures?:Record<string,unknown>;searchDefinition?:unknown;searchPanel?:SearchPanelOptions;searchPanelPersistence?:SearchPanelPersistence;registry?:RuntimeRegistry<T>;actionProvider?:(details:{label?:string;allowedItems?:string[]})=>Action<T>[];cellRenderer?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;selection?:boolean;fill?:boolean;density?:'compact'|'default'|'comfortable'}>(),{tableKey:'',rowKey:'id',data:()=>[],persistence:null,config:null,density:'default',preferenceTimeoutMs:3000})
+const emit=defineEmits<{queryChange:[Query];configChange:[TableConfig];viewChange:[string|null];diagnostic:[ConfigDiagnostic];selectionChange:[T[]];paginationChange:[{page:number;pageSize:number}];cellAction:[{action:'open'|'copy';row:T;column:ColumnConfig<T>}]}>()
 const slots=useSlots()
 type FeatureName=keyof TableFeatures
 const declarations=computed(()=>({
@@ -74,7 +75,7 @@ const runtime=useTableRuntime<T>({
     const ids=Array.isArray(items)?items.flatMap(item=>item&&typeof item==='object'&&typeof item.id==='string'?[item.id]:[]):[]
     return readFeatureDetails(declarations.value.search,props.remoteFeatures?.search,diagnostic=>emit('diagnostic',diagnostic),ids).allowedItems
   },
-  get registry(){return props.registry},
+  get searchPanel(){return props.searchPanel},get searchPanelPersistence(){return props.searchPanelPersistence},get registry(){return props.registry},
   // An explicitly closed declaration stays explicit, so Core commands cannot
   // regain the legacy unrestricted path when the feature is turned off.
   get settingsDefinition(){return gate('columnSettings').enabled?props.settingsDefinition:props.settingsDefinition===undefined?undefined:{}},
@@ -87,7 +88,7 @@ const runtime=useTableRuntime<T>({
     const allowed=readFeatureDetails(declarations.value.conditionalFormatting,props.remoteFeatures?.conditionalFormatting,diagnostic=>emit('diagnostic',diagnostic),definition?.allowedColumns??sourceColumns.value.filter(column=>column.kind!=='actions').map(column=>column.id)).allowedItems
     return {...definition,allowedColumns:allowed}
   },
-},{queryChange:query=>emit('queryChange',query),configChange:config=>emit('configChange',config),viewChange:id=>emit('viewChange',id),selectionChange:rows=>emit('selectionChange',rows),diagnostic:diagnostic=>emit('diagnostic',diagnostic)})
+},{paginationChange:state=>emit('paginationChange',state),queryChange:query=>emit('queryChange',query),configChange:config=>emit('configChange',config),viewChange:id=>emit('viewChange',id),selectionChange:rows=>emit('selectionChange',rows),diagnostic:diagnostic=>emit('diagnostic',diagnostic)})
 const {rows,total,page,pageSize,sorts,columnFilters,filterGroup,activeView,busy,error,config,allResolvedColumns,resolvedColumns,query,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,report,rowId,load,changePageSize,getState,getSelectedRows,clearSelection,selectRow,selectPage,setQuery,goPage,sort,applyView,patch,applyPatches,applySettings,setPresentation,setColumnFilters,setFilterState}=runtime
 const hasFilterSummary=computed(()=>gate('filters').enabled&&(columnFilters.value.length>0||Boolean(filterGroup.value?.rules.length)))
 const dataColumns=computed(()=>resolvedColumns.value.filter(column=>column.kind!=='actions'))
@@ -95,22 +96,14 @@ const dataTools=ref<DataToolsHandle>()
 const hasDataTools=computed(()=>(['conditionalFormatting','grouping','compare','rangeSelection'] as const).some(name=>gate(name).enabled))
 const rangeContext=computed(()=>dataTools.value?.getRangeContext())
 const openDataTool=(name:DataToolName)=>dataTools.value?.open(name)??Promise.resolve()
-function viewportKey(event:KeyboardEvent){if(!rangeKey(event,viewportElement.value,rangeContext.value,cause=>{error.value=cause instanceof Error?cause.message:String(cause)}))scrollViewportByKey(event,viewportElement.value?.querySelector<HTMLElement>('.vxe-table--main-wrapper .vxe-table--body-inner-wrapper'))}
-function rowMark(row:T,column:ColumnConfig<T>){const rule=runtime.conditionalRule(row);return rule&&dataColumns.value.find(item=>item.field===rule.condition.field)?.id===column.id?rule:undefined}
-function rowClass({row}:{row:T}){return [selected.value.has(rowId(row))?'is-selected':'',runtime.conditionalRule(row)?'has-rule-mark':''].filter(Boolean).join(' ')}
-function cellStyle({row}:{row:T}){const rule=runtime.conditionalRule(row);return rule&&!selected.value.has(rowId(row))?{backgroundColor:rule.background}:undefined}
 const actionColumn=computed(()=>allResolvedColumns.value.find(column=>column.kind==='actions'))
 const tableStyle=computed(()=>({'--bt-font':fontFamilyCss(presentation.value.appearance.fontFamily),'--bt-body-size':presentation.value.appearance.fontSize+'px','--bt-header-size':presentation.value.appearance.headerFontSize+'px','--bt-body-color':presentation.value.appearance.color,'--bt-header-color':presentation.value.appearance.headerColor}))
-async function cellAction(action:'open'|'copy',row:T,column:ColumnConfig<T>){
-  if(action==='copy'){try{await navigator.clipboard.writeText(String(getValue(row,column.field)??''))}catch{error.value='浏览器未允许复制，请手动选择内容复制。'}}
-  emit('cellAction',{action,row,column})
-}
 const showHeader=computed(()=>(['title','search','views','toolbar','columnSettings','filters'] as const).some(name=>{const value=gate(name);return value.enabled&&value.mode!=='headless'}))
 const hasHeaderFeatures=computed(()=>(['title','search','views','toolbar','columnSettings','filters'] as const).some(name=>gate(name).enabled))
 const hosts=shallowReactive(new Map<FeatureName,{activate:()=>Promise<object|undefined>;getContext:()=>object|undefined}>())
 function setHost(name:FeatureName,value:Element|ComponentPublicInstance|null){if(value)hosts.set(name,value as unknown as ReturnType<typeof hosts.get> & {});else hosts.delete(name)}
 function titleContext(details:{label?:string}){return reactive({get label(){return details.label??props.title??'数据列表'},get total(){return total.value}})}
-function searchContext(){return runtime.searchContext()}
+function searchContext(){return Object.assign(runtime.searchContext(),{panel:runtime.searchPanel})}
 function viewsContext(){return reactive({get views(){return props.views??[]},get activeId(){return activeView.value},apply(id:string){applyView(props.views?.find(view=>view.id===id))}})}
 const tableTools=computed<readonly ToolDefinition[]>(()=>props.tools?.table??(gate('toolbar').enabled?[{id:'refresh',label:'刷新',icon:'refresh',handler:()=>load()}]:[]))
 function toolbarContext(){return reactive({get tools(){return tableTools.value},get layout(){return presentation.value.toolbar.table},get gap(){return presentation.value.toolbar.gap},refresh:()=>void load()})}
@@ -173,25 +166,21 @@ const hasRenderedActions=computed(()=>{
   const context=hosts.get('rowActions')?.getContext() as {actions:readonly Action<T>[]} | undefined
   return Boolean(context?.actions.length)
 })
-const columnLayout=computed(()=>resolveColumnLayout(
-  resolvedColumns.value.filter(column=>column.kind!=='actions'||hasRenderedActions.value),
-  viewportSize.value.width,
-  (props.selection?44:0)+(presentation.value.appearance.index?48:0),
-))
-// Native stable gutters absorb small overflows within their reserved space; do not add a second scrollbar row for them.
-const gridScrollbars=computed(()=>props.fill?{y:{visible:'visible' as const},x:{visible:columnLayout.value.totalWidth>viewportSize.value.frameWidth}}:undefined)
-defineExpose({openDataTool,clearQuery:runtime.clearQuery,openFilters,setFilterState,applySettings,setPresentation,setColumnFilters,readRows:runtime.readRows,selectQuery:runtime.selectQuery,optionsFor:runtime.optionsFor,viewSnapshot:runtime.viewSnapshot,getRuntime:()=>runtime,reload:()=>load(),setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.activate(name):hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.getContext(name):hosts.get(name)?.getContext()})
+defineExpose({openDataTool,clearQuery:runtime.clearQuery,openFilters,setFilterState,applySettings,setPresentation,setColumnFilters,readRows:runtime.readRows,selectQuery:runtime.selectQuery,optionsFor:runtime.optionsFor,viewSnapshot:runtime.viewSnapshot,getRuntime:()=>runtime,reload:runtime.reload,setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.activate(name):hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.getContext(name):hosts.get(name)?.getContext()})
 </script>
 <template>
 <section ref="tableElement" class="bt" :class="{'bt--range':rangeContext?.enabled,'bt--narrow':narrow,'bt--fill':fill,['bt--'+presentation.appearance.density]:true,['bt-border--'+presentation.appearance.border]:true,'bt--stripe':presentation.appearance.stripe,'bt--no-hover':!presentation.appearance.hover}" :style="tableStyle" data-business-table :aria-busy="Boolean(loading||busy)">
   <div v-if="error" class="bt__error" role="alert">{{error}}</div>
-  <slot name="before" :search="gate('search').enabled?searchContext():undefined"/>
+  <slot name="before" :search="gate('search').enabled?searchContext():undefined" :search-panel="runtime.searchPanel" :runtime="runtime"/>
   <header v-if="hasHeaderFeatures||slots['toolbar-start']||slots['toolbar-end']" :class="{'bt__bar':showHeader||slots['toolbar-start']||slots['toolbar-end']}" :style="!showHeader&&!slots['toolbar-start']&&!slots['toolbar-end']?{display:'contents'}:undefined">
     <slot name="toolbar-start" :total="total" :rows="rows"/>
     <FeatureHost :key="tableKey" v-if="gate('title').enabled" :ref="value=>setHost('title',value)" :local="declarations.title" :remote="remoteFeatures?.title" :create-context="titleContext" :loader="()=>import('./components/TableTitle.vue')" @diagnostic="report"><template #custom="{context}"><slot name="title" :context="context"/></template></FeatureHost>
     <div class="bt__tools">
       <slot name="toolbar-end"/>
-      <FeatureHost :key="tableKey" v-if="gate('search').enabled" :ref="value=>setHost('search',value)" :local="declarations.search" :remote="remoteFeatures?.search" :create-context="searchContext" :loader="()=>import('./components/TableSearch.vue')" @diagnostic="report"><template #custom="{context}"><slot name="search" :context="context"/></template></FeatureHost>
+      <SearchRegion v-if="gate('search').enabled" :panel="runtime.searchPanel" :context="searchContext()">
+        <FeatureHost :key="tableKey" v-if="gate('search').enabled" :ref="value=>setHost('search',value)" :local="declarations.search" :remote="remoteFeatures?.search" :create-context="searchContext" :loader="()=>import('./components/TableSearch.vue')" @diagnostic="report"><template #custom="{context}"><slot name="search" :context="context"/></template></FeatureHost>
+      </SearchRegion>
+      <SearchToggle v-if="runtime.searchPanel.toggleButton.value" :panel="runtime.searchPanel"/>
       <FeatureHost :key="tableKey" v-if="gate('views').enabled" :ref="value=>setHost('views',value)" :local="declarations.views" :remote="remoteFeatures?.views" default-strategy="after-definition" :create-context="viewsContext" :loader="()=>import('./components/ViewSwitcher.vue')" @diagnostic="report"><template #custom="{context}"><slot name="views" :context="context"/></template></FeatureHost>
       <FeatureHost :key="tableKey" v-if="gate('columnSettings').enabled" :ref="value=>setHost('columnSettings',value)" :local="declarations.columnSettings" :remote="remoteFeatures?.columnSettings" default-strategy="on-interaction" :entry-label="settingsEntryLabel" entry-icon="columns" test-id="column-settings" @entry="resetSettingsEntry" :create-context="columnSettingsContext" :loader="()=>import('./components/ColumnSettings.vue')" @diagnostic="report"><template #custom="{context}"><slot name="column-settings" :context="context"/></template></FeatureHost>
       <button v-if="gate('columnSettings').enabled&&gate('columnSettings').mode==='default'&&featureEntryVisible(declarations.columnSettings,remoteFeatures?.columnSettings)" class="bt__settings-trigger" data-testid="table-settings" @click="openColumnSettings('drawer')"><TableIcon name="settings"/>表格设置</button>
@@ -211,22 +200,11 @@ defineExpose({openDataTool,clearQuery:runtime.clearQuery,openFilters,setFilterSt
     <template #compare="{context}"><slot name="compare" :context="context" /></template>
     <template #range-selection="{context}"><slot name="range-selection" :context="context" /></template>
   </DataToolsHost>
-  <div ref="viewportElement" :id="tableKey?tableKey+'-viewport':undefined" class="bt__viewport" tabindex="0" role="region" :aria-label="(title??'数据列表')+'，可横向滚动'" @keydown="viewportKey" @pointerdown="rangePointer($event,rangeContext,'start')" @pointerover="rangePointer($event,rangeContext,'extend')">
-  <vxe-table ref="gridElement" :auto-resize="false" :height="fill?viewportSize.height||undefined:undefined" :scrollbar-config="gridScrollbars" :row-class-name="rowClass" :cell-style="cellStyle" :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:presentation.appearance.hover,keyField:rowKey}">
-    <template #loading><div v-if="loading||busy" class="bt__loading" role="status" aria-label="加载中">加载中…</div></template>
-    <vxe-column v-if="selection" width="44" :fixed="narrow?undefined:'left'" class-name="bt__select-cell">
-      <template #header><input type="checkbox" aria-label="选择当前页" :checked="allSelected" :indeterminate="someSelected" @change="event=>selectPage((event.target as HTMLInputElement).checked)"></template>
-      <template #default="{row}"><input type="checkbox" :aria-label="'选择 '+rowId(row)" :checked="selected.has(rowId(row))" @change="event=>selectRow(row,(event.target as HTMLInputElement).checked)"></template>
-    </vxe-column>
-    <vxe-column v-if="presentation.appearance.index" type="seq" title="序号" width="48" :fixed="narrow?undefined:'left'" :seq-config="{startIndex:(page-1)*pageSize}"/>
-    <vxe-column v-for="c in dataColumns" :key="c.id" :field="c.field" :title="c.title" :width="columnLayout.widths[c.id]" :min-width="c.minWidth??120" :fixed="narrow?undefined:c.fixed||undefined" :align="c.align??'left'" :header-align="c.headerStyle?.align??c.align??'left'" :sortable="false">
-      <template #header><ColumnHeader :context="columnHeaderContext(c)"/></template>
-      <template #default="{row}"><div class="bt__cell-content" :style="textStyle(c.cellStyle)" :data-range-row="rowId(row)" :data-range-column="c.id" :tabindex="rangeContext?.enabled?0:undefined" :role="rangeContext?.enabled?'gridcell':undefined" :aria-selected="rangeContext?.enabled?rangeContext.isSelected(rowId(row),c.id):undefined"><slot name="cell" :row="row" :column="c" :value="getValue(row,c.field)" :text="displayValue(getValue(row,c.field),c)"><CellRenderer v-if="cellRenderer&&c.renderer" :value="getValue(row,c.field)" :row="row" :column="c" :renderer="cellRenderer" @diagnostic="report"/><BusinessCell v-else :row="row" :column="c" :columns="allResolvedColumns" @action="cellAction($event,row,c)"/></slot><span v-if="rowMark(row,c)" class="bt-row-mark" :style="{color:rowMark(row,c)?.color,backgroundColor:rowMark(row,c)?.background}"><TableIcon name="info" :size="12" />{{rowMark(row,c)?.label}}</span></div></template>
-    </vxe-column>
-    <FeatureHost :key="tableKey" v-if="gate('rowActions').enabled" :ref="value=>setHost('rowActions',value)" :local="declarations.rowActions" :remote="remoteFeatures?.rowActions" :create-context="rowActionsContext" :loader="()=>import('./components/RowActions.vue')" @diagnostic="report"><template #custom="{context}"><slot name="row-actions" :context="context"/></template></FeatureHost>
-    <template #empty><div class="bt__empty">暂无数据</div></template>
-  </vxe-table>
-  </div>
-  <footer class="bt__footer"><slot name="summary" :total="total" :rows="rows" :page="page" :page-size="pageSize"><span>共 {{total}} 条，第 {{page}} / {{pages}} 页</span></slot><div class="bt__pages"><select v-model.number="pageSize" aria-label="每页条数" @change="changePageSize"><option v-for="n in allowedPageSizes" :key="n" :value="n">{{n}} 条 / 页</option></select><button :class="{'bt__page-arrow':fill}" aria-label="上一页" :disabled="page<=1" @click="goPage(page-1)"><TableIcon v-if="fill" name="chevron-left"/><template v-else>上一页</template></button><template v-if="fill"><button v-for="n in pageButtons" :key="n" :class="{'is-current':n===page}" :aria-current="n===page?'page':undefined" :aria-label="'第 '+n+' 页'" @click="goPage(n)">{{n}}</button></template><button :class="{'bt__page-arrow':fill}" aria-label="下一页" :disabled="page>=pages" @click="goPage(page+1)"><TableIcon v-if="fill" name="chevron-right"/><template v-else>下一页</template></button><label v-if="fill" class="bt__jump">前往 <input v-model.number="jumpPage" type="number" min="1" :max="pages" aria-label="跳转页码" @keyup.enter="goPage(jumpPage)"><button class="bt__link" @click="goPage(jumpPage)">跳转</button></label></div></footer>
+  <TableSurface ref="surface" :container="tableElement" :runtime="runtime" :table-key="tableKey" :row-key="rowKey" :title="title" :selection="selection" :fill="fill" :loading="loading" :has-actions="hasRenderedActions" :range-context="rangeContext" :column-header="columnHeaderContext" :cell-renderer="cellRenderer" @cell-action="emit('cellAction',$event)">
+    <template v-if="slots.cell" #cell="scope"><slot name="cell" v-bind="scope"/></template>
+    <template #columns>    <FeatureHost :key="tableKey" v-if="gate('rowActions').enabled" :ref="value=>setHost('rowActions',value)" :local="declarations.rowActions" :remote="remoteFeatures?.rowActions" :create-context="rowActionsContext" :loader="()=>import('./components/RowActions.vue')" @diagnostic="report"><template #custom="{context}"><slot name="row-actions" :context="context"/></template></FeatureHost>
+</template>
+  </TableSurface>
+  <slot name="pagination" :runtime="runtime"><TablePagination :runtime="runtime" :full="fill"><template v-if="slots.summary" #summary="scope"><slot name="summary" v-bind="scope" :rows="rows"/></template></TablePagination></slot>
 </section>
 </template>

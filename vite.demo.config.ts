@@ -1,1 +1,2 @@
-import{defineConfig}from'vite';import vue from'@vitejs/plugin-vue';export default defineConfig({plugins:[vue()],build:{outDir:'demo-dist',emptyOutDir:true}})
+import {fileURLToPath} from 'node:url'
+import{defineConfig}from'vite';import vue from'@vitejs/plugin-vue';export default defineConfig({plugins:[vue()],resolve:{alias:{'@company/business-table/runtime':fileURLToPath(new URL('./src/entries/runtime.ts',import.meta.url)),'@company/business-table/components':fileURLToPath(new URL('./src/entries/components.ts',import.meta.url))}},build:{outDir:'demo-dist',emptyOutDir:true}})

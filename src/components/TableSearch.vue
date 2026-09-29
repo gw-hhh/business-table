@@ -2,9 +2,12 @@
 import { computed, ref } from 'vue'
 import type { SearchContext } from '../runtime/query'
 import SearchField from './SearchField.vue'
+import type {SearchPanelContext} from '../features/search/panel'
 
-const props = defineProps<{ context: SearchContext }>()
-const expanded = ref(!props.context.defaultCollapsed)
+const props = defineProps<{ context: SearchContext & {panel?:SearchPanelContext};panel?:SearchPanelContext }>()
+const localExpanded = ref(!props.context.defaultCollapsed)
+const panel=computed(()=>props.panel??props.context.panel)
+const expanded=computed({get:()=>panel.value?.advanced.value??localExpanded.value,set:value=>{if(panel.value)panel.value.setAdvanced(value);else localExpanded.value=value}})
 const error = ref('')
 const primary = computed(() => props.context.items.filter(item => !item.advanced))
 const advanced = computed(() => props.context.items.filter(item => item.advanced))

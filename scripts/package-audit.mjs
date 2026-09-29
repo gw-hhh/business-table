@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 
 const root = resolve(import.meta.dirname, '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
-for (const entry of [pkg.main, pkg.module, pkg.types, pkg.exports['./style.css']]) {
+for (const entry of [pkg.main, pkg.module, pkg.types, pkg.exports['./style.css'],pkg.exports['./runtime'].import,pkg.exports['./runtime'].types,pkg.exports['./components'].import,pkg.exports['./components'].types]) {
   assert(existsSync(join(root, entry)), `Missing packaged entry: ${entry}`)
 }
 const workspace = mkdtempSync(join(tmpdir(), 'business-table-consumer-'))
@@ -22,12 +22,14 @@ try {
   mkdirSync(consumerPackage, { recursive: true })
   execFileSync('tar', ['xzf', join(workspace, pack.filename), '-C', consumerPackage, '--strip-components=1'])
   // Install only the existing locked peers into this independent consumer.
-  for (const name of ['vue','vxe-table','vxe-pc-ui','zod','@vxe-ui/core','xe-utils','dom-zindex']) {
+  for (const name of new Set(['vue','vxe-table','vxe-pc-ui',...Object.keys(pkg.dependencies)])) {
     const target = join(workspace, 'node_modules', ...name.split('/'))
     mkdirSync(resolve(target, '..'), { recursive: true })
     symlinkSync(join(root, 'node_modules', ...name.split('/')), target, process.platform === 'win32' ? 'junction' : 'dir')
   }
   writeFileSync(join(workspace, 'package.json'), JSON.stringify({ type: 'module' }))
+  // Executing the independent headless entry also catches accidental DOM/CSS dependencies.
+  execFileSync(process.execPath,['--input-type=module','-e',`import {useTableRuntime} from '${pkg.name}/runtime'; if(typeof useTableRuntime!=='function') process.exit(1)`],{cwd:workspace,stdio:'pipe'})
   writeFileSync(join(workspace, 'consumer.ts'), `
     import { h } from 'vue'
     import { BusinessTable, ConfiguredBusinessTable, QuerySummary, SearchSummary, type SearchContext, type ToolDefinition, type ColumnConfig, type FilterState, type FiltersContext, type FilterGroup, type FilterPlanPersistence, createRegistry } from '${pkg.name}'

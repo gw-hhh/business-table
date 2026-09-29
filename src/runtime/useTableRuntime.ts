@@ -15,6 +15,7 @@ import {type FilterState} from './filter-state'
 import {useQueryRuntime,type QueryChange} from './query'
 import {getSettingsColumnFieldAccess,guardSettingsColumnPatch,guardSettingsCommit,resolveSettingsPolicy,type SettingsDefinition} from '../features/settings/policy'
 import {compileConditionalRules,guardConditionalRules,readConditionalRules,type ConditionalFormattingDefinition,type ConditionalRule} from '../features/conditional-formatting/model'
+import {useSearchPanel,type SearchPanelOptions,type SearchPanelPersistence} from '../features/search/panel'
 
 export interface TableRuntimeInput<T extends RowData> {
   readonly tableKey?:string;readonly rowKey?:string;readonly columns:ColumnConfig<T>[];readonly data?:T[]
@@ -22,6 +23,7 @@ export interface TableRuntimeInput<T extends RowData> {
   readonly persistence?:Persistence|null;readonly preferenceTimeoutMs?:number;readonly selection?:boolean
   readonly presentation?:PresentationDelta;readonly density?:'compact'|'default'|'comfortable'
   readonly searchDefinition?:unknown;readonly searchAllowedItems?:readonly string[];readonly registry?:RuntimeRegistry<T>
+  readonly searchPanel?:SearchPanelOptions;readonly searchPanelPersistence?:SearchPanelPersistence
   readonly settingsDefinition?:SettingsDefinition;readonly settingsOverride?:unknown
   readonly conditionalFormattingEnabled?:boolean;readonly conditionalFormattingDisabled?:boolean
   readonly conditionalFormattingDefinition?:ConditionalFormattingDefinition
@@ -29,6 +31,7 @@ export interface TableRuntimeInput<T extends RowData> {
 export interface TableRuntimeEvents<T extends RowData> {
   queryChange?:(query:Query)=>void;configChange?:(config:TableConfig)=>void;viewChange?:(id:string|null)=>void
   selectionChange?:(rows:T[])=>void;diagnostic?:(diagnostic:ConfigDiagnostic)=>void
+  paginationChange?:(state:{page:number;pageSize:number})=>void
 }
 export type {QueryChange} from './query'
 /** The same state and commands are consumed by the default table, custom UI and headless pages. */
@@ -71,7 +74,9 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   })
   const compiledConditionalRules=computed(()=>compileConditionalRules(conditionalRules.value,allResolvedColumns.value))
   function conditionalRule(row:T):ConditionalRule|undefined{const matched=compiledConditionalRules.value(row);return matched?cloneData(matched):undefined}
-  const pages=computed(()=>Math.max(1,Math.ceil(total.value/pageSize.value)))
+  const paginationEnabled=computed(()=>input.pagination?.enabled!==false)
+  const paginationOptions=computed(()=>input.pagination??{})
+  const pages=computed(()=>paginationEnabled.value?Math.max(1,Math.ceil(total.value/pageSize.value)):1)
   const jumpPage=ref(1),pageButtons=computed(()=>Array.from({length:Math.min(5,pages.value)},(_,index)=>Math.max(1,Math.min(page.value-2,pages.value-4))+index))
   const selected=shallowRef(new Map<string,T>())
   let selectionRequest=0,selectionController:AbortController|undefined
@@ -89,6 +94,18 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     report,
   })
   const {keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView}=queryRuntime
+  const searchPanel=useSearchPanel({key,enabled:()=>input.searchDefinition!==undefined,definition:()=>input.searchPanel,collapsed:()=>queryRuntime.context(async()=>{}).defaultCollapsed,persistence:()=>input.searchPanelPersistence,report:cause=>report({code:'RemoteConfigError',path:'searchPanel',message:cause instanceof Error?cause.message:String(cause)})})
+  let searchTimer:ReturnType<typeof setTimeout>|undefined
+  function cancelAutoSearch(){if(searchTimer!==undefined){clearTimeout(searchTimer);searchTimer=undefined}}
+  const searchContext=()=>queryRuntime.context(async()=>{cancelAutoSearch();page.value=1;clearSelection();await load()})
+  watch(()=>JSON.stringify([searchContext().values,searchContext().draft]),()=>{
+    cancelAutoSearch()
+    const delay=input.searchPanel?.autoSubmitMs
+    if(input.searchDefinition===undefined||!searchContext().pending||typeof delay!=='number'||!Number.isFinite(delay)||delay<0)return
+    searchTimer=setTimeout(()=>{searchTimer=undefined;void searchContext().submit().catch(cause=>{error.value=cause instanceof Error?cause.message:String(cause)})},Math.min(delay,10000))
+  },{flush:'sync'})
+  watch([()=>input.tableKey,()=>input.searchDefinition,()=>input.searchPanel?.autoSubmitMs],cancelAutoSearch)
+  onBeforeUnmount(cancelAutoSearch)
   const query=computed<Query>(()=>({page:page.value,pageSize:pageSize.value,...queryRuntime.query.value}))
   // Labels depend on the source and query criteria, never the current page.
   // Keep this an opaque identity so summary watchers do not traverse raw rows.
@@ -119,7 +136,15 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     result=applyFilters(result,[...request.filters,...(request.columnFilters??[])]).filter(compileFilterGroup(request.filterGroup))
     return applySorts(result,request.sorts,allResolvedColumns.value)
   }
-  function validPage(request:Query,count:number){return clampPage(request.page,Math.max(1,Math.ceil(count/request.pageSize)))}
+  let localCache:{source:readonly T[];criteria:string;columns:string;rows:T[]}|undefined
+  function localResult(request:Query):T[]{
+    const source=input.data??[],{page:_page,pageSize:_size,signal:_signal,...criteria}=request
+    const criteriaKey=JSON.stringify(criteria),columnKey=JSON.stringify(allResolvedColumns.value)
+    if(!localCache||localCache.source!==source||localCache.criteria!==criteriaKey||localCache.columns!==columnKey)
+      localCache={source,criteria:criteriaKey,columns:columnKey,rows:filterLocal(source,request)}
+    return localCache.rows
+  }
+  function validPage(request:Query,count:number){return paginationEnabled.value?clampPage(request.page,Math.max(1,Math.ceil(count/request.pageSize))):1}
   async function load(snapshot?:Query):Promise<void>{
     if(!ready||disposed)return
     lastSearchSignature=queryRuntime.searchSignature.value
@@ -128,7 +153,15 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     busy.value=true;error.value=''
     try{
       const request=copyQuery(snapshot??query.value);events.queryChange?.(copyQuery(request))
-      if(input.dataSource){
+      if(input.dataSource&&!paginationEnabled.value){
+        if(!input.dataSource.readAll)throw new Error('关闭远程分页需要数据源提供完整结果接口 readAll。')
+        const declared=input.pagination?.unpagedLimit
+        const limit=typeof declared==='number'&&Number.isSafeInteger(declared)&&declared>0?Math.min(declared,10000):10000
+        const result=await input.dataSource.readAll({...copyQuery(request),page:1,signal:active.signal},{limit,signal:active.signal})
+        if(!current())return
+        if(!Array.isArray(result)||result.length>limit)throw new Error(`完整结果超过 ${limit} 条，请启用分页。`)
+        rows.value=result;total.value=result.length;page.value=1
+      }else if(input.dataSource){
         const result=await input.dataSource.query({...copyQuery(request),signal:active.signal})
         if(!current())return
         if(!result||!Array.isArray(result.rows)||!Number.isSafeInteger(result.total)||result.total<0)throw new Error('数据接口返回了无效的记录或总数。')
@@ -136,8 +169,8 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
         if(corrected!==request.page){page.value=corrected;void load({...request,page:corrected});return}
         rows.value=result.rows;total.value=result.total
       }else{
-        const result=filterLocal(input.data??[],request);total.value=result.length;page.value=validPage(request,result.length)
-        rows.value=result.slice((page.value-1)*request.pageSize,page.value*request.pageSize)
+        const result=localResult(request);total.value=result.length;page.value=validPage(request,result.length)
+        rows.value=paginationEnabled.value?result.slice((page.value-1)*request.pageSize,page.value*request.pageSize):[...result]
       }
     }catch(cause){if(current())error.value=cause instanceof Error?cause.message:String(cause)}
     finally{if(current()){busy.value=false;controller=null}}
@@ -202,10 +235,11 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   async function patch(id:string,change:UserColumnConfig){return applyPatches({[id]:change})}
   async function setQuery(change:QueryChange){
     queryRuntime.setQuery(change);page.value=1
+    if(change.keyword!==undefined)cancelAutoSearch()
     clearSelection();await load()
   }
   async function clearQuery(){
-    queryRuntime.clearQuery();page.value=1
+    queryRuntime.clearQuery();cancelAutoSearch();page.value=1
     clearSelection();await load()
   }
   async function setFilterState(next:FilterState){
@@ -215,8 +249,9 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   async function setColumnFilters(next:FilterConfig[]){
     await setFilterState({columnFilters:next,filterGroup:filterGroup.value})
   }
-  function search(){queryRuntime.commitSearch();page.value=1;clearSelection();void load()}
-  function goPage(next:number){page.value=clampPage(next,pages.value);void load()}
+  function search(){cancelAutoSearch();queryRuntime.commitSearch();page.value=1;clearSelection();void load()}
+  function goPage(next:number){page.value=clampPage(next,pages.value);return load()}
+  function setPageSize(next:number){pageSize.value=next;changePageSize()}
   function changePageSize(){page.value=1;pageSize.value=normalizePagination({...input.pagination,pageSize:pageSize.value}).pageSize;void saveConfig(current=>({...current,pageSize:pageSize.value})).catch(()=>{});void load()}
   function sort(column:ColumnConfig){
     if(!column.sortable)return
@@ -267,6 +302,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   }
   async function applyView(view?:ViewConfig,searchKeyword?:string){
     queryRuntime.restoreView(view,searchKeyword)
+    cancelAutoSearch()
     viewConditionalRevision++
     if(view?.isSystem){/* The base view clears queries, not the user's current layout. */}
     else {
@@ -357,7 +393,10 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   watch([()=>normalizePagination(input.pagination).pageSize,()=>normalizePagination(input.pagination).pageSizeOptions.join(',')],([next],[before])=>{
     updatePageSize(normalizePagination({...input.pagination,pageSize:next!==before?next:pageSize.value}).pageSize)
   })
-  watch([()=>input.dataSource,()=>input.data],([source],[previous])=>{cancelQuerySelection();if(source!==previous)page.value=1;if(source!==previous||!source)void load()},{deep:true})
+  watch([()=>input.dataSource,()=>input.data],([source],[previous])=>{localCache=undefined;cancelQuerySelection();if(source!==previous)page.value=1;if(source!==previous||!source)void load()},{deep:true})
+  watch(()=>input.pagination?.page,next=>{if(next!==undefined){page.value=normalizePagination({...input.pagination,page:next}).page;void load()}})
+  watch(paginationEnabled,()=>{page.value=1;void load()})
+  watch([page,pageSize],([page,pageSize])=>events.paginationChange?.({page,pageSize}))
   watch(()=>queryRuntime.searchSignature.value,signature=>{
     if(!ready||disposed||signature===lastSearchSignature)return
     page.value=1;clearSelection();void load()
@@ -365,7 +404,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;viewConditionalFormatting.value=undefined;viewConditionalRevision++;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;cancelQuerySelection();preferenceController.abort();controller?.abort();commitListeners.clear()})
-  const commands={reload:()=>load(),setQuery,clearQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,setConditionalRules,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,readRows,optionsFor,sort}
-  return {rows,total,page,pageSize,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,conditionalRules,conditionalRule,settingsPolicy,report,rowId,load,search,searchContext:()=>queryRuntime.context(async()=>{page.value=1;clearSelection();await load()}),changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
+  const commands={reload:()=>{localCache=undefined;return load()},setQuery,clearQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,setConditionalRules,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,setPageSize,readRows,optionsFor,sort}
+  return {tableKey:computed(key),rowKey:computed(rowKey),selectionEnabled:computed(()=>input.selection===true),rows,total,page,pageSize,paginationEnabled,paginationOptions,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,conditionalRules,conditionalRule,settingsPolicy,report,rowId,load,search,searchPanel,searchContext,changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

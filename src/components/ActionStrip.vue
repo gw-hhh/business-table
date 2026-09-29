@@ -6,6 +6,7 @@ import ActionMenuItems from './ActionMenuItems.vue'
 import './action-menu.css'
 import {defaultPresentation,presentActions,type RowActionLayout} from '../features/presentation/model'
 import {splitActionLayout} from '../features/presentation/action-layout'
+import {useFloatingPosition} from '../ui/useFloatingPosition'
 const props=withDefaults(defineProps<{row:T;actions:Action<T>[];rowId:(row:T)=>string;layout?:RowActionLayout;preview?:boolean;reportError?:(cause:unknown)=>void}>(),{layout:()=>defaultPresentation().rowActions,preview:false,reportError:()=>{}})
 const host=ref<HTMLElement>(),measureHost=ref<HTMLElement>(),availableWidth=ref(0)
 let observer:ResizeObserver|undefined,frame=0
@@ -21,7 +22,8 @@ function measure(){
 const measurement=ref(0)
 function scheduleMeasure(){if(frame)return;frame=requestAnimationFrame(()=>{frame=0;measure()})}
 const currentRow=shallowRef<T|null>(null),trigger=shallowRef<HTMLElement>(),menu=ref<HTMLElement>()
-const menuPosition=ref({left:'0px',top:'0px',maxHeight:'0px'}),flip=ref(false)
+const {styles:menuPosition}=useFloatingPosition({anchor:trigger,popup:menu,open:()=>!!currentRow.value,onPositioned:element=>{(element.querySelector<HTMLElement>('button:not(:disabled)')??element).focus({preventScroll:true})},onError:positionFailed})
+function positionFailed(cause:unknown){close();props.reportError(cause)}
 const actions=computed(()=>presentActions(props.actions,props.layout))
 const renderedActions=computed(()=>actions.value.filter(action=>visible(action,props.row)&&(!action.children||action.children.some(child=>visible(child,props.row)))))
 const allocation=computed(()=>{void measurement.value;return splitActionLayout(renderedActions.value,props.layout.maxInline,availableWidth.value,props.layout.gap,action=>widths.get(action.id)??(action.display==='icon'?18:action.label.length*14+(action.display==='icon-text'?22:0)),44)})
@@ -36,21 +38,10 @@ function list(_row:T,position:'inline'|'more'){
   return grouped.map((item,index)=>({...item,separator:item.separator||index>0&&item.group!==grouped[index-1]?.group}))
 }
 function close(returnFocus=false){currentRow.value=null;if(returnFocus)trigger.value?.focus()}
-async function open(row:T,event:MouseEvent){
+function open(row:T,event:MouseEvent){
   const element=event.currentTarget as HTMLElement
   if(currentRow.value&&props.rowId(currentRow.value)===props.rowId(row)){close();return}
   trigger.value=element;currentRow.value=row
-  const box=element.getBoundingClientRect()
-  const maxHeight=`${Math.max(0,window.innerHeight-16)}px`
-  menuPosition.value={left:`${Math.max(8,box.right-174)}px`,top:`${box.bottom+6}px`,maxHeight}
-  await nextTick()
-  if(!menu.value)return
-  const size=menu.value.getBoundingClientRect()
-  const left=Math.max(8,Math.min(window.innerWidth-size.width-8,box.right-size.width))
-  menuPosition.value={left:`${left}px`,top:`${box.bottom+6+size.height>window.innerHeight-8?Math.max(8,box.top-size.height-6):box.bottom+6}px`,maxHeight}
-  flip.value=left+size.width*2>window.innerWidth-8
-  const first=menu.value.querySelector<HTMLElement>('button:not(:disabled)')
-  if(first)first.focus();else menu.value.focus()
 }
 async function run(action:Action<T>,row:T,path:string[]=[action.id]){
   // Resolve the current tree, rather than trusting a leaf captured before its
@@ -94,7 +85,7 @@ onBeforeUnmount(()=>{observer?.disconnect();cancelAnimationFrame(frame);document
   </div>
   <Teleport to="body">
     <div v-if="currentRow" ref="menu" class="bt-floating bt__menu" role="menu" tabindex="-1" aria-label="行操作" :style="menuPosition" @keydown="keyboard">
-      <ActionMenuItems :actions="list(currentRow,'more') as Action<RowData>[]" :is-visible="action=>visible(action as Action<T>,currentRow!)" :is-disabled="action=>disabled(action as Action<T>,currentRow!)" :flip="flip" @select="(action,path)=>run(action as Action<T>,currentRow!,path)"/>
+      <ActionMenuItems :actions="list(currentRow,'more') as Action<RowData>[]" :is-visible="action=>visible(action as Action<T>,currentRow!)" :is-disabled="action=>disabled(action as Action<T>,currentRow!)" @select="(action,path)=>run(action as Action<T>,currentRow!,path)" @error="positionFailed"/>
     </div>
   </Teleport>
 </template>

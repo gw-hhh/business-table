@@ -3,3 +3,8 @@
 .bt-reorder-item[data-reorder-edge]::after{content:"";position:absolute;left:0;right:0;height:2px;background:#2468e8;border-radius:2px;pointer-events:none;z-index:2}
 .bt-reorder-item[data-reorder-edge=before]::after{top:0}
 .bt-reorder-item[data-reorder-edge=after]::after{bottom:0}
+.bt-reorder-item.bt-reorder-chosen{outline:1px solid #a9c8ff;outline-offset:-1px}
+.bt-reorder-item.bt-reorder-ghost{opacity:.45;background:#eef5ff}
+.bt-reorder-item.bt-reorder-fallback{opacity:.9!important;box-shadow:0 6px 18px #23395730;pointer-events:none;z-index:3000!important}
+[data-reorder-handle=true]{touch-action:none;cursor:grab}
+.bt-reorder-chosen [data-reorder-handle=true]{cursor:grabbing}

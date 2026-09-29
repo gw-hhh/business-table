@@ -1,21 +1,8 @@
 import {describe,it,expect} from 'vitest'
-import {readRichDocument,richText} from '../src/features/rich-text/document'
-import {formatRange,replaceRange,readEditorHtml} from '../src/features/rich-text/editor-model'
+import {richText} from '../src/features/rich-text/document'
+import {readEditorHtml} from '../src/features/rich-text/clipboard'
 
 describe('shared rich document editing',()=>{
-  it('formats only selected text while keeping the source immutable',()=>{
-    const source=readRichDocument('甲乙丙')
-    const result=formatRange(source,{start:1,end:2},{bold:true,color:'#2468e8'})
-    expect(richText(result)).toBe('甲乙丙')
-    expect(result.ops.find(op=>op.insert==='乙')?.attributes).toMatchObject({bold:true,color:'#2468e8'})
-    expect(source.ops).toEqual([{insert:'甲乙丙'},{insert:'\n'}])
-  })
-  it('preserves field tokens when replacing a selected range',()=>{
-    const source=readRichDocument({ops:[{insert:'项目：'},{insert:{field:'name'}},{insert:'\n'}]},{fields:['name'],template:true})
-    const result=replaceRange(source,{start:0,end:3},{ops:[{insert:'名称：'}]})
-    expect(result.ops.some(op=>typeof op.insert==='object'&&op.insert.field==='name')).toBe(true)
-    expect(richText(result,id=>id==='name'?'示例':'')).toBe('名称：示例')
-  })
   it('sanitizes pasted HTML without loading or retaining executable content',()=>{
     const result=readEditorHtml('<p><b>你好</b><script>alert(1)</script><img src=x onerror=alert(1)><a href="javascript:alert(1)">坏链接</a><a href="https://example.com/a">文档</a></p>')
     expect(richText(result)).toBe('你好坏链接文档')

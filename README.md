@@ -11,6 +11,7 @@
 | 看页面、学习操作 | [使用操作教程](docs/01-项目入门/05-使用操作教程.md) |
 | 首次安装与接入 | [逐步接入教程](docs/01-项目入门/06-逐步接入教程.md)、[完整 Vue 示例](docs/03-业务模块/01-接入示例/README.md) |
 | 查配置、范围、只读与隐藏 | [配置字段手册](docs/02-架构与规范/08-配置字段手册.md)、[场景配方](docs/02-架构与规范/11-场景配置配方.md) |
+| 外置搜索、独立分页与组件组合 | [组件组合与分页](docs/02-架构与规范/12-组件组合与分页.md)、[ComposedTable.vue](docs/03-业务模块/01-接入示例/ComposedTable.vue) |
 | 对接后台与保存用户设置 | [查询协议](docs/02-架构与规范/09-查询与后台对接.md)、[持久化指南](docs/02-架构与规范/10-偏好与视图持久化.md) |
 | 排查问题 | [常见问题](docs/01-项目入门/07-常见问题与排查.md) |
 
@@ -80,6 +81,8 @@ Search 开启后可用 `searchDefinition` 声明稳定字段 ID、类型、默�
 
 ## 当前进度
 
+2026-09-29 接入共用 `useTableRuntime` 的 BusinessTableGrid、SearchRegion、SearchToggle、TablePagination 和 TableTools；根入口兼容，新增 ESM `runtime`/`components` 子入口。`/?example=composition` 提供双实例示例。搜索区隐藏保留草稿，分页栏显隐与关闭分页分别配置；Tiptap、SortableJS 和 Floating UI 进入共享编辑、拖动和定位层。接法见[组件组合](docs/02-架构与规范/12-组件组合与分页.md)，本轮完整门禁及提交状态见[本批验收](docs/06-验收记录/2026-09/2026-09-29-组件组合与交互基础升级/README.md)，本轮完整本地发布门禁已通过。
+
 Query/Search、视图创建/更新/重命名/默认/重排/删除、列头菜单/列宽调整、设置预览、Excel/CSV 导出与模板下载已接入通用组件。报价详情、新增、修改、复制使用业务抽屉。此次按旧版实际操作修正首屏及交互；验证范围和结果见 [本批验收](docs/06-验收记录/2026-09/2026-09-23-旧版交互与视觉对齐/README.md)。实际进度见 [当前状态](docs/01-项目入门/03-当前状态.md)和[迁移历史](docs/07-参考与归档/01-旧版迁移历史.md)。
 
 设置中的映射、格式、模板和规则试算已有基础实现；当前“试算”用于核对列显示和导出结果，BT-08 的计算字段与公式引擎仍待实施。
@@ -96,7 +99,7 @@ Query/Search、视图创建/更新/重命名/默认/重排/删除、列头菜单
 
 ## Release gate
 
-先运行 `npx pnpm@10.17.1 exec playwright install chromium` 安装浏览器。`npm run verify:release` 必须同时通过文档链接与索引审计、portability audit、SFC audit、vue-tsc、Vitest、组件库构建、Demo 构建和 Playwright Chromium E2E。main 的发布合并还需用户明确安排。
+先运行 `npx pnpm@10.17.1 exec playwright install chromium` 安装浏览器。`npm run verify:release` 必须同时通过文档链接与索引审计、portability audit、SFC audit、vue-tsc、Vitest、组件库构建、发布包与入口依赖审计、Demo 构建和 Playwright Chromium E2E。main 的发布合并还需用户明确安排。
 
 Playwright 同时检查开发页面和构建后的 Demo，捕获 console.error、pageerror、原生 window error 和 unhandledrejection。单独运行 E2E 前先执行 `npm run build:demo`。
 

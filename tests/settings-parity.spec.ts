@@ -5,6 +5,8 @@ import ColumnSettingsDrawer from '../src/components/ColumnSettingsDrawer.vue'
 import type {ColumnSettingsContext} from '../src/components/settingsTypes'
 import {defaultPresentation} from '../src/features/presentation/model'
 import {allColumnCapabilities,fullSettingsPolicy} from './fixtures/settings'
+import Sortable from 'sortablejs'
+import {sortableEvent} from './fixtures/sortable'
 
 const wrappers:VueWrapper[]=[]
 function setup(overrides:Partial<ColumnSettingsContext>={}){
@@ -86,10 +88,19 @@ describe('settings parity interactions',()=>{
     const policy=fullSettingsPolicy()
     const {wrapper,context}=setup({sorts:[{field:'name',order:'asc'},{field:'amount',order:'desc'}],settingsPolicy:policy})
     await wrapper.get('button[aria-label="排序规则"]').trigger('click')
-    await wrapper.get('button[aria-label="拖动排序规则 1"]').trigger('dragstart')
-    await wrapper.findAll('.bt-settings-sort-rule')[1]!.trigger('drop')
+    function drag(){
+      const list=wrapper.get<HTMLElement>('.bt-settings-sort-page').element
+      const rows=wrapper.findAll<HTMLElement>('.bt-settings-sort-rule'),source=rows[0]!.element
+      const engine=Sortable.get(list)!
+      engine.options.onChoose?.(sortableEvent(list,source,'mousedown'));engine.options.onStart?.(sortableEvent(list,source,'mousedown'))
+      rows[1]!.element.dispatchEvent(new MouseEvent('dragover',{bubbles:true,clientY:1,cancelable:true}))
+      engine.options.onEnd?.(sortableEvent(list,source,'drop'))
+    }
+    drag();await flushPromises()
     expect(wrapper.getComponent(ColumnSettingsDrawer).emitted('sorts')?.at(-1)).toEqual([[{field:'amount',order:'desc'},{field:'name',order:'asc'}]])
     policy.pages.sorts.disabled=true;await wrapper.setProps({context:{...context,settingsPolicy:policy}})
-    expect(wrapper.get('button[aria-label="拖动排序规则 1"]').attributes('draggable')).toBe('false')
+    drag();await flushPromises()
+    expect(wrapper.getComponent(ColumnSettingsDrawer).emitted('sorts')).toHaveLength(1)
+    expect(wrapper.get('button[aria-label="拖动排序规则 1"]').element.matches(':disabled')).toBe(true)
   })
 })

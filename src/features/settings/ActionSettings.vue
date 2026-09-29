@@ -30,7 +30,7 @@ const reorder=useDragReorder({ids:()=>ordered().map(action=>action.id),disabled:
       </div><label class="bt-settings-check"><input type="checkbox" :checked="modelValue.grouped" @change="patch({grouped:($event.target as HTMLInputElement).checked})">更多菜单按普通、导出、危险操作分组</label><p class="bt-settings-note">列宽不足时，末尾按钮自动放入“更多”。隐藏按钮不改变用户权限。</p>
     </SettingsSection>
     <SettingsSection title="按钮及顺序">
-
+      <div :ref="reorder.setList">
       <SettingsSection v-for="(action,index) in ordered()" :title="modelValue.items[action.id]?.label??action.label" :key="action.id" class="bt-action-setting" :data-action-setting="action.id" v-bind="reorder.row(action.id)">
         <template #actions><button type="button" v-bind="reorder.handle(action.id)" :disabled="disabled" class="bt-settings-icon" :aria-label="'拖动操作 '+action.label"><TableIcon name="grip" :size="12"/></button></template>
         <fieldset class="bt-settings-control-group bt-action-setting__controls" :disabled="disabled"><div class="bt-action-setting__row">
@@ -44,6 +44,7 @@ const reorder=useDragReorder({ids:()=>ordered().map(action=>action.id),disabled:
         <SettingsSection v-if="action.children" title="二级菜单" :disabled="disabled" class="bt-action-setting__children"><div class="bt-action-setting__child-list"><div v-for="(child,childIndex) in [...action.children].sort((a,b)=>(modelValue.items[a.id]?.order??a.order??0)-(modelValue.items[b.id]?.order??b.order??0))" :key="child.id"><label class="bt-settings-check"><input type="checkbox" :aria-label="'显示子菜单 '+child.label" :checked="modelValue.items[child.id]?.position!=='hidden'" @change="change(child.id,{position:($event.target as HTMLInputElement).checked?'more':'hidden'})">{{child.label}}</label><div class="bt-setting-moves"><button v-for="offset in [-1,1]" :key="offset" class="bt-settings-icon" :aria-label="(offset<0?'上移子菜单 ':'下移子菜单 ')+child.label" :disabled="childIndex+offset<0||childIndex+offset>=action.children.length" @click="moveChild(action,childIndex,offset)"><TableIcon :name="offset<0?'chevron-up':'chevron-down'" :size="12"/></button></div></div></div></SettingsSection>
         <p v-if="action.danger" class="bt-settings-note bt-settings-warning">删除保留原名称、危险色和确认提示。</p>
       </SettingsSection>
+      </div>
     </SettingsSection>
   </div>
 </template>

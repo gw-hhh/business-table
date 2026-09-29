@@ -151,10 +151,18 @@ function parseColumns(input: unknown, report?: DiagnosticReporter): Configurable
   return columns.sort((a, b) => a.order - b.order || a.index - b.index).map(entry => entry.column)
 }
 
-function parsePagination(input: unknown, fallback: { pageSize: number; pageSizeOptions: number[] }, path: string, report?: DiagnosticReporter) {
-  const result = { pageSize: fallback.pageSize, pageSizeOptions: [...fallback.pageSizeOptions] }
+function parsePagination(input: unknown, fallback: Partial<import('../types').Pagination> & { pageSize: number; pageSizeOptions: number[] }, path: string, report?: DiagnosticReporter) {
+  const result = { ...fallback, pageSize: fallback.pageSize, pageSizeOptions: [...fallback.pageSizeOptions] }
   if (input === undefined) return result
   if (!isRecord(input)) { issue(report, path, '分页配置必须是对象。'); return result }
+  const extras={page:positiveInteger,enabled:z.boolean(),visible:z.boolean(),hideOnSinglePage:z.boolean(),showTotal:z.boolean(),showPageSize:z.boolean(),showPageNumbers:z.boolean(),showJumper:z.boolean(),align:z.enum(['left','center','right']),variant:z.enum(['simple','full']),unpagedLimit:positiveInteger.max(10000)}
+  for(const [key,schema] of Object.entries(extras)){
+    const value=own(input,key)
+    if(value===undefined)continue
+    const parsed=schema.safeParse(value)
+    if(parsed.success)Object.assign(result,{[key]:parsed.data})
+    else issue(report,`${path}.${key}`,'分页配置无效，已保留默认值。')
+  }
   const options = own(input, 'pageSizeOptions')
   if (options !== undefined) {
     if (Array.isArray(options)) {
@@ -215,7 +223,7 @@ export function resolveConfiguration(input: ResolveConfigurationInput, report?: 
     preference = createPreferenceDelta(tableKey, baseColumns, { schemaVersion: 1, tableKey, columns: parsedPreference.columns, pageSize: pagination.pageSize, presentation:presentationDelta(presentation,basePresentation),...(parsedPreference.conditionalFormatting===undefined?{}:{conditionalFormatting:parsedPreference.conditionalFormatting}) }, basePageSize,basePresentation)
   }
   columns = applyColumnPatches(columns, input.viewColumns, diagnostic => collect({ ...diagnostic, path: `view.${diagnostic.path}` }))
-  return { columns, baseColumns, preference, basePageSize, presentation,basePresentation,...pagination, diagnostics }
+  return { columns, baseColumns, preference, basePageSize, presentation,basePresentation,...pagination,paginationOptions:pagination, diagnostics }
 }
 
 export function createPreferenceDelta(tableKey: string, baseColumns: ConfigurableColumn[], config: TableConfig, pageSize = 20, basePresentation:TablePresentation=defaultPresentation()): PreferenceV3 {

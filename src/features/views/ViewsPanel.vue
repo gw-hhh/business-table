@@ -1,23 +1,19 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, type CSSProperties } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import DialogFrame from '../../ui/DialogFrame.vue'
 import TableIcon from '../../components/TableIcon.vue'
 import {useDragReorder} from '../../ui/useDragReorder'
+import {useFloatingPosition} from '../../ui/useFloatingPosition'
 import type { ViewSnapshot, ViewsPanelRuntime } from './runtime'
 
 const props=withDefaults(defineProps<{runtime:ViewsPanelRuntime;snapshot:()=>ViewSnapshot;modified?:boolean;pending?:boolean}>(),{modified:false,pending:false})
 const emit=defineEmits<{notice:[message:string];requireApply:[];committed:[]}>()
-const opened=ref(false),root=ref<HTMLElement>(),trigger=ref<HTMLElement>(),popup=ref<HTMLElement>(),popupStyle=ref<CSSProperties>({}),error=ref(''),busy=ref(false)
+const opened=ref(false),root=ref<HTMLElement>(),trigger=ref<HTMLElement>(),popup=ref<HTMLElement>(),error=ref(''),busy=ref(false)
+const {styles:popupStyle}=useFloatingPosition({anchor:trigger,popup,open:opened,placement:'bottom-start',gap:8,onError:cause=>{opened.value=false;error.value=cause instanceof Error?cause.message:String(cause);emit('notice',error.value)}})
 const editor=ref<{id?:string;name:string}>(),confirmation=ref<{kind:'update'|'delete';id:string;name:string}>()
 const views=computed(()=>props.runtime.views.value),current=computed(()=>props.runtime.current.value)
 const editable=computed(()=>!!current.value&&!current.value.isSystem&&!current.value.isReadOnly)
-function position(){
-  if(!opened.value||!trigger.value||!popup.value)return
-  const anchor=trigger.value.getBoundingClientRect(),box=popup.value.getBoundingClientRect()
-  const width=document.documentElement.clientWidth||window.innerWidth,height=document.documentElement.clientHeight||window.innerHeight
-  popupStyle.value={maxWidth:`${Math.max(0,width-16)}px`,maxHeight:`${Math.max(0,height-16)}px`,left:`${Math.max(8,Math.min(anchor.left,width-Math.min(box.width,width-16)-8))}px`,top:`${Math.max(8,Math.min(anchor.bottom+8,height-box.height-8))}px`}
-}
-async function toggle(){opened.value=!opened.value;error.value='';await nextTick();position()}
+function toggle(){opened.value=!opened.value;error.value=''}
 async function run(action:()=>void|Promise<unknown>,message?:string){if(busy.value)return;busy.value=true;error.value='';try{await action();if(message)emit('notice',message);return true}catch(cause){error.value=cause instanceof Error?cause.message:'保存失败，请重试。';return false}finally{busy.value=false}}
 async function apply(id:string){if(await run(()=>props.runtime.apply(id))){opened.value=false;emit('notice',`已切换到“${current.value?.name}”。`)}}
 function requireApplied(){if(!props.pending)return true;opened.value=false;emit('requireApply');emit('notice','查询条件还未应用，请先点击查询，再保存视图。');return false}
@@ -30,15 +26,15 @@ async function move(id:string,offset:number){await run(()=>props.runtime.move(id
 const reorder=useDragReorder({ids:()=>views.value.map(view=>view.id),disabled:()=>busy.value,canMove:id=>!views.value.find(view=>view.id===id)?.isSystem,canDrop:(id,target)=>{const from=views.value.findIndex(view=>view.id===id);return canMove(from,views.value.findIndex(view=>view.id===target)-from)},move:(id,target)=>{void move(id,views.value.findIndex(view=>view.id===target)-views.value.findIndex(view=>view.id===id))}})
 function outside(event:PointerEvent){if(event.target instanceof Node&&!root.value?.contains(event.target))opened.value=false}
 function escape(event:KeyboardEvent){if(event.key==='Escape'&&opened.value){event.preventDefault();event.stopPropagation();opened.value=false;trigger.value?.focus()}}
-onMounted(()=>{document.addEventListener('pointerdown',outside);window.addEventListener('resize',position)})
-onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',position)})
+onMounted(()=>{document.addEventListener('pointerdown',outside)})
+onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside)})
 </script>
 <template>
   <div ref="root" class="bt-views" @keydown="escape">
     <button ref="trigger" class="bt-views-trigger" type="button" aria-label="保存与切换视图" aria-haspopup="dialog" :aria-expanded="opened" @click="toggle"><TableIcon name="bookmark" :size="13"/><span>{{current?.name??'全部'}}</span><TableIcon name="chevron-down" :size="13"/></button>
     <div v-if="opened" ref="popup" class="bt-views-popup" role="dialog" aria-label="我的视图" :style="popupStyle">
       <header><h3>我的视图</h3><span>{{views.length}} / 50</span></header><p class="bt-views-hint">保存查询和表格设置；标为默认后，重新打开时自动应用。</p>
-      <div class="bt-views-list"><div v-for="(view,index) in views" :key="view.id" class="bt-view-row" :class="{'is-current':runtime.activeId.value===view.id}" v-bind="reorder.row(view.id)">
+      <div :ref="reorder.setList" class="bt-views-list"><div v-for="(view,index) in views" :key="view.id" class="bt-view-row" :class="{'is-current':runtime.activeId.value===view.id}" v-bind="reorder.row(view.id)">
         <button class="bt-view-icon" :disabled="view.isSystem||busy" v-bind="reorder.handle(view.id)" aria-label="拖动视图排序"><TableIcon name="grip" :size="12"/></button>
         <button class="bt-view-name" @click="apply(view.id)"><span :title="view.name">{{view.name}}</span><small v-if="view.isDefault">默认</small></button>
         <div class="bt-view-tools"><button class="bt-view-icon" :class="{'is-active':view.isDefault}" :title="`设为默认 ${view.name}`" :aria-pressed="view.isDefault===true" :disabled="busy" @click="run(()=>runtime.setDefault(view.id),'重新打开页面时将使用此视图。')"><TableIcon name="star" :size="12"/></button><button class="bt-view-icon" :title="`重命名 ${view.name}`" :disabled="view.isSystem||view.isReadOnly||busy" @click="nameView(view.id)"><TableIcon name="edit" :size="12"/></button><button class="bt-view-icon bt-view-move" :title="`上移 ${view.name}`" :disabled="!canMove(index,-1)||busy" @click="move(view.id,-1)"><TableIcon name="chevron-up" :size="12"/></button><button class="bt-view-icon bt-view-move" :title="`下移 ${view.name}`" :disabled="!canMove(index,1)||busy" @click="move(view.id,1)"><TableIcon name="chevron-down" :size="13"/></button><button class="bt-view-icon" :title="`删除 ${view.name}`" :disabled="view.isSystem||view.isReadOnly||busy" @click="confirm('delete',view.id)"><TableIcon name="trash" :size="12"/></button></div>
