@@ -38,6 +38,7 @@ const emit = defineEmits<{
 
 const table = ref<{
   reload: () => void | Promise<void>
+  preloadFeature: (name: keyof TableFeatures) => Promise<void> | undefined
   activateFeature: (name: keyof TableFeatures) => Promise<unknown>
   getFeatureContext: (name: keyof TableFeatures) => unknown
   openDataTool: (name: DataToolName) => Promise<void>
@@ -132,6 +133,7 @@ defineExpose({
   // This explicitly explains supplied props, not unsaved/live Runtime state.
   explainConfiguration: (viewColumns?: ViewConfig['columns']) => explainConfiguration({definition: props.definition, remoteOverride: props.remoteOverride, preference: props.preference, viewColumns}),
   reload: () => table.value?.reload(),
+  preloadFeature: (name: keyof TableFeatures) => table.value?.preloadFeature(name),
   activateFeature: (name: keyof TableFeatures) => table.value?.activateFeature(name),
   getFeatureContext: (name: keyof TableFeatures) => table.value?.getFeatureContext(name),
   openDataTool: (name: DataToolName) => table.value?.openDataTool(name),

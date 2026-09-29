@@ -46,12 +46,12 @@ onBeforeUnmount(() => validation?.unregister(id))
 <template>
   <div class="bt-settings-range" :class="{'is-inherited': inherited}">
     <div class="bt-settings-range__controls">
-      <input class="bt-settings-range__slider" type="range" :aria-label="sliderLabel ?? label+'滑动条'" :aria-describedby="id" :min="min" :max="max" :step="step" :value="effective" :disabled="disabled" :style="{'--bt-range-progress':progress+'%'}" @input="input">
-      <input class="bt-settings-range__number" type="number" :aria-label="label" :aria-describedby="id" :aria-invalid="!!error" :min="min" :max="max" :step="step" :value="buffer" :disabled="disabled" @input="input">
+      <input class="bt-settings-range__slider" type="range" :aria-label="sliderLabel ?? label+'滑动条'" :aria-describedby="error||inheritedValue!==undefined?id:undefined" :min="min" :max="max" :step="step" :value="effective" :disabled="disabled" :style="{'--bt-range-progress':progress+'%'}" @input="input">
+      <input class="bt-settings-range__number" type="number" :aria-label="label" :aria-describedby="error||inheritedValue!==undefined?id:undefined" :aria-invalid="!!error" :min="min" :max="max" :step="step" :value="buffer" :disabled="disabled" @input="input">
       <span v-if="unit" class="bt-settings-range__unit">{{unit}}</span>
     </div>
-    <div :id="id" class="bt-settings-range__caption">
-      <span :class="{'bt-settings-error':error}">{{error || (inherited ? '跟随表格 · ' + effective + ' ' + unit : min+'–'+max+' '+unit)}}</span>
+    <div v-if="error||inheritedValue!==undefined" :id="id" class="bt-settings-range__caption">
+      <span :class="{'bt-settings-error':error}">{{error || (inherited ? '跟随表格 · ' + effective + ' ' + unit : '')}}</span>
       <button v-if="inheritedValue!==undefined" type="button" :aria-label="label+'跟随表格'" :aria-pressed="inherited" :disabled="disabled" @click="inherit">跟随表格</button>
     </div>
   </div>

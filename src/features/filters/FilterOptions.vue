@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import './filter-editor.css'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { ColumnConfig } from '../../types'
 import type { FilterOption } from './model'

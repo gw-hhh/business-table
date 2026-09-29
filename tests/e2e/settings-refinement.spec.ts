@@ -1,3 +1,4 @@
+import {test as networkTest} from '@playwright/test'
 import {test,expect} from './runtime'
 
 async function openSettings(page:import('@playwright/test').Page){
@@ -65,21 +66,24 @@ test('numeric restore clears only its column or style scope, including unchanged
   await expect(cellSize).toHaveAttribute('aria-invalid','false')
 })
 
-test('invalid numeric drafts participate in close confirmation and backup restoration',async({page})=>{
+test('invalid numeric drafts participate in close confirmation and page restoration',async({page})=>{
   const drawer=await openSettings(page)
   await drawer.getByRole('spinbutton',{name:'单元格文字字号',exact:true}).fill('99')
   await drawer.getByRole('button',{name:'关闭表格设置',exact:true}).click()
   await expect(page.getByRole('alertdialog',{name:'放弃未应用的修改'})).toBeVisible()
   await page.getByRole('button',{name:'继续编辑',exact:true}).click()
+  await drawer.getByRole('button',{name:'恢复此列',exact:true}).click()
   await drawer.getByRole('tab',{name:'表格外观',exact:true}).click()
-  await drawer.getByLabel('恢复表格设置文件').setInputFiles({name:'settings.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({kind:'business-table-settings',schemaVersion:3,columns:{},presentation:{appearance:{fontSize:18}}}))})
+  await expect(drawer.getByRole('heading',{name:'设置备份',exact:true})).toHaveCount(0)
+  await expect(drawer.getByLabel('恢复表格设置文件')).toHaveCount(0)
+  await drawer.getByRole('spinbutton',{name:'内容字号',exact:true}).fill('18')
   await expect(drawer.getByRole('button',{name:'应用',exact:true})).toBeEnabled()
   await drawer.getByRole('tab',{name:'列设置',exact:true}).click()
   await expect(drawer.getByRole('spinbutton',{name:'单元格文字字号',exact:true})).toHaveValue('18')
   await expect(drawer.getByRole('spinbutton',{name:'单元格文字字号',exact:true})).toHaveAttribute('aria-invalid','false')
 })
 
-test('compact settings keep tools and action controls inside desktop and mobile panels',async({page})=>{
+test('compact settings keep tools and action controls inside desktop and mobile panels',async({page},info)=>{
   await page.setViewportSize({width:1440,height:900})
   const drawer=await openSettings(page)
   // Composited enter transforms can introduce subpixel rounding in the rect.
@@ -96,6 +100,7 @@ test('compact settings keep tools and action controls inside desktop and mobile 
     expect(await drawer.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
     const pane=drawer.locator('.bt-settings-page,.bt-settings-sort-page')
     expect(await pane.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
+    if(tab==='操作按钮')await page.screenshot({path:info.outputPath('actions-narrow.png')})
   }
 })
 
@@ -257,12 +262,11 @@ test('toolbar and action settings collapse by level while preserving edited valu
   await drawer.getByRole('tab',{name:'操作按钮',exact:true}).click()
   const action=drawer.getByRole('textbox',{name:'查看按钮名称',exact:true})
   await action.fill('查看草稿')
-  await drawer.getByRole('button',{name:'收起查看草稿',exact:true}).click()
-  await expect(action).toBeHidden()
+  await drawer.getByRole('button',{name:'收起二级菜单',exact:true}).click()
   await drawer.getByRole('button',{name:'收起按钮及顺序',exact:true}).click()
-  await drawer.getByRole('button',{name:'展开按钮及顺序',exact:true}).click()
   await expect(action).toBeHidden()
-  await drawer.getByRole('button',{name:'展开查看草稿',exact:true}).click()
+  await drawer.getByRole('button',{name:'展开按钮及顺序',exact:true}).click()
+  await expect(drawer.getByRole('button',{name:'展开二级菜单',exact:true})).toBeVisible()
   await expect(action).toHaveValue('查看草稿')
   await drawer.getByRole('tab',{name:'表格外观',exact:true}).click()
   await drawer.getByRole('button',{name:'收起布局',exact:true}).click()
@@ -410,4 +414,107 @@ test('mapping edits reach real cells and tool previews do not run business actio
   await expect(preview).toContainText('草稿预览验证')
   await drawer.getByRole('button',{name:'应用',exact:true}).click()
   await expect(page.locator('[data-business-table]')).toContainText('草稿预览验证')
+})
+
+
+test('intent loads settings and template code without opening or mounting editors',async({page},info)=>{
+  const settingsModule=/\/ColumnSettings(?:\.vue(?:\?|$)|-[^/]+\.js$)/
+  const editorModule=/\/RichEditor(?:\.vue(?:\?|$)|-[^/]+\.js$)/
+  const requests:string[]=[]
+  page.on('request',request=>requests.push(request.url()))
+  await page.goto('/')
+  const trigger=page.getByRole('button',{name:'表格设置',exact:true})
+  await expect(trigger).toBeVisible()
+  expect(requests.some(url=>settingsModule.test(url))).toBe(false)
+  expect(requests.some(url=>editorModule.test(url))).toBe(false)
+  const settingsReady=page.waitForResponse(response=>settingsModule.test(response.url()))
+  await trigger.hover();await settingsReady
+  await expect(page.getByTestId('settings-drawer')).toHaveCount(0)
+  const start=Date.now();await trigger.click()
+  const drawer=page.getByTestId('settings-drawer');await expect(drawer).toBeVisible()
+  const settingsMs=Date.now()-start
+  const edit=drawer.getByRole('button',{name:'编辑模板',exact:true})
+  expect(requests.some(url=>editorModule.test(url))).toBe(false)
+  let release!:()=>void
+  const held=new Promise<void>(resolve=>{release=resolve})
+  await page.route(editorModule,async route=>{await held;await route.continue()})
+  const requested=page.waitForRequest(editorModule)
+  await edit.focus();await requested
+  await expect(page.getByRole('dialog',{name:'编辑列显示模板',exact:true})).toHaveCount(0)
+  await expect(page.locator('.tiptap')).toHaveCount(0)
+  await edit.click()
+  const dialog=page.getByRole('dialog',{name:'编辑列显示模板',exact:true})
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('status')).toHaveText('正在加载编辑器…')
+  await expect(dialog.getByRole('button',{name:'使用模板',exact:true})).toBeDisabled()
+  const editorStart=Date.now();release()
+  await expect(dialog.getByRole('textbox',{name:'列显示模板',exact:true})).toBeVisible()
+  await expect(dialog.getByRole('button',{name:'使用模板',exact:true})).toBeEnabled()
+  await expect(dialog.locator('.tiptap')).toHaveCount(1)
+  await info.attach('first-open-sample',{body:JSON.stringify({settingsClickToVisibleMs:settingsMs,editorReleaseToReadyMs:Date.now()-editorStart,note:'Local single sample; editor request intentionally held; not a before/after speed claim.'}),contentType:'application/json'})
+})
+
+test('column metadata and disclosures retain clear hierarchy without range clutter',async({page})=>{
+  const drawer=await openSettings(page)
+  await expect(drawer.getByText('勾选仅用于复制文字样式',{exact:true})).toHaveCount(0)
+  await expect(drawer.locator('.bt-settings-column-status')).toHaveText('显示中')
+  const headers=drawer.locator('.bt-settings-disclosure__heading')
+  expect(await headers.evaluateAll(elements=>elements.every(el=>el.lastElementChild?.classList.contains('bt-settings-disclosure__toggle')))).toBe(true)
+  const width=drawer.getByRole('spinbutton',{name:'列宽（px）',exact:true})
+  await expect(width).toHaveAttribute('min',/\d+/)
+  await expect(width).toHaveAttribute('max',/\d+/)
+  await expect(width.locator('..').locator('..').locator('.bt-settings-range__caption')).toHaveCount(0)
+  await drawer.getByRole('tab',{name:'操作按钮',exact:true}).click()
+  expect((await drawer.locator('.bt-action-setting').first().boundingBox())!.height).toBeLessThanOrEqual(46)
+  await expect(drawer.locator('.bt-action-config>.bt-tool-config__heading')).toContainText('按钮名称')
+})
+
+
+test('latest settings target wins while its first module request is pending',async({page})=>{
+  let release!:()=>void
+  const held=new Promise<void>(resolve=>{release=resolve})
+  const module=/\/ColumnSettings(?:\.vue(?:\?|$)|-[^/]+\.js$)/
+  await page.route(module,async route=>{await held;await route.continue()})
+  await page.goto('/')
+  const request=page.waitForRequest(module)
+  await page.getByRole('button',{name:'列设置',exact:true}).click();await request
+  await page.getByRole('button',{name:'表格设置',exact:true}).click()
+  await page.getByRole('button',{name:'排序规则',exact:true}).click()
+  release()
+  const drawer=page.getByTestId('settings-drawer')
+  await expect(drawer).toBeVisible()
+  await expect(drawer.getByRole('tab',{name:'排序规则',exact:true})).toHaveAttribute('aria-selected','true')
+  await expect(page.locator('.bt-column-popup')).toHaveCount(0)
+})
+
+
+// Deliberately failed resource: allow only that console message, while retaining
+// pageerror and all other console-error checks for this recovery scenario.
+networkTest('failed template module preserves settings drafts and gives a working refresh recovery',async({page})=>{
+  const module=/\/RichEditor(?:\.vue(?:\?|$)|-[^/]+\.js$)/
+  const errors:string[]=[];let failures=0
+  page.on('pageerror',error=>errors.push(error.message))
+  page.on('console',message=>{
+    if(message.type()!=='error')return
+    if(module.test(message.location().url)&&message.text().includes('net::ERR_FAILED')){failures++;return}
+    errors.push(message.text())
+  })
+  await page.route(module,route=>route.abort('failed'))
+  await page.goto('/')
+  await page.getByRole('button',{name:'表格设置',exact:true}).click()
+  const drawer=page.getByTestId('settings-drawer')
+  await drawer.getByRole('textbox',{name:'显示名称',exact:true}).fill('首开恢复验证')
+  await drawer.getByRole('button',{name:'编辑模板',exact:true}).click()
+  const dialog=page.getByRole('dialog',{name:'编辑列显示模板',exact:true})
+  await expect(dialog.getByRole('status')).toContainText('保存其他修改后刷新页面')
+  await expect(dialog.getByRole('button',{name:'使用模板',exact:true})).toBeDisabled()
+  await dialog.getByRole('button',{name:'关闭',exact:true}).click()
+  await expect(drawer.getByRole('textbox',{name:'显示名称',exact:true})).toHaveValue('首开恢复验证')
+  await drawer.getByRole('button',{name:'应用',exact:true}).click()
+  await page.unroute(module);await page.reload()
+  await page.getByRole('button',{name:'表格设置',exact:true}).click()
+  await expect(drawer.getByRole('textbox',{name:'显示名称',exact:true})).toHaveValue('首开恢复验证')
+  await drawer.getByRole('button',{name:'编辑模板',exact:true}).click()
+  await expect(dialog.getByRole('textbox',{name:'列显示模板',exact:true})).toBeVisible()
+  expect(failures).toBe(1);expect(errors).toEqual([])
 })

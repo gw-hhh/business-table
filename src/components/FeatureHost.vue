@@ -5,6 +5,7 @@ import {createFeatureController,type FeatureController,type FeatureState} from '
 import type {ConfigDiagnostic} from '../config/diagnostics'
 import TableIcon from './TableIcon.vue'
 import {motionEnabled} from '../ui/useMotion'
+import {createModuleLoader} from '../ui/moduleLoader'
 
 const props=defineProps<{
   local:unknown;remote?:unknown;defaultStrategy?:FeatureLoadStrategy;entryLabel?:string;entryIcon?:string;testId?:string;declaredItems?:readonly string[]
@@ -15,6 +16,8 @@ const props=defineProps<{
 }>()
 const emit=defineEmits<{diagnostic:[ConfigDiagnostic];entry:[]}>()
 type Loaded={context:C;component?:Component}
+const module=createModuleLoader(()=>props.loader())
+function preload(){if(gate.value.enabled&&gate.value.mode==='default')return module.preload()}
 const gate=computed(()=>resolveFeatureGate(props.local,props.remote,props.defaultStrategy))
 // This computed is never evaluated before activation. Once active it tracks only
 // the supported presentation fields, including in-place reactive allowlist edits.
@@ -86,7 +89,7 @@ function resetController(){
       }
       try{
         const context=await props.createContext(details,{close,isActive:()=>generation===currentGeneration&&gate.value.enabled,onDispose:dispose=>{if(released)dispose();else disposers.push(dispose)}})
-        const component=mode==='default'?markRaw((await props.loader()).default):undefined
+        const component=mode==='default'?markRaw((await module.load()).default):undefined
         return {value:{context,component},dispose:release}
       }catch(cause){release();throw cause}
     },
@@ -101,10 +104,10 @@ watch(()=>[props.local,props.remote,gate.value.mode,gate.value.loadStrategy],()=
 },{immediate:true})
 onMounted(()=>{mounted=true;observeVisibility()})
 onBeforeUnmount(()=>{mounted=false;generation++;stopDetails?.();controller?.dispose();controller=undefined;observer?.disconnect()})
-defineExpose({activate,getContext:()=>loaded.value?.context})
+defineExpose({activate,preload,getContext:()=>loaded.value?.context})
 </script>
 <template>
-  <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel&&featureEntryVisible(local,remote)" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
+  <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel&&featureEntryVisible(local,remote)" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @pointerenter="preload" @focus="preload" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
   <span v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-visible'" ref="sentinel" class="bt__feature-sentinel" aria-hidden="true"></span>
   <span v-if="state==='unavailable'&&gate.mode!=='headless'" class="bt__feature-error" role="status">暂时无法加载 <button @click="activate()">重试</button></span>
   <component :is="loaded.component" v-if="loaded&&(active||leaving)&&gate.mode==='default'" :key="session.id" :context="loaded.context" v-bind="deferClose?{open:active,onAfterLeave:session.afterLeave}:{}"/>

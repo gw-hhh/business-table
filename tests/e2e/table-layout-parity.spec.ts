@@ -37,8 +37,10 @@ test('resizing and hiding columns redistribute free space without saving expande
   await page.setViewportSize({ width: 1440, height: 945 })
   await page.goto('/')
   const owner = page.getByRole('separator', { name: '调整负责人列宽', exact: true })
+  await expectFilled(page)
+  // Hover waits for stable geometry before the pointer-down coordinate is used.
+  await owner.hover()
   const handle=await owner.boundingBox()
-  await page.mouse.move(handle!.x+handle!.width/2,handle!.y+handle!.height/2)
   await page.mouse.down()
   await page.mouse.move(handle!.x+40,handle!.y+handle!.height/2)
   await expect(page.locator('.bt-column-resize-value')).toHaveText(/\d+ px/)

@@ -20,6 +20,8 @@ export interface ToolDefinition {
   id: string; label: string; icon?: string; order?: number; position?: ItemPosition; display?: DisplayMode
   fixed?: boolean; immutable?: boolean; separator?: boolean; visible?: boolean; disabled?: boolean; active?: boolean; variant?: 'primary'
   children?: readonly ToolDefinition[]
+  /** Optional code-only warmup on pointer/keyboard intent; never persisted. */
+  preload?: () => void | Promise<unknown>
   handler?: (event: Event) => void | Promise<void>
 }
 export interface PresentedAction<T extends RowData = RowData> extends Action<T> { display?: DisplayMode; group?: 'normal' | 'export' | 'danger' }

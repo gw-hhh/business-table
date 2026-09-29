@@ -108,14 +108,6 @@ function guardPresentation(value:unknown){
 }
 function updatePresentation(value:unknown){presentationDraft.value=guardPresentation(value)}
 function updateSorts(value:typeof sortDraft.value){if(canPage('sorts'))sortDraft.value=value}
-function restoreBackup(input:{columns?:Record<string,UserColumnConfig>;sorts?:typeof sortDraft.value;presentation?:unknown}){
-  for(const [id,change] of Object.entries(input.columns??{}))patch(id,change)
-  const order=input.columns??{}
-  const movable=draft.value.filter(column=>canField(column,'order')).sort((a,b)=>(order[a.id]?.order??draft.value.indexOf(a))-(order[b.id]?.order??draft.value.indexOf(b)))
-  let position=0;draft.value=draft.value.map(column=>canField(column,'order')?movable[position++]!:column)
-  if(input.sorts)updateSorts(cloneData(input.sorts).filter(sort=>draft.value.some(column=>column.field===sort.field&&column.sortable)))
-  if(input.presentation)updatePresentation(input.presentation)
-}
 function cancel(){if(!saving.value)props.context.close()}
 function outside(event:PointerEvent){
   if(drawer.value||!panel.value)return
@@ -128,7 +120,7 @@ onMounted(()=>{previousFocus=document.activeElement as HTMLElement;document.addE
 onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(previousFocus?.isConnected)previousFocus.focus()})
 </script>
 <template>
-  <ColumnSettingsDrawer v-if="drawer" :open="open" @after-leave="emit('afterLeave')" :settings-policy="settingsPolicy" :table-key="context.tableKey" :presentation="presentationDraft" :base-presentation="context.basePresentation" :actions="context.actions??[]" :tools="context.tools??{page:[],table:[]}" :page-sizes="context.pageSizeOptions" :issues="issues" :changes="patches" :initial-column-id="context.selectedColumnId" :initial-tab="context.initialTab" @presentation="updatePresentation" @restore="restoreBackup" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="updateSorts" @reset-sorts="updateSorts(originalSorts.map(sort=>({...sort})))" @apply="apply" @cancel="cancel" @move="move" />
+  <ColumnSettingsDrawer v-if="drawer" :open="open" @after-leave="emit('afterLeave')" :settings-policy="settingsPolicy" :table-key="context.tableKey" :presentation="presentationDraft" :base-presentation="context.basePresentation" :actions="context.actions??[]" :tools="context.tools??{page:[],table:[]}" :page-sizes="context.pageSizeOptions" :issues="issues" :changes="patches" :initial-column-id="context.selectedColumnId" :initial-tab="context.initialTab" @presentation="updatePresentation" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="updateSorts" @reset-sorts="updateSorts(originalSorts.map(sort=>({...sort})))" @apply="apply" @cancel="cancel" @move="move" />
   <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel" @after-leave="emit('afterLeave')"><aside v-if="!drawer&&open&&settingsPolicy.pages.columns.visible" ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel">
     <div v-if="visibilityDeclared" class="bt-column-popup__all"><label><input type="checkbox" aria-label="显示全部列" :checked="allVisible" :indeterminate="someVisible" :disabled="!togglable.length" @change="all(($event.target as HTMLInputElement).checked)">全部</label></div>
     <div :ref="reorder.setList" class="bt-column-popup__list">

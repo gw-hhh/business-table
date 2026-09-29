@@ -5,7 +5,7 @@ const rows = (page: import('@playwright/test').Page) => page.locator('.vxe-table
 test('quotation Search keeps drafts separate and saves ID-based values in a View', async ({ page }) => {
   await page.goto('/')
   await expect(rows(page)).toHaveCount(6)
-  await expect(page.locator('.q-modified')).toHaveCount(0)
+  await expect(page.locator('.bt-view-dirty')).toHaveCount(0)
 
   await page.locator('#quotation-customer').selectOption('泽临管道')
   await expect(page.getByText('条件已修改，点击查询生效')).toBeVisible()
@@ -25,7 +25,7 @@ test('quotation Search keeps drafts separate and saves ID-based values in a View
   const editor = page.getByRole('dialog', { name: '保存视图', exact: true })
   await editor.getByRole('textbox', { name: /视图名称/ }).fill('泽临查询')
   await editor.getByRole('button', { name: '保存', exact: true }).click()
-  await expect(page.locator('.q-modified')).toHaveCount(0)
+  await expect(page.locator('.bt-view-dirty')).toHaveCount(0)
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('business-table.quotation-demo.views.v1') ?? '[]') as { name: string; search?: { values: Record<string, unknown> }; filters?: unknown[] }[])
   const view = saved.find(item => item.name === '泽临查询')
   expect(view?.search?.values.customer).toBe('泽临管道')
@@ -37,7 +37,7 @@ test('quotation Search keeps drafts separate and saves ID-based values in a View
   await page.getByRole('button', { name: '泽临查询', exact: true }).click()
   await expect(rows(page)).toHaveCount(1)
   await expect(page.locator('#quotation-customer')).toHaveValue('泽临管道')
-  await expect(page.locator('.q-modified')).toHaveCount(0)
+  await expect(page.locator('.bt-view-dirty')).toHaveCount(0)
 })
 
 test('invalid date Search does not replace the applied query', async ({ page }) => {

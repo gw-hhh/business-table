@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import TableIcon from '../../components/TableIcon.vue'
+import {preloadTool} from './preloadTool'
 import ToolMenu from './ToolMenu.vue'
 import {providePopupScope} from '../../ui/popupScope'
 import {useFloatingPosition} from '../../ui/useFloatingPosition'
@@ -154,7 +155,7 @@ onBeforeUnmount(() => {
     <div class="bt-tool-measure" aria-hidden="true" inert><span v-for="tool in presented" :key="tool.id" :data-measure-tool="tool.id" class="bt-tool-item" :class="{'has-separator':tool.separator}"><span :class="classes(tool)"><TableIcon v-if="tool.display!=='text'" :name="tool.icon??'file'"/><span v-if="tool.display!=='icon'">{{tool.label}}</span></span></span></div>
     <div v-for="tool in direct" :key="tool.id" class="bt-tool-item" :class="{'has-separator':tool.separator,'is-fixed':tool.fixed}" :data-tool-id="tool.id">
       <slot :name="`tool-${tool.id}`" :tool="tool" :invoke="(event:Event,keepOpen=false)=>invoke(tool,event,keepOpen)">
-        <button type="button" :class="classes(tool)" :title="tool.label" :aria-label="tool.label" :aria-pressed="tool.active === undefined ? undefined : tool.active" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" :disabled="tool.disabled === true" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span v-if="tool.display !== 'icon'">{{tool.label}}</span></button>
+        <button type="button" :class="classes(tool)" :title="tool.label" :aria-label="tool.label" :aria-pressed="tool.active === undefined ? undefined : tool.active" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" :disabled="tool.disabled === true" @pointerenter="preloadTool(currentTool([tool.id]))" @focus="preloadTool(currentTool([tool.id]))" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span v-if="tool.display !== 'icon'">{{tool.label}}</span></button>
       </slot>
     </div>
     <div v-if="overflow.length" class="bt-tool-more">
@@ -163,7 +164,7 @@ onBeforeUnmount(() => {
       <div v-if="opened" ref="menu" class="bt-tool-menu" :class="menuClass" :style="{...menuStyle,overflowY:'auto'}" role="menu" :aria-label="moreLabel" @keydown="menuKey">
         <div v-for="tool in overflow" :key="tool.id" :data-tool-id="tool.id" :class="{'has-separator':tool.separator}">
           <slot :name="`tool-${tool.id}`" :tool="tool" :invoke="(event:Event,keepOpen=false)=>invoke(tool,event,keepOpen)" :in-menu="true">
-            <button type="button" role="menuitem" tabindex="-1" :disabled="tool.disabled === true" :title="tool.label" :aria-label="tool.label" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event,true)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span>{{tool.label}}</span><TableIcon v-if="tool.children" name="chevron-right" :size="12"/></button>
+            <button type="button" role="menuitem" tabindex="-1" :disabled="tool.disabled === true" :title="tool.label" :aria-label="tool.label" :aria-haspopup="tool.children?'menu':undefined" :aria-expanded="tool.children?activeMenu===tool.id:undefined" @pointerenter="preloadTool(currentTool([tool.id]))" @focus="preloadTool(currentTool([tool.id]))" @click="invoke(tool,$event)" @keydown="toolKey(tool,$event,true)"><TableIcon v-if="tool.display !== 'text'" :name="tool.icon ?? 'file'"/><span>{{tool.label}}</span><TableIcon v-if="tool.children" name="chevron-right" :size="12"/></button>
           </slot>
         </div>
       </div>

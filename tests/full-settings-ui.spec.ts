@@ -79,7 +79,7 @@ describe('all settings pages share one draft transaction',()=>{
     expect(wrapper.get('[aria-label="显示子菜单 Excel"]').isVisible()).toBe(false)
     await wrapper.get('[aria-label="展开二级菜单"]').trigger('click')
     expect(wrapper.get('[aria-label="显示子菜单 Excel"]').element.matches(':disabled')).toBe(true)
-    await wrapper.get('[aria-label="收起导出"]').trigger('click')
+    await wrapper.get('[aria-label="收起按钮及顺序"]').trigger('click')
     expect(wrapper.get('[aria-label="导出按钮名称"]').isVisible()).toBe(false)
     await button(wrapper,'工具栏').trigger('click')
     await wrapper.get('[aria-label="收起页面工具栏"]').trigger('click')

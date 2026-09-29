@@ -74,16 +74,18 @@ function clearUnavailable() { draft.value = []; unavailable.value = false; error
     <fieldset class="bt-conditional-fields" :disabled="context.disabled || busy || unavailable">
       <section v-for="(item,index) in draft" :key="item.id" class="bt-conditional-rule">
         <div class="bt-conditional-rule-header">
-          <label class="bt-ui-check"><input v-model="item.enabled" type="checkbox" aria-label="启用规则">启用</label>
-          <label class="bt-ui-field">字段<select :value="item.columnId" aria-label="标记字段" @change="changeColumn(item,($event.target as HTMLSelectElement).value)"><option v-for="column in columns" :key="column.id" :value="column.id">{{column.title}}</option></select></label>
-          <label class="bt-ui-field">提示文字<input v-model="item.label" type="text" maxlength="24" aria-label="提示文字"></label>
-          <button type="button" class="bt-ui-icon" aria-label="上移规则" :disabled="index===0" @click="moveUp(index)"><TableIcon name="chevron-up" /></button>
-          <button type="button" class="bt-ui-icon" aria-label="删除规则" @click="remove(index)"><TableIcon name="close" /></button>
+          <strong>规则 {{index+1}}</strong><label class="bt-ui-check"><input v-model="item.enabled" type="checkbox" aria-label="启用规则">启用</label>
+          <div class="bt-conditional-rule-actions"><button type="button" class="bt-ui-icon" aria-label="上移规则" :disabled="index===0" @click="moveUp(index)"><TableIcon name="chevron-up" /></button><button type="button" class="bt-ui-icon" aria-label="删除规则" @click="remove(index)"><TableIcon name="close" /></button></div>
         </div>
-        <FilterRuleEditor v-if="editorColumn(item.columnId)" v-model="item.filter" :column="editorColumn(item.columnId)!" :options-for="context.optionsFor" />
+        <div class="bt-conditional-condition">
+          <label class="bt-ui-field">字段<select :value="item.columnId" aria-label="标记字段" @change="changeColumn(item,($event.target as HTMLSelectElement).value)"><option v-for="column in columns" :key="column.id" :value="column.id">{{column.title}}</option></select></label>
+          <FilterRuleEditor v-if="editorColumn(item.columnId)" v-model="item.filter" :column="editorColumn(item.columnId)!" :options-for="context.optionsFor" />
+        </div>
         <div class="bt-conditional-colors">
-          <label class="bt-ui-field">文字颜色<input v-model="item.color" type="color" aria-label="文字颜色"></label>
-          <label class="bt-ui-field">背景颜色<input v-model="item.background" type="color" aria-label="背景颜色"></label>
+          <label class="bt-ui-field">提示文字<input v-model="item.label" type="text" maxlength="24" aria-label="提示文字"></label>
+          <label class="bt-ui-field bt-conditional-color">文字颜色<input v-model="item.color" type="color" aria-label="文字颜色"></label>
+          <label class="bt-ui-field bt-conditional-color">背景颜色<input v-model="item.background" type="color" aria-label="背景颜色"></label>
+          <div class="bt-conditional-sample" aria-label="标记预览"><span :style="{color:item.color,background:item.background}">{{item.label||'标记预览'}}</span></div>
         </div>
       </section>
       <button type="button" class="bt-ui-button" :disabled="draft.length>=30 || !columns.length" @click="add"><TableIcon name="plus" :size="14" />添加规则</button>

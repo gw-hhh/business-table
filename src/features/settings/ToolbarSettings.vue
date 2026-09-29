@@ -16,7 +16,6 @@ function groupReorder(group:'page'|'table'){return useDragReorder({ids:()=>order
 const reorder={page:groupReorder('page'),table:groupReorder('table')}
 </script>
 <template><div class="bt-settings-page bt-toolbar-settings">
-  <p class="bt-settings-note">拖动或使用箭头调整顺序。窄屏优先收起非固定按钮，设置入口始终保留。</p>
   <SettingsSection title="通用设置" :disabled="disabled"><div class="bt-toolbar-settings__preference"><label class="bt-settings-check"><input type="checkbox" :checked="modelValue.followView" @change="patch({followView:($event.target as HTMLInputElement).checked})">工具栏随命名视图保存和切换</label><div class="bt-settings-field"><span>工具间距</span><SettingsRange :path="['toolbar','gap']" label="工具间距" :min="0" :max="24" unit="px" :model-value="modelValue.gap" :disabled="disabled" @update:model-value="patch({gap:$event??modelValue.gap})" /></div></div></SettingsSection>
   <SettingsSection v-for="group in (['page','table'] as const).filter(group=>localTools[group].length)" :key="group" :title="group==='page'?'页面工具栏':'表格工具栏'" :disabled="disabled">
     <div :ref="reorder[group].setList" class="bt-tool-config"><div class="bt-tool-config__heading"><span>顺序</span><span>名称</span><span>显示位置</span><span>展示形式</span><span>固定</span><span>分隔</span><span>移动</span></div>

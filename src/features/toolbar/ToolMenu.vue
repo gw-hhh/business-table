@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import AnchoredPopup from '../../ui/AnchoredPopup.vue'
 import TableIcon from '../../components/TableIcon.vue'
+import {preloadTool} from './preloadTool'
 import { presentTools, type ToolDefinition } from '../presentation/model'
 
 const props = withDefaults(defineProps<{
@@ -35,7 +36,7 @@ function back(event: KeyboardEvent) {
     <div class="bt-tool-menu-items" @keydown="back">
       <template v-for="item in items" :key="item.id">
         <div v-if="item.separator" class="bt-menu-divider" role="separator"/>
-        <button type="button" role="menuitem" tabindex="-1" :data-tool-command="item.id" :aria-label="item.label" :title="item.label" :disabled="item.disabled === true" :aria-haspopup="item.children?'menu':undefined" :aria-expanded="item.children?active===item.id:undefined" :class="{'is-active':item.active}" @click="select(item,$event)" @keydown.right="openChild(item,$event)">
+        <button type="button" role="menuitem" tabindex="-1" :data-tool-command="item.id" :aria-label="item.label" :title="item.label" :disabled="item.disabled === true" :aria-haspopup="item.children?'menu':undefined" :aria-expanded="item.children?active===item.id:undefined" :class="{'is-active':item.active}" @pointerenter="preloadTool(item)" @focus="preloadTool(item)" @click="select(item,$event)" @keydown.right="openChild(item,$event)">
           <TableIcon v-if="item.display!=='text'" :name="item.icon??'file'" :size="15"/><span>{{item.label}}</span><TableIcon v-if="item.children" class="bt-tool-child-arrow" name="chevron-right" :size="12"/>
         </button>
       </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import './filter-editor.css'
 import { computed } from 'vue'
 import type { ColumnConfig } from '../../types'
 import { defaultColumnFilter, filterInputUnit, filterOperatorLabel, type FilterOption } from './model'

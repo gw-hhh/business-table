@@ -77,7 +77,7 @@ async function open(name: DataToolName) {
   else if (name === 'compare' && gate(name).mode !== 'default') await compareHost.value?.getContext()?.reload()
   else if (name === 'rangeSelection') rangeHost.value?.getContext()?.toggle()
 }
-defineExpose({ activate: name => host(name)?.activate() ?? Promise.resolve(undefined), open,
+defineExpose({ preload: name => host(name)?.preload(), activate: name => host(name)?.activate() ?? Promise.resolve(undefined), open,
   getContext: name => host(name)?.getContext(), getRangeContext: () => rangeHost.value?.getContext(),
 } satisfies DataToolsHandle)
 </script>

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import ToolStrip from '../src/features/toolbar/ToolStrip.vue'
 import SettingsPreview from '../src/features/settings/SettingsPreview.vue'
@@ -152,4 +152,17 @@ describe('declarative tool menus', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('保存失败')
     expect(wrapper.emitted('error')).toHaveLength(1)
   })
+})
+
+it('preloads on tool intent without executing, respecting current disabled state',async()=>{
+  const preload=vi.fn(async()=>{}),handler=vi.fn()
+  const wrapper=setup([{id:'settings',label:'设置',preload,handler}])
+  await wrapper.get('button[aria-label="设置"]').trigger('pointerenter')
+  await flushPromises();expect(preload).toHaveBeenCalledTimes(1);expect(handler).not.toHaveBeenCalled()
+  await wrapper.setProps({tools:[{id:'settings',label:'设置',disabled:true,preload,handler}]})
+  await wrapper.get('button[aria-label="设置"]').trigger('pointerenter')
+  await flushPromises();expect(preload).toHaveBeenCalledTimes(1)
+  await wrapper.setProps({tools:[{id:'settings',label:'设置',preload:async()=>{throw new Error('offline')},handler}]})
+  await wrapper.get('button[aria-label="设置"]').trigger('focus');await flushPromises()
+  await click('设置');expect(handler).toHaveBeenCalledTimes(1)
 })

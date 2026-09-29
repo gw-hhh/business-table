@@ -100,7 +100,7 @@ const actionColumn=computed(()=>allResolvedColumns.value.find(column=>column.kin
 const tableStyle=computed(()=>({'--bt-font':fontFamilyCss(presentation.value.appearance.fontFamily),'--bt-body-size':presentation.value.appearance.fontSize+'px','--bt-header-size':presentation.value.appearance.headerFontSize+'px','--bt-body-color':presentation.value.appearance.color,'--bt-header-color':presentation.value.appearance.headerColor}))
 const showHeader=computed(()=>(['title','search','views','toolbar','columnSettings','filters'] as const).some(name=>{const value=gate(name);return value.enabled&&value.mode!=='headless'}))
 const hasHeaderFeatures=computed(()=>(['title','search','views','toolbar','columnSettings','filters'] as const).some(name=>gate(name).enabled))
-const hosts=shallowReactive(new Map<FeatureName,{activate:()=>Promise<object|undefined>;getContext:()=>object|undefined}>())
+const hosts=shallowReactive(new Map<FeatureName,{activate:()=>Promise<object|undefined>;preload:()=>Promise<void>|undefined;getContext:()=>object|undefined}>())
 function setHost(name:FeatureName,value:Element|ComponentPublicInstance|null){if(value)hosts.set(name,value as unknown as ReturnType<typeof hosts.get> & {});else hosts.delete(name)}
 function titleContext(details:{label?:string}){return reactive({get label(){return details.label??props.title??'数据列表'},get total(){return total.value}})}
 function searchContext(){return Object.assign(runtime.searchContext(),{panel:runtime.searchPanel})}
@@ -128,21 +128,26 @@ async function clearFilter(field?:string){
 function configuredActions(){return gate('rowActions').enabled?props.actionProvider?.(readFeatureDetails(declarations.value.rowActions,props.remoteFeatures?.rowActions,report))??props.actions??[]:[]}
 const settingsEntryLabel=computed(()=>runtime.settingsPolicy.value.pages.columns.visible?'列设置':gate('columnSettings').mode==='custom'?'表格设置':undefined)
 function settingsPatches(changes:Record<string,UserColumnConfig>){return Object.fromEntries(Object.entries(changes).flatMap(([id,change])=>{const column=allResolvedColumns.value.find(column=>column.id===id);if(!column)return [];const accepted=guardSettingsColumnPatch(column,change,runtime.settingsPolicy.value,report);return Object.keys(accepted).length?[[id,accepted]]:[]}))}
+const settingsRequest=reactive({openMode:'quick' as 'quick'|'drawer',initialTab:'columns' as 'columns'|'sorts'|'actions'|'appearance'|'toolbar',selectedColumnId:undefined as string|undefined})
 function columnSettingsContext(_details:unknown,controls:{close:()=>void;isActive:()=>boolean}){return reactive({
-  openMode:'quick' as 'quick'|'drawer',initialTab:'columns' as 'columns'|'sorts'|'actions'|'appearance'|'toolbar',selectedColumnId:undefined as string|undefined,
+  get openMode(){return settingsRequest.openMode},set openMode(value){if(controls.isActive())settingsRequest.openMode=value},
+  get initialTab(){return settingsRequest.initialTab},set initialTab(value){if(controls.isActive())settingsRequest.initialTab=value},
+  get selectedColumnId(){return settingsRequest.selectedColumnId},set selectedColumnId(value){if(controls.isActive())settingsRequest.selectedColumnId=value},
   get tableKey(){return props.tableKey},get settingsPolicy(){return runtime.settingsPolicy.value},get columns(){return cloneData(allResolvedColumns.value.map(column=>({...column,visible:column.visible??true,fixed:column.fixed??false})))},get baseColumns(){return sourceColumns.value},get presentation(){return presentation.value},get basePresentation(){return basePresentation.value},get actions(){return configuredActions() as Action<RowData>[]},get tools(){return {page:props.tools?.page??[],table:tableTools.value}},get pageSizeOptions(){return allowedPageSizes.value},
   get previewRows(){return rows.value as RowData[]},get previewCell(){return props.previewCell},get sorts(){return cloneData(sorts.value)},
   setSorts:(next:SortConfig[])=>controls.isActive()&&runtime.settingsPolicy.value.pages.sorts.visible&&!runtime.settingsPolicy.value.pages.sorts.disabled?setQuery({sorts:next}):Promise.resolve(),patch:(id:string,change:UserColumnConfig)=>controls.isActive()?applyPatches(settingsPatches({[id]:change})):Promise.resolve(),apply:(changes:Record<string,UserColumnConfig>)=>controls.isActive()?applyPatches(settingsPatches(changes)):Promise.resolve(),
   commit:(change:SettingsCommit)=>controls.isActive()?applySettings(change):Promise.reject(new Error('设置已失效，请重新打开。')),close:controls.close,
 })}
+function prepareSettings(mode:'quick'|'drawer',columnId?:string,tab:'columns'|'sorts'|'actions'|'appearance'|'toolbar'='columns'){
+  Object.assign(settingsRequest,{openMode:mode==='quick'&&!runtime.settingsPolicy.value.pages.columns.visible?'drawer':mode,selectedColumnId:columnId,initialTab:tab})
+}
 async function openColumnSettings(mode:'quick'|'drawer'='quick',columnId?:string,tab:'columns'|'sorts'|'actions'|'appearance'|'toolbar'='columns'){
-  const context=await hosts.get('columnSettings')?.activate() as ReturnType<typeof columnSettingsContext>|undefined
-  if(context){context.openMode=mode==='quick'&&!runtime.settingsPolicy.value.pages.columns.visible?'drawer':mode;context.selectedColumnId=columnId;context.initialTab=tab}
+  // Resolve the target before activation publishes the component, avoiding an
+  // initial quick-panel mount followed by a second drawer mount.
+  prepareSettings(mode,columnId,tab)
+  await hosts.get('columnSettings')?.activate()
 }
-function resetSettingsEntry(){
-  const context=hosts.get('columnSettings')?.getContext() as ReturnType<typeof columnSettingsContext>|undefined
-  if(context){context.openMode=runtime.settingsPolicy.value.pages.columns.visible?'quick':'drawer';context.initialTab='columns';context.selectedColumnId=undefined}
-}
+function resetSettingsEntry(){prepareSettings('quick')}
 function columnHeaderContext(column:ColumnConfig):ColumnHeaderContext {
   return {
     column,baseWidth:sourceColumns.value.find(item=>item.id===column.id)?.width,
@@ -166,7 +171,7 @@ const hasRenderedActions=computed(()=>{
   const context=hosts.get('rowActions')?.getContext() as {actions:readonly Action<T>[]} | undefined
   return Boolean(context?.actions.length)
 })
-defineExpose({openDataTool,clearQuery:runtime.clearQuery,openFilters,setFilterState,applySettings,setPresentation,setColumnFilters,readRows:runtime.readRows,selectQuery:runtime.selectQuery,optionsFor:runtime.optionsFor,viewSnapshot:runtime.viewSnapshot,getRuntime:()=>runtime,reload:runtime.reload,setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.activate(name):hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.getContext(name):hosts.get(name)?.getContext()})
+defineExpose({preloadFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.preload(name):hosts.get(name)?.preload(),openDataTool,clearQuery:runtime.clearQuery,openFilters,setFilterState,applySettings,setPresentation,setColumnFilters,readRows:runtime.readRows,selectQuery:runtime.selectQuery,optionsFor:runtime.optionsFor,viewSnapshot:runtime.viewSnapshot,getRuntime:()=>runtime,reload:runtime.reload,setQuery,applyView,getState,getSelectedRows,clearSelection,openColumnSettings,activateFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.activate(name):hosts.get(name)?.activate(),getFeatureContext:(name:FeatureName)=>isDataToolName(name)?dataTools.value?.getContext(name):hosts.get(name)?.getContext()})
 </script>
 <template>
 <section ref="tableElement" class="bt" :class="{'bt--range':rangeContext?.enabled,'bt--narrow':narrow,'bt--fill':fill,['bt--'+presentation.appearance.density]:true,['bt-border--'+presentation.appearance.border]:true,'bt--stripe':presentation.appearance.stripe,'bt--no-hover':!presentation.appearance.hover}" :style="tableStyle" data-business-table :aria-busy="Boolean(loading||busy)">
@@ -183,7 +188,7 @@ defineExpose({openDataTool,clearQuery:runtime.clearQuery,openFilters,setFilterSt
       <SearchToggle v-if="runtime.searchPanel.toggleButton.value" :panel="runtime.searchPanel"/>
       <FeatureHost :key="tableKey" v-if="gate('views').enabled" :ref="value=>setHost('views',value)" :local="declarations.views" :remote="remoteFeatures?.views" default-strategy="after-definition" :create-context="viewsContext" :loader="()=>import('./components/ViewSwitcher.vue')" @diagnostic="report"><template #custom="{context}"><slot name="views" :context="context"/></template></FeatureHost>
       <FeatureHost :key="tableKey" v-if="gate('columnSettings').enabled" :ref="value=>setHost('columnSettings',value)" defer-close :local="declarations.columnSettings" :remote="remoteFeatures?.columnSettings" default-strategy="on-interaction" :entry-label="settingsEntryLabel" entry-icon="columns" test-id="column-settings" @entry="resetSettingsEntry" :create-context="columnSettingsContext" :loader="()=>import('./components/ColumnSettings.vue')" @diagnostic="report"><template #custom="{context}"><slot name="column-settings" :context="context"/></template></FeatureHost>
-      <button v-if="gate('columnSettings').enabled&&gate('columnSettings').mode==='default'&&featureEntryVisible(declarations.columnSettings,remoteFeatures?.columnSettings)" class="bt__settings-trigger" data-testid="table-settings" @click="openColumnSettings('drawer')"><TableIcon name="settings"/>表格设置</button>
+      <button v-if="gate('columnSettings').enabled&&gate('columnSettings').mode==='default'&&featureEntryVisible(declarations.columnSettings,remoteFeatures?.columnSettings)" class="bt__settings-trigger" data-testid="table-settings" @pointerenter="hosts.get('columnSettings')?.preload()" @focus="hosts.get('columnSettings')?.preload()" @click="openColumnSettings('drawer')"><TableIcon name="settings"/>表格设置</button>
       <FeatureHost :key="tableKey" v-if="gate('toolbar').enabled" :ref="value=>setHost('toolbar',value)" :local="declarations.toolbar" :remote="remoteFeatures?.toolbar" :create-context="toolbarContext" :loader="()=>import('./components/TableToolbar.vue')" @diagnostic="report"><template #custom="{context}"><slot name="toolbar" :context="context"/></template></FeatureHost>
       <FeatureHost :key="tableKey" v-if="gate('filters').enabled" :ref="value=>setHost('filters',value)" defer-close :local="declarations.filters" :remote="remoteFeatures?.filters" default-strategy="on-interaction" entry-label="组合筛选" entry-icon="filter" test-id="combined-filter" @entry="resetFilterEntry" :create-context="filtersContext" :loader="()=>import('./features/filters/FilterFeature.vue')" @diagnostic="report"><template #custom="{context}"><slot name="filters" :context="context"/></template></FeatureHost>
       <slot name="toolbar-after"/>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed,defineAsyncComponent,nextTick,ref,watch} from 'vue'
+import {computed,markRaw,nextTick,ref,shallowRef,watch} from 'vue'
 import type {ColumnConfig,FilterConfig,RowData,UserColumnConfig} from '../../types'
 import type {MappingConfig,MappingItem,NumberRule} from '../columns/types'
 import {evaluateCell} from '../columns/evaluate'
@@ -13,7 +13,17 @@ import TableIcon from '../../components/TableIcon.vue'
 import DialogFrame from '../../ui/DialogFrame.vue'
 import SettingsSection from './SettingsSection.vue'
 import SettingsRange from './SettingsRange.vue'
-const RichEditor=defineAsyncComponent(()=>import('../rich-text/RichEditor.vue'))
+import {createModuleLoader} from '../../ui/moduleLoader'
+const editorModule=createModuleLoader(()=>import('../rich-text/RichEditor.vue'))
+const RichEditor=shallowRef<typeof import('../rich-text/RichEditor.vue')['default']>(),editorLoading=ref(false),editorError=ref('')
+function preloadTemplate(){if(can('template'))void editorModule.preload()}
+async function loadEditor(){
+  if(RichEditor.value||editorLoading.value)return
+  editorLoading.value=true;editorError.value=''
+  try{RichEditor.value=markRaw((await editorModule.load()).default)}
+  catch{editorError.value='编辑器暂时无法加载。请关闭此弹窗，保存其他修改后刷新页面。'}
+  finally{editorLoading.value=false}
+}
 const props=defineProps<{column:ColumnConfig;columns:readonly ColumnConfig[];row?:RowData;settingsPolicy?:SettingsPolicy;actionsVisible?:boolean}>()
 const emit=defineEmits<{patch:[patch:UserColumnConfig];validation:[errors:string[]];trial:[row:RowData];actions:[]}>()
 const root=ref<HTMLElement>(),closed=ref<Set<string>>(new Set()),templateOpen=ref(false),templateDraft=ref<RichDocument>({ops:[{insert:'\n'}]}),templateError=ref(''),trialText=ref(''),trialType=ref<'text'|'number'|'boolean'|'null'>('text'),trialResult=ref<ReturnType<typeof evaluateCell>>()
@@ -75,7 +85,7 @@ function manualType(index:number,type:string){if(!can('filter'))return;delete bu
 function clearManualDrafts(){for(const key of Object.keys(buffers.value))if(key.startsWith('manual'))delete buffers.value[key];for(const key of Object.keys(errors.value))if(key.startsWith('manual'))delete errors.value[key];emit('validation',Object.values(errors.value))}
 function removeOption(index:number){if(!can('filter'))return;clearManualDrafts();patchFilter({options:filter.value.options.filter((_,i)=>i!==index)})}
 function moveOption(index:number,offset:number){if(!can('filter'))return;const options=[...filter.value.options],target=index+offset;if(target<0||target>=options.length)return;const [item]=options.splice(index,1);options.splice(target,0,item!);clearManualDrafts();patchFilter({options})}
-function openTemplate(){if(!can('template'))return;templateDraft.value=readRichDocument(props.column.template?.document,{template:true,fields:props.columns.map(column=>column.id)});templateError.value='';templateOpen.value=true}
+function openTemplate(){if(!can('template'))return;templateDraft.value=readRichDocument(props.column.template?.document,{template:true,fields:props.columns.map(column=>column.id)});templateError.value='';templateOpen.value=true;void loadEditor()}
 function applyTemplate(){if(!can('template'))return;if(!richText(templateDraft.value).trim()){templateError.value='请添加模板内容';return}emit('patch',{template:{enabled:true,document:cloneData(templateDraft.value)}});templateOpen.value=false}
 function templatePreset(secondary:boolean){if(!can('template'))return;const other=copyableColumns.value.find(column=>column.field===content.value.secondaryField)??copyableColumns.value[0];const document:RichDocument={ops:[{insert:{field:props.column.id}},{insert:'\n'},...(secondary&&other?[{insert:{field:other.id},attributes:{size:'12px',color:'#64748b'}},{insert:'\n'}]:[])]};emit('patch',{template:{enabled:true,document}})}
 function calculate(){
@@ -122,10 +132,10 @@ defineExpose({reveal})
             <p class="bt-settings-note">仅改变显示；排序、筛选和计算保留原始值。Excel 使用数值及对应格式，不以已四舍五入的文字代替原值。</p>
           </template>
         </SettingsSection>
-      <SettingsSection v-if="access('template').visible" data-column-section="template" :disabled="access('template').disabled" title="富文本显示模板" :description="column.template?.enabled?'已启用 · 使用列显示模板':'未启用 · 使用字段默认排版'" :open="!closed.has('template')" @update:open="toggle('template')"><label class="bt-settings-check"><input type="checkbox" :checked="!!column.template?.enabled" :disabled="!can('template')" @change="emit('patch',{template:{enabled:($event.target as HTMLInputElement).checked,document:column.template?.document??{ops:[{insert:'\n'}]}}})" />使用列显示模板</label><div class="bt-template-sample"><BusinessCell v-if="column.template?.enabled&&row" :row="row" :column="column" :columns="columns" preview /><span v-else>{{column.template?.document?richText(column.template.document,id=>columns.find(column=>column.id===id)?.title??id):''}}</span></div><div class="bt-rule-presets"><button class="bt-settings-button" :disabled="!can('template')" @click="openTemplate"><TableIcon name="edit" :size="14" />编辑模板</button><button v-if="copyableColumns.length" class="bt-settings-text" :disabled="!can('template')" @click="templatePreset(true)">主字段 + 附加字段双行</button><button class="bt-settings-text" :disabled="!can('template')" @click="templatePreset(false)">使用当前字段</button></div><p class="bt-settings-note">只改变单元格显示。原字段继续用于筛选、排序、编辑和结构化导出；原复制、详情入口不移除。</p></SettingsSection>
+      <SettingsSection v-if="access('template').visible" data-column-section="template" :disabled="access('template').disabled" title="富文本显示模板" :description="column.template?.enabled?'已启用 · 使用列显示模板':'未启用 · 使用字段默认排版'" :open="!closed.has('template')" @update:open="toggle('template')"><label class="bt-settings-check"><input type="checkbox" :checked="!!column.template?.enabled" :disabled="!can('template')" @change="emit('patch',{template:{enabled:($event.target as HTMLInputElement).checked,document:column.template?.document??{ops:[{insert:'\n'}]}}})" />使用列显示模板</label><div class="bt-template-sample"><BusinessCell v-if="column.template?.enabled&&row" :row="row" :column="column" :columns="columns" preview /><span v-else>{{column.template?.document?richText(column.template.document,id=>columns.find(column=>column.id===id)?.title??id):''}}</span></div><div class="bt-rule-presets"><button class="bt-settings-button" :disabled="!can('template')" @pointerenter="preloadTemplate" @focus="preloadTemplate" @click="openTemplate"><TableIcon name="edit" :size="14" />编辑模板</button><button v-if="copyableColumns.length" class="bt-settings-text" :disabled="!can('template')" @click="templatePreset(true)">主字段 + 附加字段双行</button><button class="bt-settings-text" :disabled="!can('template')" @click="templatePreset(false)">使用当前字段</button></div><p class="bt-settings-note">只改变单元格显示。原字段继续用于筛选、排序、编辑和结构化导出；原复制、详情入口不移除。</p></SettingsSection>
       <SettingsSection v-if="access('trial').visible" data-column-section="trial" :disabled="access('trial').disabled" title="规则试算" description="输入原始值，核对显示与导出" :open="!closed.has('trial')" @update:open="toggle('trial')"><div class="bt-settings-grid bt-settings-grid--two"><label class="bt-settings-field">原始值<input v-model="trialText" aria-label="试算原始值" :disabled="trialType==='null'" /></label><label class="bt-settings-field">值类型<select v-model="trialType" aria-label="试算值类型"><option value="text">文本</option><option value="number">数字</option><option value="boolean">布尔（true / false）</option><option value="null">空值</option></select></label></div><button class="bt-settings-text" @click="calculate">试算</button><div v-if="trialResult" class="bt-trial-result" role="status"><small>显示结果</small><strong>{{trialResult.text}}</strong><p>筛选匹配原始值：{{String(trialResult.raw??'空值')}}</p><p>Excel 导出值：{{String(trialResult.exportValue??'空值')}} · {{typeof trialResult.exportValue}}</p><p>Excel 格式：{{trialResult.excelFormat}}</p></div></SettingsSection>
     </template>
     <p v-for="(message,key) in errors" :key="key" class="bt-settings-error" role="alert">{{message}}</p>
-    <DialogFrame :open="templateOpen&&can('template')" title="编辑列显示模板" subtitle="字段用标签插入，数据仍按原字段保存。" wide @close="templateOpen=false"><RichEditor v-model="templateDraft" label="列显示模板" template :columns="columns" :max-chars="3000" /><p v-if="templateError" class="bt-ui-error" role="alert">{{templateError}}</p><template #footer><button class="bt-ui-button" @click="templateOpen=false">取消</button><button class="bt-ui-button primary" @click="applyTemplate">使用模板</button></template></DialogFrame>
+    <DialogFrame :open="templateOpen&&can('template')" title="编辑列显示模板" subtitle="字段用标签插入，数据仍按原字段保存。" wide @close="templateOpen=false"><div class="bt-template-editor-stage" :aria-busy="editorLoading"><component :is="RichEditor" v-if="RichEditor" v-model="templateDraft" label="列显示模板" template :columns="columns" :max-chars="3000" /><div v-else class="bt-template-editor-status" role="status"><span>{{editorError||'正在加载编辑器…'}}</span><button v-if="editorError" class="bt-ui-button" @click="templateOpen=false">关闭</button></div></div><p v-if="templateError" class="bt-ui-error" role="alert">{{templateError}}</p><template #footer><button class="bt-ui-button" @click="templateOpen=false">取消</button><button class="bt-ui-button primary" :disabled="!RichEditor" @click="applyTemplate">使用模板</button></template></DialogFrame>
   </div>
 </template>

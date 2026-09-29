@@ -2,11 +2,10 @@
 import type { Appearance } from '../presentation/model'
 import FontSelect from '../../components/FontSelect.vue'
 import ColorSelect from '../../components/ColorSelect.vue'
-import TableIcon from '../../components/TableIcon.vue'
 import SettingsSection from './SettingsSection.vue'
 import SettingsRange from './SettingsRange.vue'
 const props = defineProps<{ disabled?:boolean; modelValue: Appearance; pageSizes?: number[] }>()
-const emit = defineEmits<{ 'update:modelValue':[value:Appearance]; backup:[]; restore:[] }>()
+const emit = defineEmits<{ 'update:modelValue':[value:Appearance] }>()
 function patch(value: Partial<Appearance>) { if(props.disabled)return;emit('update:modelValue', { ...props.modelValue, ...value }) }
 </script>
 <template>
@@ -27,6 +26,5 @@ function patch(value: Partial<Appearance>) { if(props.disabled)return;emit('upda
         <label class="bt-settings-field"><span>每页条数</span><select aria-label="默认每页条数" :value="modelValue.pageSize" @change="patch({pageSize:Number(($event.target as HTMLSelectElement).value)})"><option v-for="size in pageSizes??[10,25,50,100]" :key="size" :value="size">{{size}} 条</option></select></label>
       </div><div class="bt-settings-inline"><label v-for="option in ([{key:'stripe',label:'斑马纹'},{key:'index',label:'显示序号'},{key:'hover',label:'悬停高亮'}] as const)" :key="option.key" class="bt-settings-check"><input type="checkbox" :aria-label="option.label" :checked="modelValue[option.key]" @change="patch({[option.key]:($event.target as HTMLInputElement).checked})">{{option.label}}</label></div>
     </SettingsSection>
-    <SettingsSection title="设置备份" :disabled="disabled"><p class="bt-settings-note">只包含列、排序、按钮和外观设置，不包含业务数据。恢复后仍需点击应用。</p><div class="bt-settings-inline"><button class="bt-ui-button" type="button" @click="emit('backup')"><TableIcon name="download" :size="14" />导出设置</button><button class="bt-ui-button" type="button" @click="emit('restore')"><TableIcon name="upload" :size="14" />恢复设置</button></div></SettingsSection>
   </div>
 </template>

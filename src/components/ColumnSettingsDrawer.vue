@@ -23,13 +23,12 @@ import {resolvePresentation,availableActions,availableTools,type TablePresentati
 import type {SettingsIssue} from '../features/settings/session'
 import type {Action} from '../types'
 import {cloneData} from '../runtime/value'
-import {parseColumnPatch} from '../config/columns'
 import {getColumnSectionAccess,getSettingsColumnFieldAccess,guardSettingsColumnPatch,resolveSettingsPolicy,type SettingsPage,type SettingsPolicy,type ColumnSettingsSection} from '../features/settings/policy'
 import type {ColumnCapabilities} from '../config/types'
 
 
 const props=withDefaults(defineProps<{open?:boolean;settingsPolicy?:SettingsPolicy;tableKey?:string;presentation?:TablePresentation;basePresentation?:TablePresentation;actions?:Action[];tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};pageSizes?:number[];issues?:SettingsIssue[];changes?:Record<string,UserColumnConfig>;initialColumnId?:string;initialTab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar';columns:ColumnConfig[];baseColumns:ColumnConfig[];sorts:SortConfig[];sortingEnabled:boolean;previewRows:RowData[];previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;dirty:boolean;saving:boolean;error:string}>(),{open:true,presentation:()=>resolvePresentation(),basePresentation:()=>resolvePresentation(),actions:()=>[],tools:()=>({page:[],table:[]}),issues:()=>[],changes:()=>({})})
-const emit=defineEmits<{afterLeave:[];presentation:[value:TablePresentation];restore:[input:{columns?:Record<string,UserColumnConfig>;sorts?:SortConfig[];presentation?:unknown}];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[];move:[id:string,targetId:string]}>()
+const emit=defineEmits<{afterLeave:[];presentation:[value:TablePresentation];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[];move:[id:string,targetId:string]}>()
 const {errors:numericErrors,reset:resetNumericInputs,prune:pruneNumericInputs}=provideNumericValidation()
 const selectedId=ref(props.initialColumnId??props.columns.find(column=>column.visible!==false&&!column.fixed&&isColumnCapabilityEnabled(column,'rename'))?.id??props.columns[0]?.id??'')
 const selected=computed(()=>props.columns.find(column=>column.id===selectedId.value))
@@ -37,7 +36,7 @@ const selectedBase=computed(()=>props.baseColumns.find(column=>column.id===selec
 const dialog=ref<HTMLElement>(),widthError=ref(''),previewOpen=ref(true),previewMode=ref<'table'|'column'>('column'),sampleIndex=ref(0)
 const batchIds=ref<string[]>(selectedId.value?[selectedId.value]:[])
 const activeTab=ref<SettingsPage|undefined>(props.initialTab??'columns')
-const ruleEditor=ref<InstanceType<typeof ColumnRuleEditor>>(),ruleErrors=ref<Record<string,string[]>>({}),reviewOpen=ref(false),backupError=ref(''),restoreInput=ref<HTMLInputElement>(),trialRow=ref<RowData>()
+const ruleEditor=ref<InstanceType<typeof ColumnRuleEditor>>(),ruleErrors=ref<Record<string,string[]>>({}),reviewOpen=ref(false),trialRow=ref<RowData>()
 const allRuleErrors=computed(()=>Object.values(ruleErrors.value).flat())
 const displayedRow=computed(()=>activeTab.value==='columns'&&['number','trial'].includes(activeSection.value??'')?trialRow.value??row.value:row.value)
 const pageScrollPositions=new Map<SettingsPage,number>()
@@ -190,13 +189,6 @@ function revealChange(id?:string){reviewOpen.value=false;openPage('columns');if(
 function setRuleErrors(id:string,errors:string[]){if(JSON.stringify(ruleErrors.value[id]??[])===JSON.stringify(errors))return;if(errors.length)ruleErrors.value[id]=errors;else delete ruleErrors.value[id]}
 function rememberScroll(){const pane=dialog.value?.querySelector<HTMLElement>('.bt-settings-detail');if(pane)scrollPositions.set(selectedId.value,pane.scrollTop)}
 function selectColumn(id:string){rememberScroll();selectedId.value=id}
-function currentBackup(){return {kind:'business-table-settings',schemaVersion:3,tableKey:props.tableKey,columns:Object.fromEntries(props.columns.map((column,index)=>[column.id,{...parseColumnPatch(Object.fromEntries(Object.entries(column).filter(([key])=>['title','visible','width','fixed','align','sortable','headerStyle','cellStyle','content','mapping','numberRule','template','filter','filterable','emptyText','numberFormat','valueMap'].includes(key)))),order:index}])),sorts:cloneData(props.sorts),presentation:cloneData(props.presentation)}}
-function exportBackup(){const url=URL.createObjectURL(new Blob([JSON.stringify(currentBackup(),null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='表格设置.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
-async function restoreBackup(event:Event){
-  if(!canPage('appearance'))return
-  const input=event.target as HTMLInputElement,file=input.files?.[0];input.value='';if(!file)return
-  try{if(file.size>2_000_000)throw new Error('设置文件不能超过 2 MB');const data=JSON.parse(await file.text());if(!data||data.kind!=='business-table-settings'||data.schemaVersion!==3||!data.columns||typeof data.columns!=='object')throw new Error('请选择有效的表格设置备份');emit('restore',data);for(const tab of tabs.value)if(canPage(tab.id))resetNumericInputs([tab.id]);backupError.value=''}catch(cause){backupError.value=cause instanceof Error?cause.message:'设置备份无法读取'}
-}
 function rememberPreview(){try{if(experienceKey.value)localStorage.setItem(experienceKey.value,JSON.stringify({previewOpen:previewOpen.value,previewMode:previewMode.value}))}catch{/* Experience persistence is optional. */}}
 watch([previewOpen,previewMode],rememberPreview)
 
@@ -253,7 +245,7 @@ onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getIt
         <div class="bt-settings-summary" :class="{'is-dirty':dirty}"><span>{{dirty?'修改尚未应用':'当前设置已应用'}}</span><span v-if="activeTab&&settingsPolicy.pages[activeTab].disabled" class="bt-settings-readonly">只读</span><button v-if="dirty" class="bt-settings-text" @click="reviewOpen=true">查看修改</button></div>
         <div v-if="activeTab==='columns'" class="bt-settings-editor">
           <aside class="bt-settings-sidebar">
-            <div v-if="batchColumns.length" class="bt-settings-sidebar__caption"><strong>批量样式</strong><span>勾选仅用于复制文字样式</span></div>
+            <div v-if="batchColumns.length" class="bt-settings-sidebar__caption"><strong>批量样式</strong></div>
             <label v-if="batchColumns.length" class="bt-settings-check bt-settings-sidebar__all"><input type="checkbox" aria-label="全选样式列" :disabled="!batchColumns.some(batchEnabled)" :checked="batchColumns.length>0&&batchColumns.every(column=>batchIds.includes(column.id))" :indeterminate="batchColumns.some(column=>batchIds.includes(column.id))&&!batchColumns.every(column=>batchIds.includes(column.id))" @change="batchIds=($event.target as HTMLInputElement).checked?batchColumns.filter(batchEnabled).map(column=>column.id):[]">全选样式列</label>
             <div :ref="columnReorder.setList" class="bt-settings-sidebar__list">
               <div v-for="column in columns" :key="column.id" class="bt-settings-pick" :class="{'is-active':selectedId===column.id}" v-bind="columnReorder.row(column.id)">
@@ -262,15 +254,14 @@ onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getIt
                 <button class="bt-settings-pick__label" :aria-label="'编辑列 '+column.title" @click="selectColumn(column.id)"><span>{{column.title}}</span><small>{{column.visible===false?'隐藏':column.fixed==='left'?'左侧冻结':column.fixed==='right'?'右侧冻结':'显示'}}</small></button>
               </div>
             </div>
-            <p v-if="batchColumns.length">勾选用于批量样式，不会隐藏列。</p>
           </aside>
           <main v-if="selected" class="bt-settings-column-editor">
-            <div class="bt-settings-editor-header"><div class="bt-settings-detail__heading"><div><h3>当前编辑：{{selected.title}}</h3><small>{{selected.type==='number'||selected.type==='currency'?'数值字段':'文本字段'}} · {{selected.visible===false?'隐藏中':'显示中'}}</small></div><button v-if="settingsPolicy.pages.columns.visible" class="bt-settings-text" :disabled="!canResetSelected" @click="resetColumn(selected.id)">恢复此列</button></div>
+            <div class="bt-settings-editor-header"><div class="bt-settings-detail__heading"><h3>当前编辑：{{selected.title}}</h3><div class="bt-settings-column-meta"><span>{{selected.type==='number'||selected.type==='currency'?'数值字段':'文本字段'}}</span><span class="bt-settings-column-status" :class="{'is-hidden':selected.visible===false}">{{selected.visible===false?'隐藏中':'显示中'}}</span><button v-if="settingsPolicy.pages.columns.visible" class="bt-settings-text" :disabled="!canResetSelected" @click="resetColumn(selected.id)">恢复此列</button></div></div>
             <nav v-if="sections.length" class="bt-settings-sections" aria-label="列设置内容"><button v-for="section in sections" :key="section.id" :class="{'is-active':activeSection===section.id}" @click="showSection(section.id)">{{section.label}}<small v-if="sectionAccess(section.id).disabled">只读</small></button></nav></div>
             <div class="bt-settings-detail" @scroll.passive="rememberScroll">
             <SettingsSection v-if="sectionAccess('basic').visible" title="基本" :open="sectionOpen('basic')" @update:open="setSectionOpen('basic',$event)">
               <div class="bt-settings-grid bt-settings-grid--two">
-                <label v-if="visible('rename')" class="bt-settings-field"><span>显示名称</span><input aria-label="显示名称" :value="selected.title" :disabled="!can('rename')" @input="patch({title:($event.target as HTMLInputElement).value})"><small>原名称：{{selectedBase?.title??selected.title}}</small></label>
+                <label v-if="visible('rename')" class="bt-settings-field"><span>显示名称</span><input aria-label="显示名称" :value="selected.title" :disabled="!can('rename')" @input="patch({title:($event.target as HTMLInputElement).value})"><small v-if="selectedBase&&selectedBase.title!==selected.title">原名称：{{selectedBase.title}}</small></label>
                 <div v-if="visible('width')" class="bt-settings-field"><span>列宽（px）</span><SettingsRange :path="['columns',selected.id,'width']" :key="selected.id" label="列宽（px）" :slider-label="selected.title+'列宽'" :min="getColumnWidthBounds(selected).min" :max="getColumnWidthBounds(selected).max" step="any" unit="px" :model-value="editableColumnWidth(selected)" :disabled="!can('width')" @update:model-value="width(String($event))" /></div>
               </div>
               <div class="bt-settings-inline"><label v-if="visible('visible')" class="bt-settings-check"><input type="checkbox" aria-label="显示此列" :checked="selected.visible!==false" :disabled="!can('visible')" @change="patch({visible:($event.target as HTMLInputElement).checked})">显示此列</label><label v-if="visible('sortable')" class="bt-settings-check"><input type="checkbox" aria-label="允许排序" :checked="!!selected.sortable" :disabled="!can('sortable')" @change="patch({sortable:($event.target as HTMLInputElement).checked})">允许排序</label><span v-if="visible('fixed')" class="bt-settings-detail-pins">冻结位置<button v-for="side in ['left','right'] as const" :key="side" class="bt-settings-icon" :class="{'is-active':selected.fixed===side}" :disabled="!canPin(side)" :title="(side==='left'?'左冻结 ':'右冻结 ')+selected.title" :aria-pressed="selected.fixed===side" @click="pin(side)"><TableIcon :name="'pin-'+side" :size="15" /></button></span></div>
@@ -297,10 +288,8 @@ onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getIt
           <div v-if="!sorts.length" class="bt-settings-empty"><TableIcon name="sort" :size="30"/><p>未设置排序</p><small>添加规则，或点击表头调整排序。</small></div>
         </fieldset>
         <div v-else-if="activeTab==='actions'" class="bt-settings-pane"><ActionSettings :disabled="!canPage('actions')" :model-value="presentation.rowActions" :actions="actions" @update:model-value="setPresentation('rowActions',$event)" /></div>
-        <div v-else-if="activeTab==='appearance'" class="bt-settings-pane"><AppearanceSettings :disabled="!canPage('appearance')" :model-value="presentation.appearance" :page-sizes="pageSizes" @update:model-value="setPresentation('appearance',$event)" @backup="exportBackup" @restore="restoreInput?.click()" /></div>
+        <div v-else-if="activeTab==='appearance'" class="bt-settings-pane"><AppearanceSettings :disabled="!canPage('appearance')" :model-value="presentation.appearance" :page-sizes="pageSizes" @update:model-value="setPresentation('appearance',$event)" /></div>
         <div v-else-if="activeTab==='toolbar'" class="bt-settings-pane"><ToolbarSettings :disabled="!canPage('toolbar')" :model-value="presentation.toolbar" :tools="tools" @update:model-value="setPresentation('toolbar',$event)" /></div>
-        <input ref="restoreInput" type="file" accept="application/json,.json" hidden aria-label="恢复表格设置文件" @change="restoreBackup" />
-        <p v-if="backupError" class="bt-settings-error" role="alert">{{backupError}}</p>
         <div v-if="issues.length||allRuleErrors.length" class="bt-settings-validation-summary" role="alert"><span>{{issues[0]?.message??allRuleErrors[0]}}</span><button class="bt-settings-text" @click="revealChange(issues[0]?.columnId)">查看</button></div>
         <div v-if="colorErrors.length" class="bt-settings-validation-summary" role="status"><span>有 {{colorErrors.length}} 项颜色需要修改</span><button class="bt-settings-text" aria-label="定位颜色错误" @click="revealColorError">查看</button></div>
         <div v-if="Object.keys(numericErrors).length" class="bt-settings-validation-summary" role="alert">{{Object.values(numericErrors)[0]}}</div>

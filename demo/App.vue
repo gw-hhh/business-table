@@ -50,7 +50,7 @@ const filteredRows = computed(() => filterQuotations(quotations.value, query.val
 const selectedAmount=computed(()=>selectedRows.value.reduce((sum,row)=>sum+row.amount,0))
 const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
 const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-const table = ref<{ openDataTool:(name:DataToolName)=>Promise<void>; getFeatureContext:(name:'rangeSelection')=>RangeSelectionContext|undefined; openFilters:(columnId?:string)=>Promise<void>; setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
+const table = ref<{ preloadFeature:(name:'columnSettings')=>Promise<void>|undefined; openDataTool:(name:DataToolName)=>Promise<void>; getFeatureContext:(name:'rangeSelection')=>RangeSelectionContext|undefined; openFilters:(columnId?:string)=>Promise<void>; setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
 const currentSearch = () => table.value?.getRuntime().searchContext()
 const persistence = createLocalStoragePersistence()
 const features = {
@@ -149,16 +149,16 @@ const tools = computed<{ page: ToolDefinition[]; table: ToolDefinition[] }>(() =
     { id: 'search', label: '查询条件', icon: 'search', display: 'icon', active: searchVisible.value, handler: () => { searchVisible.value = !searchVisible.value } },
     { id: 'reload', label: '刷新', icon: 'refresh', separator:true, display: 'icon', handler: refresh },
     { id: 'density', label: '行高密度', icon: 'density', display: 'icon', handler: event => densityMenu.value?.open(event) },
-    { id: 'sort', label: '排序规则', icon: 'sort', display: 'icon', active: query.value.sorts.length > 0, handler: () => table.value?.openColumnSettings('drawer',undefined,'sorts') },
-    {id:'columns',label:'列设置',icon:'columns',display:'icon',handler:()=>table.value?.openColumnSettings('quick')},
-    {id:'settings',label:'表格设置',icon:'settings',immutable:true,handler:()=>table.value?.openColumnSettings('drawer')},
+    { id: 'sort', label: '排序规则', icon: 'sort', display: 'icon', active: query.value.sorts.length > 0, preload:()=>table.value?.preloadFeature('columnSettings'),handler: () => table.value?.openColumnSettings('drawer',undefined,'sorts') },
+    {id:'columns',label:'列设置',icon:'columns',display:'icon',preload:()=>table.value?.preloadFeature('columnSettings'),handler:()=>table.value?.openColumnSettings('quick')},
+    {id:'settings',label:'表格设置',icon:'settings',immutable:true,preload:()=>table.value?.preloadFeature('columnSettings'),handler:()=>table.value?.openColumnSettings('drawer')},
     {id:'data-tools',label:'数据工具',icon:'filter',display:'icon',children:[
       {id:'combined-filter',label:'组合筛选',icon:'filter',handler:()=>table.value?.openFilters()},
       {id:'conditional-formatting',label:'条件标记',icon:'info',handler:()=>table.value?.openDataTool('conditionalFormatting')},
       {id:'grouping',label:'分组汇总',icon:'density',handler:()=>table.value?.openDataTool('grouping')},
       {id:'compare',label:'记录对比',icon:'columns',handler:()=>table.value?.openDataTool('compare')},
       {id:'range-selection',label:table.value?.getFeatureContext('rangeSelection')?.enabled?'关闭区域选择':'开启区域选择',icon:'batch',handler:()=>table.value?.openDataTool('rangeSelection')},
-      {id:'toolbar-settings',label:'工具栏设置',icon:'settings',separator:true,handler:()=>table.value?.openColumnSettings('drawer',undefined,'toolbar')},
+      {id:'toolbar-settings',label:'工具栏设置',icon:'settings',separator:true,preload:()=>table.value?.preloadFeature('columnSettings'),handler:()=>table.value?.openColumnSettings('drawer',undefined,'toolbar')},
     ]},
   ],
 }))
@@ -201,7 +201,7 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
         </form>
       </template>
       <template #toolbar-start>
-        <div v-if="!selectedRows.length" class="q-table-title"><h2>报价列表</h2><span class="q-toolbar-divider" aria-hidden="true"/><ViewsPanel :runtime="viewsRuntime" :snapshot="viewSnapshot" :modified="viewModified" :pending="queryPending" @notice="toast" @committed="viewCommitted" @require-apply="focusSearch"/><span v-if="viewModified" class="q-modified">未保存</span><span class="q-count">{{ rowCount }}</span></div><div v-else class="q-selection"><span>已选 <strong>{{ selectedRows.length }}</strong> 条</span><button class="q-link" @click="selectQuery">选择全部 {{ rowCount }} 条</button><span class="q-toolbar-divider"/><button class="q-link" @click="exportScope='selected'">导出所选</button><button class="q-link q-danger" @click="deleteQuotations(selectedRows)">删除</button><button class="q-link" @click="table?.clearSelection()">取消选择</button></div>
+        <div v-if="!selectedRows.length" class="q-table-title"><h2>报价列表</h2><span class="q-toolbar-divider" aria-hidden="true"/><ViewsPanel :runtime="viewsRuntime" :snapshot="viewSnapshot" :modified="viewModified" :pending="queryPending" @notice="toast" @committed="viewCommitted" @require-apply="focusSearch"/></div><div v-else class="q-selection"><span>已选 <strong>{{ selectedRows.length }}</strong> 条</span><button class="q-link" @click="selectQuery">选择全部 {{ rowCount }} 条</button><span class="q-toolbar-divider"/><button class="q-link" @click="exportScope='selected'">导出所选</button><button class="q-link q-danger" @click="deleteQuotations(selectedRows)">删除</button><button class="q-link" @click="table?.clearSelection()">取消选择</button></div>
       </template>
       <template #toolbar-end>
         <ToolStrip overflow="wrap" size="small" :tools="tools.table" :layout="toolbarLayout.table" :gap="toolbarLayout.gap" more-label="更多表格工具" button-class="q-btn" icon-button-class="q-icon-btn">
