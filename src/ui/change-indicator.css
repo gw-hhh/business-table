@@ -1,0 +1,3 @@
+/* Status badges overlay their button; toggling them never participates in layout. */
+:where(button:has(> .bt-change-indicator)){position:relative}
+.bt-change-indicator{position:absolute;inset-block-start:4px;inset-inline-end:4px;display:block;width:5px;height:5px;margin:0;padding:0;border:0;border-radius:50%;background:#f0dca3;box-shadow:0 0 0 1px #bc944826;pointer-events:none}
