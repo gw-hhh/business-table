@@ -11,6 +11,7 @@ export interface Appearance {
   fontFamily: ColumnFontFamily; fontSize: number; headerFontSize: number; color: string; headerColor: string
   density: 'compact' | 'default' | 'comfortable'; border: 'horizontal' | 'full' | 'none'
   stripe: boolean; index: boolean; hover: boolean; pageSize: number
+  summaryEnabled: boolean; summaryColumn: string
 }
 export interface RowActionLayout { maxInline: number; display: DisplayMode; align: 'left' | 'center' | 'right'; gap: number; grouped: boolean; items: Record<string, ActionPreference> }
 export interface ToolbarLayout { followView: boolean; gap: number; page: Record<string, ToolPreference>; table: Record<string, ToolPreference> }
@@ -31,6 +32,7 @@ const own = (value: Record<string, unknown>, key: string): unknown => Object.has
 const color = z.string().regex(/^#[\da-fA-F]{6}$/)
 const display = z.enum(['text', 'icon-text', 'icon'])
 const appearanceFields = {
+  summaryEnabled: z.boolean(), summaryColumn: z.string().max(160),
   fontFamily: z.enum(columnFontFamilies), fontSize: z.number().int().min(10).max(32), headerFontSize: z.number().int().min(10).max(32), color, headerColor: color,
   density: z.enum(['compact', 'default', 'comfortable']), border: z.enum(['horizontal', 'full', 'none']), stripe: z.boolean(), index: z.boolean(), hover: z.boolean(), pageSize: z.number().int().positive().max(1000),
 }
@@ -70,7 +72,7 @@ function itemMap<T extends object>(input: unknown, schema: Record<string, z.ZodT
 }
 export function defaultPresentation(): TablePresentation {
   return {
-    appearance: { fontFamily: 'system', fontSize: 14, headerFontSize: 14, color: '#334155', headerColor: '#334155', density: 'default', border: 'horizontal', stripe: false, index: false, hover: true, pageSize: 10 },
+    appearance: { fontFamily: 'system', fontSize: 14, headerFontSize: 14, color: '#334155', headerColor: '#334155', density: 'default', border: 'horizontal', stripe: false, index: false, hover: true, pageSize: 10, summaryEnabled: false, summaryColumn: '' },
     rowActions: { maxInline: 2, display: 'text', align: 'left', gap: 12, grouped: true, items: {} },
     toolbar: { followView: false, gap: 4, page: {}, table: {} },
   }
@@ -108,6 +110,26 @@ function difference(current: unknown, base: unknown): unknown {
 }
 export function presentationDelta(presentation: TablePresentation, base = defaultPresentation()): PresentationDelta {
   return difference(resolvePresentation(presentation), base) as PresentationDelta ?? {}
+}
+/** A stored delta must retain explicit default values such as false, which may override a different declaration. */
+export function parsePresentationDelta(input:unknown,observer?:ConfigurationObserver):PresentationDelta {
+  const delta:Record<string,unknown>=Object.create(null)
+  resolvePresentation(input,undefined,{
+    accept(path,value,effectiveValue){
+      const keys=path.slice(1);let target=delta
+      for(const key of keys.slice(0,-1)){
+        if(!Object.hasOwn(target,key))target[key]=Object.create(null)
+        target=target[key] as Record<string,unknown>
+      }
+      const key=keys.at(-1);if(key!==undefined)target[key]=value
+      observer?.accept(path,value,effectiveValue)
+    },
+    reject:(path,diagnostic)=>observer?.reject(path,diagnostic),
+    effective:(path,value)=>observer?.effective(path,value),
+    derive:(path,from,value)=>observer?.derive(path,from,value),
+    omit:(path,message)=>observer?.omit(path,message),
+  })
+  return delta as PresentationDelta
 }
 /** Resolve local availability without evaluating row predicates or saved visibility. */
 export function availableActions<T extends RowData>(registered: readonly Action<T>[]): Action<T>[] {

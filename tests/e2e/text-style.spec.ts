@@ -1,3 +1,4 @@
+import {openSettingsSections} from './settings-helpers'
 import type { Locator } from '@playwright/test'
 import { test, expect } from './runtime'
 
@@ -33,14 +34,17 @@ test('quotation cell font sizes apply to project and status in the preview and l
   for (const size of [20, 32]) {
     await page.getByRole('button', { name: '表格设置', exact: true }).click()
     const drawer = page.getByTestId('settings-drawer')
+    await openSettingsSections(drawer,'预览')
     const preview = drawer.getByTestId('settings-preview')
     await drawer.getByRole('button', { name: '编辑列 项目名称 / 客户', exact: true }).click()
+    await openSettingsSections(page,'单元格文字')
     await drawer.getByRole('spinbutton', { name: '单元格文字字号', exact: true }).fill(String(size))
     await expect(preview.locator('.bt-cell-primary')).toHaveCSS('font-size', `${size}px`)
     await expectTextToFit(preview.locator('.bt-cell-primary'))
     await expectTextToFit(preview.locator('.bt-cell-secondary'))
 
     await drawer.getByRole('button', { name: '编辑列 状态', exact: true }).click()
+    await openSettingsSections(page,'单元格文字')
     await drawer.getByRole('spinbutton', { name: '单元格文字字号', exact: true }).fill(String(size))
     await expect(preview.locator('.bt-cell-map')).toHaveCSS('font-size', `${size}px`)
     await expectTextToFit(preview.locator('.bt-cell-map'))

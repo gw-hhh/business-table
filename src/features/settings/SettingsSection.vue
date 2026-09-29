@@ -3,7 +3,7 @@ import {useId} from 'vue'
 import TableIcon from '../../components/TableIcon.vue'
 
 defineProps<{title:string;description?:string;disabled?:boolean}>()
-const open=defineModel<boolean>('open',{default:true})
+const open=defineModel<boolean>('open',{default:false})
 const bodyId=useId()
 </script>
 
@@ -26,10 +26,10 @@ const bodyId=useId()
 .bt-settings-disclosure__heading{display:flex;align-items:center;gap:10px;margin-bottom:8px;min-height:26px}
 .bt-settings-disclosure.is-collapsed>.bt-settings-disclosure__heading{margin-bottom:0}
 .bt-settings-disclosure__heading>h4{flex:1;min-width:0;margin:0}
-.bt-settings-disclosure__toggle{display:flex;align-items:center;gap:4px;flex-shrink:0;padding:4px 0 4px 6px;border:0;background:transparent;color:#64748b;font:inherit;font-size:12px;cursor:pointer}
+.bt-settings-disclosure__toggle{display:flex;align-items:center;gap:4px;flex-shrink:0;padding:4px 0 4px 6px;border:0;background:transparent;color:#1683f3;font:inherit;font-size:12px;cursor:pointer}
 .bt-settings-disclosure__toggle:hover{color:#2468e8}
 .bt-settings-disclosure__heading small{display:block;margin-top:3px;color:#64748b;font-size:12px;line-height:18px;font-weight:400}
-.bt-settings-disclosure__chevron{flex-shrink:0;transition:transform .15s;color:#8290a5}
+.bt-settings-disclosure__chevron{flex-shrink:0;transition:transform .15s;color:inherit}
 .bt-settings-disclosure.is-collapsed>.bt-settings-disclosure__heading .bt-settings-disclosure__chevron{transform:rotate(-90deg)}
 .bt-settings-disclosure__body{padding:0;min-width:0}
 .bt-settings-disclosure .bt-settings-disclosure__heading h4{margin:0}

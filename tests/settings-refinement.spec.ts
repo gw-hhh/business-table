@@ -21,20 +21,40 @@ beforeAll(()=>{
 afterAll(()=>{for(const [method,descriptor] of methods){if(descriptor)Object.defineProperty(HTMLDialogElement.prototype,method,descriptor);else delete (HTMLDialogElement.prototype as unknown as Record<string,unknown>)[method]}})
 afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount());document.body.innerHTML=''})
 function setup(mode:'drawer'|'quick'='drawer',lockedStyle=false){
-  const saves:Record<string,UserColumnConfig>[]=[]
+  const saves:Record<string,UserColumnConfig>[]=[],notices:string[]=[]
   const columns:ColumnConfig[]=[
     {id:'id',field:'id',title:'编号',width:180,fixed:'left',configurable:{visible:{enabled:true,disabled:true},fixed:{enabled:true,disabled:true},order:{enabled:true,disabled:true}}},
     {id:'name',field:'name',title:'名称',width:220,sortable:true,configurable:{...allColumnCapabilities,...(lockedStyle?{headerStyle:{enabled:true,disabled:true} as const}: {})}},
     {id:'customer',field:'customer',title:'客户',visible:false,width:150,configurable:{...allColumnCapabilities}},
   ]
-  const context=reactive({settingsPolicy:fullSettingsPolicy(),columns,baseColumns:columns,openMode:mode,closeCount:0,previewRows:[{id:'A1',name:'项目甲',customer:'客户甲'}],close(){context.closeCount++},async patch(){},async apply(value:Record<string,UserColumnConfig>){saves.push(value)}})
+  const context=reactive({settingsPolicy:fullSettingsPolicy(),columns,baseColumns:columns,openMode:mode,notice(message:string){notices.push(message)},closeCount:0,previewRows:[{id:'A1',name:'项目甲',customer:'客户甲'}],close(){context.closeCount++},async patch(){},async apply(value:Record<string,UserColumnConfig>){saves.push(value)}})
   const wrapper=mount(ColumnSettings,{props:{context},attachTo:document.body,global:{stubs:{Teleport:true}}})
   wrappers.push(wrapper)
-  return {wrapper,context,saves}
+  return {wrapper,context,saves,notices}
 }
 const button=(w:VueWrapper,label:string)=>w.findAll('button').find(b=>b.text()===label)!
 
 describe('legacy settings refinement',()=>{
+  it('starts column groups collapsed and retains an edited draft through collapse and navigation',async()=>{
+    const {wrapper,saves}=setup()
+    expect(wrapper.findAll('.bt-settings-disclosure__toggle').every(toggle=>toggle.attributes('aria-expanded')==='false')).toBe(true)
+    expect(wrapper.get('input[aria-label="显示名称"]').isVisible()).toBe(false)
+    await wrapper.get('nav[aria-label="列设置内容"] button').trigger('click')
+    const name=wrapper.get('input[aria-label="显示名称"]')
+    expect(name.isVisible()).toBe(true)
+    await name.setValue('草稿名称')
+    await wrapper.get('[aria-label="收起基本"]').trigger('click')
+    expect(wrapper.get('input[aria-label="显示名称"]').isVisible()).toBe(false)
+    await wrapper.get('[aria-label="编辑列 客户"]').trigger('click')
+    expect(wrapper.get('[aria-label="展开基本"]').attributes('aria-expanded')).toBe('false')
+    await wrapper.get('[aria-label="编辑列 草稿名称"]').trigger('click')
+    await wrapper.get('[aria-label="展开基本"]').trigger('click')
+    expect(wrapper.get('input[aria-label="显示名称"]').element).toHaveProperty('value','草稿名称')
+    expect(saves).toEqual([])
+    expect(wrapper.get('[aria-label="编辑列 草稿名称"] small').text()).toBe('name')
+    expect(wrapper.get('[aria-label="编辑列 草稿名称"] small').attributes('title')).toBe('name')
+  })
+
   it('accepts only named font tokens and resolves a controlled CSS fallback stack',()=>{
     const column={id:'name',field:'name',title:'名称',configurable:{...allColumnCapabilities}}
     expect(guardColumnPatch(column,{cellStyle:{fontFamily:'yahei'}})).toEqual({cellStyle:{fontFamily:'yahei'}})
@@ -115,14 +135,14 @@ describe('legacy settings refinement',()=>{
     await button(wrapper,'应用').trigger('click');await flushPromises()
     expect(saves).toEqual([{name:{title:'新名称',headerStyle:{color:'#167457'}}}])
   })
-  it('asks before closing a draft containing only an invalid color',async()=>{
-    const {wrapper,context,saves}=setup()
+  it('discards an invalid color draft immediately without confirmation',async()=>{
+    const {wrapper,context,saves,notices}=setup()
+    await wrapper.get('button[aria-label="展开表头文字"]').trigger('click')
     await wrapper.get('input[aria-label="表头文字文字颜色"]').setValue('#invalid')
     await wrapper.get('button[aria-label="关闭表格设置"]').trigger('click')
-    expect(context.closeCount).toBe(0)
-    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(true)
-    await button(wrapper,'继续编辑').trigger('click')
-    expect(wrapper.get('input[aria-label="表头文字文字颜色"]').element).toHaveProperty('value','#invalid')
+    expect(context.closeCount).toBe(1)
+    expect(notices).toEqual(['已取消未应用的修改'])
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false)
     expect(saves).toEqual([])
   })
   it('clears an invalid color buffer on restore without writing preferences',async()=>{

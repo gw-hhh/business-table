@@ -68,10 +68,10 @@ describe('configuration explanation', () => {
     expect(result.entries.find(entry => entry.path === '/columns/name~1a~0b/width')!.history[1]!.value).toBe(140)
   })
 
-  it('reports preference parsing failures on the same effective field and explains omitted normalized defaults', () => {
+  it('reports preference parsing failures and preserves explicitly saved default values', () => {
     const result = explainConfiguration({definition: definition(), remoteOverride: {presentation: {appearance: {fontSize: 18}}}, preference: preference({name: {width: '200'}}, {presentation: {appearance: {fontSize: 14, density: 'invalid'}}})})
     expect(result.entries.find(entry => entry.path === '/columns/name/width')).toMatchObject({source: 'default', effectiveValue: 140, history: expect.arrayContaining([expect.objectContaining({source: 'preference', status: 'rejected'})])})
-    expect(result.entries.find(entry => entry.path === '/presentation/appearance/fontSize')).toMatchObject({source: 'remote', effectiveValue: 18, history: expect.arrayContaining([expect.objectContaining({source: 'preference', status: 'ignored', reason: expect.objectContaining({code: 'NormalizationOmission'})})])})
+    expect(result.entries.find(entry => entry.path === '/presentation/appearance/fontSize')).toMatchObject({source: 'preference', effectiveValue: 14, history: expect.arrayContaining([expect.objectContaining({source: 'preference', status: 'accepted', value:14})])})
     expect(result.entries.find(entry => entry.path === '/presentation/appearance/density')!.history.at(-1)).toMatchObject({source: 'preference', status: 'rejected'})
   })
 

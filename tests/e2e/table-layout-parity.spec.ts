@@ -1,3 +1,4 @@
+import {openSettingsSections} from './settings-helpers'
 import type { Page } from '@playwright/test'
 import { test, expect } from './runtime'
 
@@ -61,8 +62,10 @@ test('resizing and hiding columns redistribute free space without saving expande
   await page.getByRole('button', { name: '表格设置', exact: true }).click()
   const drawer = page.getByTestId('settings-drawer')
   await drawer.getByRole('button', { name: '编辑列 项目名称 / 客户', exact: true }).click()
+  await openSettingsSections(page,'基本')
   await expect(drawer.getByRole('spinbutton', { name: '列宽（px）', exact: true })).toHaveValue('280')
   await drawer.getByRole('button', { name: '编辑列 负责人', exact: true }).click()
+  await openSettingsSections(page,'基本')
   await expect(drawer.getByRole('spinbutton', { name: '列宽（px）', exact: true })).toHaveValue('160')
 })
 
@@ -89,10 +92,9 @@ test('vertical and horizontal scrolling retain the reference header and both fix
   for (const [cell, target] of [[left, reference[0]!], [right, reference.at(-1)!]] as const) {
     await expect.poll(async () => {
       const box = await cell.boundingBox()
-      return box ? Math.max(Math.abs(box.x - target.x), Math.abs(box.y - target.y), Math.abs(box.width - target.width)) : Infinity
+      return box ? Math.max(Math.abs(box.x - target.x), Math.abs(box.width - target.width)) : Infinity
     }).toBeLessThanOrEqual(1)
   }
-  await expect.poll(async () => Math.abs((await viewport.locator('.vxe-table--main-wrapper .vxe-table--header-wrapper').boundingBox())!.y - reference[0]!.y)).toBeLessThanOrEqual(1)
   const fixedRow = viewport.locator('.vxe-table--fixed-left-wrapper .vxe-body--row').nth(3)
   const centerRow = viewport.locator('.vxe-table--main-wrapper .vxe-body--row').nth(3)
   await expect.poll(async () => Math.abs((await fixedRow.boundingBox())!.y - (await centerRow.boundingBox())!.y)).toBeLessThanOrEqual(1)

@@ -1,4 +1,4 @@
-import {resolvePresentation,presentationDelta,defaultPresentation,type TablePresentation} from '../features/presentation/model'
+import {resolvePresentation,presentationDelta,parsePresentationDelta,defaultPresentation,type TablePresentation} from '../features/presentation/model'
 import { z } from 'zod'
 import {ruleFieldSchemas} from '../features/columns/schema'
 import {readConditionalRules,type ConditionalRule} from '../features/conditional-formatting/model'
@@ -115,16 +115,7 @@ export function parsePreference(input: unknown, tableKey: string, report?: Diagn
     current = { kind, schemaVersion: 3, tableKey, columns, ...(pageSize === undefined ? {} : { pagination: { pageSize } }) }
   }
   if(own(value,'presentation')!==undefined){
-    const accepted: string[][] | undefined = observer ? [] : undefined
-    const presentationObserver: ConfigurationObserver | undefined = observer ? {
-      ...observer, accept: path => accepted?.push([...path]),
-    } : undefined
-    current.presentation=presentationDelta(resolvePresentation(own(value,'presentation'), undefined, presentationObserver))
-    if (observer && accepted) for (const path of accepted) {
-      let child: unknown = current.presentation
-      for (const key of path.slice(1)) child = isRecord(child) ? own(child, key) : undefined
-      if (child === undefined) observer.omit(path, '此值在偏好差量归一化时被省略，未覆盖当前基线。')
-    }
+    current.presentation=parsePresentationDelta(own(value,'presentation'),observer?{...observer,accept:()=>{}}:undefined)
   }
   if (current.schemaVersion === 2) return {...(current.presentation?{presentation:current.presentation}:{}),...(conditionalFormatting===undefined?{}:{conditionalFormatting}), kind, schemaVersion: 3, tableKey, columns: current.columns, ...(current.pageSize === undefined ? {} : { pagination: { pageSize: current.pageSize } }) }
   return {...current,...(conditionalFormatting===undefined?{}:{conditionalFormatting})}

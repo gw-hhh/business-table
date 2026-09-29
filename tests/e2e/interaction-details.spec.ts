@@ -1,0 +1,83 @@
+import {test,expect} from './runtime'
+
+test('query draft dot clears only after submit and applied filters highlight the outer tool',async({page})=>{
+  await page.goto('/')
+  const query=page.getByRole('button',{name:'查询',exact:true})
+  const dot=page.locator('.bt-search-pending-indicator')
+  await expect(dot).toHaveCount(0)
+  await page.getByRole('searchbox',{name:'关键词',exact:true}).fill('水厂')
+  await expect(dot).toBeVisible()
+  await expect(dot).toHaveCSS('width','5px')
+  await query.click()
+  await expect(dot).toHaveCount(0)
+  await page.getByRole('button',{name:'重置',exact:true}).click()
+  const tool=page.getByRole('button',{name:'数据工具',exact:true})
+  await expect(tool).toHaveAttribute('aria-pressed','false')
+  await tool.click()
+  await page.getByRole('menuitem',{name:'组合筛选',exact:true}).click()
+  const dialog=page.getByRole('dialog',{name:'组合筛选',exact:true})
+  await dialog.getByRole('button',{name:'添加条件',exact:true}).click()
+  await dialog.getByRole('textbox',{name:'筛选值',exact:true}).fill('Q20260914')
+  await dialog.getByRole('button',{name:'应用条件',exact:true}).click()
+  await expect(tool).toHaveAttribute('aria-pressed','true')
+  await expect(tool).toHaveClass(/is-active/)
+})
+
+test('selection header and body checkboxes align in wide and narrow layouts',async({page})=>{
+  await page.goto('/')
+  await page.getByRole('button',{name:'批量操作',exact:true}).click()
+  for(const width of [1280,390]){
+    await page.setViewportSize({width,height:844})
+    const header=page.getByRole('checkbox',{name:'选择当前页',exact:true})
+    const row=page.getByRole('checkbox',{name:'选择 Q20260914-0001',exact:true})
+    await expect(header).toBeVisible()
+    await expect(row).toBeVisible()
+    await expect.poll(async()=>{const a=await header.boundingBox(),b=await row.boundingBox();return Math.abs(a!.x+a!.width/2-b!.x-b!.width/2)}).toBeLessThanOrEqual(1)
+  }
+})
+
+test('closing changed settings discards without confirmation and shows a temporary notice',async({page})=>{
+  await page.goto('/')
+  await page.getByRole('button',{name:'表格设置',exact:true}).click()
+  const drawer=page.getByRole('dialog',{name:'表格设置',exact:true})
+  await drawer.getByRole('button',{name:'展开基本',exact:true}).click()
+  const field=drawer.getByRole('textbox',{name:'显示名称',exact:true})
+  const original=await field.inputValue()
+  await field.fill('未应用名称')
+  await drawer.getByRole('button',{name:'关闭表格设置',exact:true}).click()
+  await expect(drawer).toHaveCount(0)
+  await expect(page.getByRole('dialog',{name:'修改尚未应用'})).toHaveCount(0)
+  await expect(page.getByRole('status').filter({hasText:'已取消未应用的修改'})).toBeVisible()
+  await page.getByRole('button',{name:'表格设置',exact:true}).click()
+  await drawer.getByRole('button',{name:'展开基本',exact:true}).click()
+  await expect(field).toHaveValue(original)
+})
+
+
+test('column-only filtering highlights the external data tool',async({page})=>{
+  await page.goto('/')
+  const trigger=page.locator('.vxe-table--main-wrapper').getByTestId('column-filter-name')
+  await trigger.focus();await trigger.click()
+  const dialog=page.getByRole('dialog',{name:'筛选 · 项目名称 / 客户',exact:true})
+  await dialog.getByRole('textbox',{name:'筛选值',exact:true}).fill('水厂')
+  await dialog.getByRole('button',{name:'应用筛选',exact:true}).click()
+  await expect(page.getByRole('button',{name:'数据工具',exact:true})).toHaveAttribute('aria-pressed','true')
+})
+
+
+test('column picker select-all aligns with its row checkboxes',async({page})=>{
+  await page.goto('/')
+  await page.getByRole('button',{name:'列设置',exact:true}).click()
+  const panel=page.locator('.bt-column-popup')
+  const all=panel.locator('.bt-column-popup__all input'),row=panel.locator('.bt-column-popup__row input').first()
+  await expect(all).toBeVisible()
+  const a=await all.boundingBox(),b=await row.boundingBox()
+  expect(Math.abs(a!.x-b!.x)).toBeLessThanOrEqual(.5)
+  await panel.getByRole('button',{name:'更多设置',exact:true}).click()
+  const drawer=page.getByRole('dialog',{name:'表格设置',exact:true})
+  await expect.poll(async()=>{
+    const c=await drawer.getByRole('checkbox',{name:'全选样式列',exact:true}).boundingBox()
+    const d=await drawer.getByRole('checkbox',{name:'批量样式 报价编号',exact:true}).boundingBox()
+    return Math.abs(c!.x-d!.x)
+  }).toBeLessThanOrEqual(.5)
+})

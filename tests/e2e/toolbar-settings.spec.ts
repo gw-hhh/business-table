@@ -1,3 +1,4 @@
+import {openSettingsSections} from './settings-helpers'
 import { test, expect } from './runtime'
 
 test('registered Demo tools are editable and saved layout controls the real toolbar after reload', async ({ page }) => {
@@ -6,6 +7,7 @@ test('registered Demo tools are editable and saved layout controls the real tool
   await page.getByRole('button', { name: '表格设置', exact: true }).click()
   const drawer = page.getByTestId('settings-drawer')
   await drawer.getByRole('tab', { name: '工具栏', exact: true }).click()
+  await openSettingsSections(page,'通用设置','页面工具栏','表格工具栏')
   await expect(drawer).not.toContainText('当前区域没有注册工具')
   await drawer.getByRole('textbox', { name: '刷新工具名称', exact: true }).fill('重新加载报价')
   await drawer.getByRole('combobox', { name: '刷新工具位置', exact: true }).selectOption('more')
@@ -32,7 +34,9 @@ test('Demo explicitly enables column rule editors including mapping, template an
   for (const label of ['基本', '筛选', '映射', '模板', '试算']) {
     await expect(drawer.locator('[aria-label="列设置内容"]').getByRole('button', { name: label, exact: true })).toBeEnabled()
   }
+  await openSettingsSections(page,'值映射')
   await expect(drawer.getByRole('checkbox', { name: '启用值映射', exact: true })).toBeEnabled()
+  await openSettingsSections(page,'富文本显示模板')
   await expect(drawer.getByRole('button', { name: '编辑模板', exact: true })).toBeEnabled()
 })
 
@@ -45,6 +49,7 @@ for (const width of [320, 390]) {
     await page.getByRole('button', { name: '表格设置', exact: true }).click()
     const drawer = page.getByTestId('settings-drawer')
     await drawer.getByRole('tab', { name: '工具栏', exact: true }).click()
+  await openSettingsSections(page,'通用设置','页面工具栏','表格工具栏')
     await drawer.getByRole('checkbox', { name: '固定工具 刷新', exact: true }).check()
     await drawer.getByRole('combobox', { name: '行高密度工具位置', exact: true }).selectOption('more')
     await drawer.getByRole('combobox', { name: '排序规则工具位置', exact: true }).selectOption('more')

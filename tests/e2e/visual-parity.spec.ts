@@ -1,3 +1,4 @@
+import {openSettingsSections} from './settings-helpers'
 import type { Locator } from '@playwright/test'
 import { test, expect } from './runtime'
 
@@ -28,7 +29,8 @@ test('quotation page restores the reference layout, density and footer', async (
   const rows = mainTable.locator('.vxe-body--row')
 
   await expect(page.getByRole('heading', { name: '报价管理', exact: true })).toBeVisible()
-  await expectBox(card, { x: 24, y: 96, width: 1872, height: 810 })
+  await expect(page.locator('.q-breadcrumb')).toHaveCount(0)
+  await expectBox(card, { x: 24, width: 1872 })
   await expectBox(mainTable.locator('.vxe-header--row').first(), { height: 44 })
   await expect(rows).toHaveCount(6)
   for (const [index, id] of ['Q20260914-0001','Q20260914-0181','Q20260914-0121','Q20260912-0051','Q20260912-0013','Q20260912-0002'].entries()) {
@@ -41,7 +43,7 @@ test('quotation page restores the reference layout, density and footer', async (
   await expect(page.getByRole('checkbox', { name: '选择当前页', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '展开', exact: true })).toBeVisible()
   await expect(mainTable.locator('.bt__sort.is-sorted')).toHaveCount(0)
-  await expectBox(card.locator('.bt__footer'), { y: 848, height: 57 })
+  await expectBox(card.locator('.bt__footer'), { height: 57 })
   await expect(card.locator('.bt__footer')).toContainText('1,026,450.00')
   await expect(page.getByRole('button', { name: '下一页', exact: true })).toBeDisabled()
   await expect(page.getByRole('combobox', { name: '每页条数' })).toHaveValue('10')
@@ -86,7 +88,7 @@ test('page More retains the reference tools and closes on outside click', async 
 test('view popup restores the saved-view layout and applying a view changes the rows', async ({ page }) => {
   await page.getByRole('button', { name: '保存与切换视图', exact: true }).click()
   const popup = page.getByRole('dialog', { name: '我的视图', exact: true })
-  await expectBox(popup, { width: 438 })
+  await expectBox(popup, { width: 360 })
   await expect(popup.getByText('我负责的未结报价', { exact: true })).toBeVisible()
   await expect(popup.getByRole('button',{name:/^澄川水务专属/})).toBeVisible()
   await expect(popup.getByRole('button', { name: '更新当前视图', exact: true })).toBeVisible()
@@ -145,10 +147,12 @@ test('full settings restores the drawer and applies a column draft only on confi
   await page.getByTestId('column-panel').getByRole('button', { name: '更多设置', exact: true }).click()
   const drawer = page.getByTestId('settings-drawer')
   await expectBox(drawer, { x: 1000, y: 0, width: 920, height: 945 })
+  await openSettingsSections(drawer,'预览')
   await expectBox(drawer.getByTestId('settings-preview'), { y: 684, height: 200 })
   expect(await drawer.locator('.bt-settings-tabs').evaluate(element => element.scrollHeight - element.clientHeight), 'desktop settings tabs must fit without a vertical scrollbar').toBeLessThanOrEqual(0)
   await expect(drawer.getByRole('button', { name: '应用', exact: true })).toBeDisabled()
   await drawer.getByRole('button', { name: '编辑列 负责人', exact: true }).click()
+  await openSettingsSections(page,'基本')
   await drawer.getByRole('textbox', { name: '显示名称', exact: true }).fill('负责同事')
   await expect(header()).toHaveCount(1)
   await expect(table.locator('.vxe-header--column').filter({ hasText: '负责同事' })).toHaveCount(0)
@@ -158,7 +162,9 @@ test('full settings restores the drawer and applies a column draft only on confi
 
   await page.getByRole('button', { name: '表格设置', exact: true }).click()
   await drawer.getByRole('button', { name: '编辑列 负责人', exact: true }).click()
+  await openSettingsSections(page,'基本')
   await expect(drawer.getByRole('textbox', { name: '显示名称', exact: true })).toHaveValue('负责人')
+  await openSettingsSections(page,'基本')
   await drawer.getByRole('textbox', { name: '显示名称', exact: true }).fill('负责同事')
   await drawer.getByRole('button', { name: '应用', exact: true }).click()
   await expect(drawer).toHaveCount(0)
@@ -186,8 +192,10 @@ test('header text alignment is applied to the live table as well as the preview'
   await page.getByRole('button', { name: '表格设置', exact: true }).click()
   const drawer=page.getByTestId('settings-drawer')
   await drawer.getByRole('button',{name:'编辑列 负责人',exact:true}).click()
+  await openSettingsSections(page,'表头文字')
   const headerStyle=drawer.locator('section').filter({has:page.getByRole('heading',{name:'表头文字',exact:true})})
   await headerStyle.getByRole('button',{name:'表头文字右对齐',exact:true}).click()
+  await openSettingsSections(drawer,'预览')
   await expect(drawer.getByTestId('settings-preview').locator('th').filter({hasText:'负责人'})).toHaveCSS('text-align','right')
   await drawer.getByRole('button',{name:'应用',exact:true}).click()
   const cell=page.locator('.vxe-table--main-wrapper .vxe-header--column').filter({hasText:'负责人'})

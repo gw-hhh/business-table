@@ -108,7 +108,7 @@ function guardPresentation(value:unknown){
 }
 function updatePresentation(value:unknown){presentationDraft.value=guardPresentation(value)}
 function updateSorts(value:typeof sortDraft.value){if(canPage('sorts'))sortDraft.value=value}
-function cancel(){if(!saving.value)props.context.close()}
+function cancel(discarded=false){if(saving.value)return;if(discarded||dirty.value)props.context.notice?.('已取消未应用的修改');props.context.close()}
 function outside(event:PointerEvent){
   if(drawer.value||!panel.value)return
   const target=event.target as Element|null
@@ -121,7 +121,7 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(prev
 </script>
 <template>
   <ColumnSettingsDrawer v-if="drawer" :open="open" @after-leave="emit('afterLeave')" :settings-policy="settingsPolicy" :table-key="context.tableKey" :presentation="presentationDraft" :base-presentation="context.basePresentation" :actions="context.actions??[]" :tools="context.tools??{page:[],table:[]}" :page-sizes="context.pageSizeOptions" :issues="issues" :changes="patches" :initial-column-id="context.selectedColumnId" :initial-tab="context.initialTab" @presentation="updatePresentation" :columns="draft" :base-columns="context.baseColumns??original" :sorts="sortDraft" :sorting-enabled="!!context.setSorts" :preview-rows="context.previewRows??[]" :preview-cell="context.previewCell" :dirty="dirty" :saving="saving" :error="error" @patch="patch" @reset="reset" @sorts="updateSorts" @reset-sorts="updateSorts(originalSorts.map(sort=>({...sort})))" @apply="apply" @cancel="cancel" @move="move" />
-  <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel" @after-leave="emit('afterLeave')"><aside v-if="!drawer&&open&&settingsPolicy.pages.columns.visible" ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel">
+  <Transition :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @leave-cancelled="motion.cancel" @after-leave="emit('afterLeave')"><aside v-if="!drawer&&open&&settingsPolicy.pages.columns.visible" ref="panel" class="bt-column-popup" data-testid="column-panel" role="dialog" aria-label="列设置" tabindex="-1" @keydown.esc.stop.prevent="cancel()">
     <div v-if="visibilityDeclared" class="bt-column-popup__all"><label><input type="checkbox" aria-label="显示全部列" :checked="allVisible" :indeterminate="someVisible" :disabled="!togglable.length" @change="all(($event.target as HTMLInputElement).checked)">全部</label></div>
     <div :ref="reorder.setList" class="bt-column-popup__list">
       <div v-for="column in draft" :key="column.id" class="bt-column-popup__row" :class="{'is-hidden':column.visible===false}" v-bind="reorder.row(column.id)">
@@ -136,6 +136,6 @@ onBeforeUnmount(()=>{document.removeEventListener('pointerdown',outside);if(prev
     </div>
     <p v-if="error||issues.length" class="bt-settings-error" role="alert">{{error||issues[0]?.message}}</p>
     <button v-if="Object.values(settingsPolicy.pages).some(page=>page.visible)" class="bt-column-popup__more bt-settings-text" @click="drawer=true"><TableIcon name="settings" :size="14" />更多设置</button>
-    <footer class="bt-column-popup__footer"><button class="bt-settings-text bt-settings-muted" :disabled="!canResetColumns" @click="reset()">恢复默认</button><span></span><button class="bt-settings-text" :disabled="saving" @click="cancel">取消</button><button class="bt-settings-text" :disabled="saving||issues.length>0" @click="apply">{{saving?'保存中…':'确认'}}</button></footer>
+    <footer class="bt-column-popup__footer"><button class="bt-settings-text bt-settings-muted" :disabled="!canResetColumns" @click="reset()">恢复默认</button><span></span><button class="bt-settings-text" :disabled="saving" @click="cancel()">取消</button><button class="bt-settings-text" :disabled="saving||issues.length>0" @click="apply">{{saving?'保存中…':'确认'}}</button></footer>
   </aside></Transition>
 </template>

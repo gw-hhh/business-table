@@ -14,6 +14,7 @@ const paths:Record<string,string>={
   'chevron-left':'m15 6-6 6 6 6','chevron-right':'m9 6 6 6-6 6',
   close:'m6 6 12 12M6 18 18 6',bookmark:'M6 3h12v18l-6-4-6 4V3Z',
   star:'m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.3-.9L12 3Z',
+  home:'m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8',
   edit:'m15 5 4 4M4 20l4-1 12-12-4-4L4 15v5Z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',
   copy:'M8 8h13v13H8V8Zm8-4V2H2v14h2',
   refresh:'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 11-2l3 3M4 16l3 3a7 7 0 0 0 11-2',

@@ -35,7 +35,7 @@ test('grouping matches reference drawer, controls and expanded row geometry', as
 test('row marking applies raw conditions, survives refresh and cancels drafts', async ({ page }, info) => {
   await page.goto('/'); await expect(rows(page)).toHaveCount(6)
   let dialog = await open(page, '条件标记')
-  await expect(dialog).toHaveCSS('width', '860px')
+  await expect(dialog).toHaveCSS('width', '780px')
   await dialog.getByRole('button', { name: '添加规则', exact: true }).click()
   await dialog.getByRole('combobox', { name: '标记字段', exact: true }).selectOption('amount')
   await dialog.getByRole('combobox', { name: '筛选条件', exact: true }).selectOption('gte')

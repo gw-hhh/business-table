@@ -16,6 +16,7 @@ import {useQueryRuntime,type QueryChange} from './query'
 import {getSettingsColumnFieldAccess,guardSettingsColumnPatch,guardSettingsCommit,resolveSettingsPolicy,type SettingsDefinition} from '../features/settings/policy'
 import {compileConditionalRules,guardConditionalRules,readConditionalRules,type ConditionalFormattingDefinition,type ConditionalRule} from '../features/conditional-formatting/model'
 import {useSearchPanel,type SearchPanelOptions,type SearchPanelPersistence} from '../features/search/panel'
+import {useSummary} from '../features/summary/runtime'
 
 export interface TableRuntimeInput<T extends RowData> {
   readonly tableKey?:string;readonly rowKey?:string;readonly columns:ColumnConfig<T>[];readonly data?:T[]
@@ -79,6 +80,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   const pages=computed(()=>paginationEnabled.value?Math.max(1,Math.ceil(total.value/pageSize.value)):1)
   const jumpPage=ref(1),pageButtons=computed(()=>Array.from({length:Math.min(5,pages.value)},(_,index)=>Math.max(1,Math.min(page.value-2,pages.value-4))+index))
   const selected=shallowRef(new Map<string,T>())
+  const summaryReady=ref(false)
   let selectionRequest=0,selectionController:AbortController|undefined
   let sequence=0,identity=0,ready=false,disposed=false,controller:AbortController|null=null,preferenceController=new AbortController(),writeQueue:Promise<void>=Promise.resolve()
   const extensionErrors=new Set<string>(),commitListeners=new Set<(before:TableConfig,after:TableConfig)=>void>()
@@ -381,7 +383,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
     return needle?result.filter(option=>option.label.toLocaleLowerCase().includes(needle)||String(option.value??'').toLocaleLowerCase().includes(needle)):result
   }
   async function initialize(){
-    const epoch=++identity;ready=false;controller?.abort();sequence++;preferenceController.abort();preferenceController=new AbortController()
+    const epoch=++identity;ready=false;summaryReady.value=false;controller?.abort();sequence++;preferenceController.abort();preferenceController=new AbortController()
     if(input.persistence){try{
       const stored=parsePreference(await withDeadline(signal=>input.persistence!.load(key(),{signal}),input.preferenceTimeoutMs??3000,preferenceController.signal),key(),report)
       if(disposed||epoch!==identity)return
@@ -395,7 +397,7 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
       }
     }catch(cause){if(!disposed&&epoch===identity)reportConfigError(cause)}}
     if(disposed||epoch!==identity)return
-    ready=true;void load()
+    ready=true;summaryReady.value=true;void load()
   }
   function updatePageSize(next:number){
     if(pageSize.value!==next){pageSize.value=next;page.value=1;void load()}
@@ -420,7 +422,8 @@ export function useTableRuntime<T extends RowData>(input:TableRuntimeInput<T>,ev
   watch(()=>input.tableKey,()=>{config.value=input.config?cloneData(input.config):makeConfig(key(),input.columns);viewColumns.value={};viewPresentation.value=undefined;viewConditionalFormatting.value=undefined;viewConditionalRevision++;queryRuntime.clear();clearSelection();rows.value=[];total.value=0;page.value=1;pageSize.value=normalizePagination(input.pagination).pageSize;extensionErrors.clear();void initialize()})
   onMounted(initialize)
   onBeforeUnmount(()=>{disposed=true;identity++;sequence++;cancelQuerySelection();preferenceController.abort();controller?.abort();commitListeners.clear()})
+  const summary=useSummary({ready:summaryReady,appearance:computed(()=>presentation.value.appearance),columns:allResolvedColumns,identity:filterOptionsIdentity,rows,selected,readRows})
   const commands={reload:()=>{localCache=undefined;return load()},setQuery,clearQuery,setColumnFilters,setFilterState,applyView,applySettings,setPresentation,setConditionalRules,patch,applyPatches,getState,viewSnapshot,getSelectedRows,clearSelection,selectRow,selectPage,selectQuery,goPage,setPageSize,readRows,optionsFor,sort}
-  return {tableKey:computed(key),rowKey:computed(rowKey),selectionEnabled:computed(()=>input.selection===true),rows,total,page,pageSize,paginationEnabled,paginationOptions,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,conditionalRules,conditionalRule,settingsPolicy,report,rowId,load,search,searchPanel,searchContext,changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
+  return {summary,tableKey:computed(key),rowKey:computed(rowKey),selectionEnabled:computed(()=>input.selection===true),rows,total,page,pageSize,paginationEnabled,paginationOptions,keyword,searchDraft,filters,columnFilters,filterGroup,sorts,activeView,busy,error,config,viewColumns,allResolvedColumns,resolvedColumns,query,filterOptionsIdentity,pages,jumpPage,pageButtons,selected,allSelected,someSelected,allowedPageSizes,presentation,basePresentation,conditionalRules,conditionalRule,settingsPolicy,report,rowId,load,search,searchPanel,searchContext,changePageSize,...commands,onCommit:(listener:(before:TableConfig,after:TableConfig)=>void)=>{commitListeners.add(listener);return ()=>commitListeners.delete(listener)}}
 }
 export type TableRuntime<T extends RowData=RowData>=ReturnType<typeof useTableRuntime<T>>

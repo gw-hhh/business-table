@@ -73,6 +73,8 @@ describe('all settings pages share one draft transaction',()=>{
     const {wrapper,commit}=setup(false,{settingsPolicy:policy,actions:[{id:'export',label:'导出',children:[{id:'excel',label:'Excel',handler:()=>{}}]}]})
     await button(wrapper,'操作按钮').trigger('click')
     expect(wrapper.get('[aria-label="导出按钮名称"]').element.matches(':disabled')).toBe(true)
+    await wrapper.get('[aria-label="展开按钮及顺序"]').trigger('click')
+    await wrapper.get('[aria-label="展开二级菜单"]').trigger('click')
     const nested=wrapper.get('[aria-label="收起二级菜单"]')
     expect(nested.element.matches(':disabled')).toBe(false)
     await nested.trigger('click')
@@ -82,6 +84,7 @@ describe('all settings pages share one draft transaction',()=>{
     await wrapper.get('[aria-label="收起按钮及顺序"]').trigger('click')
     expect(wrapper.get('[aria-label="导出按钮名称"]').isVisible()).toBe(false)
     await button(wrapper,'工具栏').trigger('click')
+    await wrapper.get('[aria-label="展开页面工具栏"]').trigger('click')
     await wrapper.get('[aria-label="收起页面工具栏"]').trigger('click')
     expect(wrapper.get('[aria-label="新增工具名称"]').isVisible()).toBe(false)
     await wrapper.get('[aria-label="展开页面工具栏"]').trigger('click')
@@ -185,6 +188,7 @@ describe('all settings pages share one draft transaction',()=>{
   it('shows configured readonly column sections and rejects nested edits',async()=>{
     const policy=fullSettingsPolicy();policy.columnSections.mapping.disabled=true
     const {wrapper,commit}=setup(false,{settingsPolicy:policy,columns:[{id:'name',field:'name',title:'名称',configurable:{rename:true,mapping:true},mapping:{enabled:true,type:'text',presentation:'tag',empty:'—',unknown:'未匹配',items:[{value:'a',label:'甲'}]}}]})
+    await wrapper.get('[aria-label="展开值映射"]').trigger('click')
     const collapse=wrapper.get('[aria-label="收起值映射"]')
     expect(collapse.element.matches(':disabled')).toBe(false)
     await collapse.trigger('click')

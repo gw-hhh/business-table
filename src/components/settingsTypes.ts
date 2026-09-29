@@ -27,6 +27,7 @@ export interface ColumnSettingsContext {
   setSorts?:(sorts:SortConfig[])=>Promise<void>
   patch:(id:string,patch:UserColumnConfig)=>Promise<void>
   apply?:(patches:Record<string,UserColumnConfig>)=>Promise<void>
+  notice?:(message:string)=>void
   close:()=>void
 }
 export function columnTextCss(style?:ColumnTextStyle):CSSProperties {

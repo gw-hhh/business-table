@@ -1,3 +1,4 @@
+import {openSettingsSections} from './settings-helpers'
 import {test, expect} from './runtime'
 
 test('rich notes use native text input, formatting, undo and persisted ops', async ({page}) => {
@@ -43,6 +44,7 @@ test('template fields stay atomic and survive save and reopen', async ({page}) =
   await page.getByRole('button', {name: '表格设置', exact: true}).click()
   const drawer = page.getByTestId('settings-drawer')
   await drawer.getByRole('button', {name: '编辑列 项目名称 / 客户', exact: true}).click()
+  await openSettingsSections(page,'富文本显示模板')
   await drawer.getByRole('button', {name: '编辑模板', exact: true}).click()
   let dialog = page.getByRole('dialog', {name: '编辑列显示模板', exact: true})
   let editor = dialog.getByRole('textbox', {name: '列显示模板', exact: true})
@@ -52,6 +54,7 @@ test('template fields stay atomic and survive save and reopen', async ({page}) =
   await dialog.getByRole('combobox', {name: '插入字段', exact: true}).selectOption('name')
   await expect(editor.locator('[data-bt-field="name"]')).toHaveAttribute('contenteditable', 'false')
   await dialog.getByRole('button', {name: '使用模板', exact: true}).click()
+  await openSettingsSections(page,'富文本显示模板')
   await drawer.getByRole('button', {name: '编辑模板', exact: true}).click()
   dialog = page.getByRole('dialog', {name: '编辑列显示模板', exact: true})
   editor = dialog.getByRole('textbox', {name: '列显示模板', exact: true})
@@ -62,6 +65,7 @@ test('template fields stay atomic and survive save and reopen', async ({page}) =
   await editor.press('Control+z')
   await expect(editor.locator('[data-bt-field="name"]')).toHaveCount(1)
   await dialog.getByRole('button', {name: '使用模板', exact: true}).click()
+  await openSettingsSections(page,'富文本显示模板')
   await drawer.getByRole('button', {name: '编辑模板', exact: true}).click()
   dialog = page.getByRole('dialog', {name: '编辑列显示模板', exact: true})
   await expect(dialog.locator('[data-bt-field="name"]')).toHaveCount(1)

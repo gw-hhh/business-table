@@ -13,6 +13,8 @@ const props=defineProps<{
   loader:()=>Promise<{default:Component}>
   /** Default UI accepts open and emits after-leave once its presence has ended. */
   deferClose?:boolean
+  /** Applied feature state, independent of whether its editor is open. */
+  entryActive?:boolean
 }>()
 const emit=defineEmits<{diagnostic:[ConfigDiagnostic];entry:[]}>()
 type Loaded={context:C;component?:Component}
@@ -107,7 +109,7 @@ onBeforeUnmount(()=>{mounted=false;generation++;stopDetails?.();controller?.disp
 defineExpose({activate,preload,getContext:()=>loaded.value?.context})
 </script>
 <template>
-  <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel&&featureEntryVisible(local,remote)" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @pointerenter="preload" @focus="preload" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
+  <button v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-interaction'&&entryLabel&&featureEntryVisible(local,remote)" :data-testid="testId" :class="{'bt__icon-button':entryIcon,'is-active':active||entryActive}" :aria-label="entryLabel" :title="entryLabel" :aria-expanded="active" @pointerenter="preload" @focus="preload" @click="toggle"><TableIcon v-if="entryIcon" :name="entryIcon"/><span :class="{'bt-sr-only':entryIcon}">{{entryLabel}}</span></button>
   <span v-if="gate.mode!=='headless'&&gate.loadStrategy==='on-visible'" ref="sentinel" class="bt__feature-sentinel" aria-hidden="true"></span>
   <span v-if="state==='unavailable'&&gate.mode!=='headless'" class="bt__feature-error" role="status">暂时无法加载 <button @click="activate()">重试</button></span>
   <component :is="loaded.component" v-if="loaded&&(active||leaving)&&gate.mode==='default'" :key="session.id" :context="loaded.context" v-bind="deferClose?{open:active,onAfterLeave:session.afterLeave}:{}"/>

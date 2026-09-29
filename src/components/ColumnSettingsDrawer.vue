@@ -12,7 +12,6 @@ import ActionSettings from '../features/settings/ActionSettings.vue'
 import AppearanceSettings from '../features/settings/AppearanceSettings.vue'
 import ToolbarSettings from '../features/settings/ToolbarSettings.vue'
 import SettingsPreview from '../features/settings/SettingsPreview.vue'
-import DialogFrame from '../ui/DialogFrame.vue'
 import SettingsSection from '../features/settings/SettingsSection.vue'
 import SettingsRange from '../features/settings/SettingsRange.vue'
 import {provideNumericValidation} from '../features/settings/numericValidation'
@@ -28,26 +27,25 @@ import type {ColumnCapabilities} from '../config/types'
 
 
 const props=withDefaults(defineProps<{open?:boolean;settingsPolicy?:SettingsPolicy;tableKey?:string;presentation?:TablePresentation;basePresentation?:TablePresentation;actions?:Action[];tools?:{page:readonly ToolDefinition[];table:readonly ToolDefinition[]};pageSizes?:number[];issues?:SettingsIssue[];changes?:Record<string,UserColumnConfig>;initialColumnId?:string;initialTab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar';columns:ColumnConfig[];baseColumns:ColumnConfig[];sorts:SortConfig[];sortingEnabled:boolean;previewRows:RowData[];previewCell?:(value:unknown,row:RowData,column:ColumnConfig)=>VNodeChild;dirty:boolean;saving:boolean;error:string}>(),{open:true,presentation:()=>resolvePresentation(),basePresentation:()=>resolvePresentation(),actions:()=>[],tools:()=>({page:[],table:[]}),issues:()=>[],changes:()=>({})})
-const emit=defineEmits<{afterLeave:[];presentation:[value:TablePresentation];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[];move:[id:string,targetId:string]}>()
+const emit=defineEmits<{afterLeave:[];presentation:[value:TablePresentation];patch:[id:string,patch:UserColumnConfig];reset:[id?:string];sorts:[sorts:SortConfig[]];resetSorts:[];apply:[];cancel:[discarded:boolean];move:[id:string,targetId:string]}>()
 const {errors:numericErrors,reset:resetNumericInputs,prune:pruneNumericInputs}=provideNumericValidation()
 const selectedId=ref(props.initialColumnId??props.columns.find(column=>column.visible!==false&&!column.fixed&&isColumnCapabilityEnabled(column,'rename'))?.id??props.columns[0]?.id??'')
 const selected=computed(()=>props.columns.find(column=>column.id===selectedId.value))
 const selectedBase=computed(()=>props.baseColumns.find(column=>column.id===selectedId.value))
-const dialog=ref<HTMLElement>(),widthError=ref(''),previewOpen=ref(true),previewMode=ref<'table'|'column'>('column'),sampleIndex=ref(0)
+const dialog=ref<HTMLElement>(),widthError=ref(''),previewOpen=ref(false),previewMode=ref<'table'|'column'>('column'),sampleIndex=ref(0)
 const batchIds=ref<string[]>(selectedId.value?[selectedId.value]:[])
 const activeTab=ref<SettingsPage|undefined>(props.initialTab??'columns')
-const ruleEditor=ref<InstanceType<typeof ColumnRuleEditor>>(),ruleErrors=ref<Record<string,string[]>>({}),reviewOpen=ref(false),trialRow=ref<RowData>()
+const ruleEditor=ref<InstanceType<typeof ColumnRuleEditor>>(),ruleErrors=ref<Record<string,string[]>>({}),trialRow=ref<RowData>()
 const allRuleErrors=computed(()=>Object.values(ruleErrors.value).flat())
 const displayedRow=computed(()=>activeTab.value==='columns'&&['number','trial'].includes(activeSection.value??'')?trialRow.value??row.value:row.value)
 const pageScrollPositions=new Map<SettingsPage,number>()
 const scrollPositions=new Map<string,number>(),columnSections=new Map<string,ColumnSettingsSection>()
-const closedSections=ref(new Set<string>())
+const openedSections=ref(new Set<string>())
 const sectionKey=(part:string)=>JSON.stringify([selectedId.value,part])
-const sectionOpen=(part:string)=>!closedSections.value.has(sectionKey(part))
-function setSectionOpen(part:string,open:boolean){if(open)closedSections.value.delete(sectionKey(part));else closedSections.value.add(sectionKey(part))}
+const sectionOpen=(part:string)=>openedSections.value.has(sectionKey(part))
+function setSectionOpen(part:string,open:boolean){if(open)openedSections.value.add(sectionKey(part));else openedSections.value.delete(sectionKey(part))}
 const activeSection=ref<ColumnSettingsSection|undefined>('basic')
 const experienceKey=computed(()=>props.tableKey?'business-table:experience:'+props.tableKey:'')
-const discardConfirmation=ref(false),discardDialog=ref<HTMLElement>()
 const sortedSamples=computed(()=>applySorts(props.previewRows,props.sorts,props.columns))
 const row=computed(()=>sortedSamples.value[sampleIndex.value]??sortedSamples.value[0])
 const sortableColumns=computed(()=>props.columns.filter(column=>column.sortable))
@@ -185,24 +183,22 @@ function resetAll(){
 }
 function setPresentation(key:'appearance'|'rowActions'|'toolbar',value:unknown){if(canPage(key==='rowActions'?'actions':key))emit('presentation',{...props.presentation,[key]:value})}
 function showSection(section:ColumnSettingsSection){if(!sectionAccess(section).visible)return;activeSection.value=section;columnSections.set(selectedId.value,section);if(section==='basic'){setSectionOpen('basic',true);void nextTick(()=>dialog.value?.querySelector('.bt-settings-detail')?.scrollTo?.({top:0,behavior:'smooth'}))}else void ruleEditor.value?.reveal(section)}
-function revealChange(id?:string){reviewOpen.value=false;openPage('columns');if(id)selectedId.value=id;void nextTick(()=>{const section=sections.value[0]?.id;if(section)showSection(section)})}
+function revealChange(id?:string){openPage('columns');if(id)selectedId.value=id;void nextTick(()=>{const section=sections.value[0]?.id;if(section)showSection(section)})}
 function setRuleErrors(id:string,errors:string[]){if(JSON.stringify(ruleErrors.value[id]??[])===JSON.stringify(errors))return;if(errors.length)ruleErrors.value[id]=errors;else delete ruleErrors.value[id]}
 function rememberScroll(){const pane=dialog.value?.querySelector<HTMLElement>('.bt-settings-detail');if(pane)scrollPositions.set(selectedId.value,pane.scrollTop)}
 function selectColumn(id:string){rememberScroll();selectedId.value=id}
-function rememberPreview(){try{if(experienceKey.value)localStorage.setItem(experienceKey.value,JSON.stringify({previewOpen:previewOpen.value,previewMode:previewMode.value}))}catch{/* Experience persistence is optional. */}}
+function rememberPreview(){try{if(experienceKey.value)localStorage.setItem(experienceKey.value,JSON.stringify({previewMode:previewMode.value}))}catch{/* Experience persistence is optional. */}}
 watch([previewOpen,previewMode],rememberPreview)
 
 function requestClose(){
   if(!props.open||props.saving)return
-  if(props.dirty||colorErrors.value.length||allRuleErrors.value.length||Object.keys(numericErrors.value).length){discardConfirmation.value=true;void nextTick(()=>discardDialog.value?.querySelector<HTMLButtonElement>('button')?.focus())}
-  else emit('cancel')
+  emit('cancel',props.dirty||colorErrors.value.length>0||allRuleErrors.value.length>0||Object.keys(numericErrors.value).length>0)
 }
-function continueEditing(){discardConfirmation.value=false;void nextTick(()=>dialog.value?.querySelector<HTMLButtonElement>('[aria-label="关闭表格设置"]')?.focus())}
 function keydown(event:KeyboardEvent){
   if(event.defaultPrevented||event.isComposing||!overlay.isTop())return
-  if(event.key==='Escape'){event.stopPropagation();event.preventDefault();if(discardConfirmation.value)continueEditing();else requestClose();return}
+  if(event.key==='Escape'){event.stopPropagation();event.preventDefault();requestClose();return}
   if(event.key!=='Tab'||!dialog.value)return
-  const scope=discardConfirmation.value?discardDialog.value:dialog.value
+  const scope=dialog.value
   const elements=[...(scope?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex="0"]')??[])].filter(element=>!element.closest('[inert]')&&element.getClientRects().length>0)
   const first=elements[0],last=elements.at(-1)
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
@@ -233,16 +229,15 @@ const overlay=useOverlay(dialog,requestClose),motion=useMotion('drawer')
 function beforeLeave(element:Element){element.setAttribute('inert','');overlay.beforeLeave()}
 function afterLeave(){overlay.afterLeave();emit('afterLeave')}
 function cancelLeave(element:Element){element.removeAttribute('inert');motion.cancel(element);overlay.leaveCancelled()}
-onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getItem(experienceKey.value)??'null'):null;if(saved){previewOpen.value=saved.previewOpen!==false;previewMode.value=saved.previewMode==='table'?'table':'column'}}catch{}})
+onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getItem(experienceKey.value)??'null'):null;if(saved){previewMode.value=saved.previewMode==='table'?'table':'column'}}catch{}})
 </script>
 <template>
   <Teleport to="body">
     <Transition appear :css="false" @enter="motion.enter" @leave="motion.leave" @enter-cancelled="motion.cancel" @before-leave="beforeLeave" @after-leave="afterLeave" @leave-cancelled="cancelLeave">
     <div v-if="open" class="bt-settings-overlay" @click.self="requestClose">
       <section ref="dialog" class="bt-settings-drawer" data-testid="settings-drawer" role="dialog" aria-modal="true" aria-label="表格设置" tabindex="-1" @keydown="keydown">
-        <header class="bt-settings-drawer__header"><div><h2>表格设置</h2><p>修改先预览，应用后生效。</p></div><button class="bt-settings-icon" aria-label="关闭表格设置" :disabled="saving" @click="requestClose"><TableIcon name="close" :size="16" /></button></header>
+        <header class="bt-settings-drawer__header"><div><h2>表格设置 <span v-if="activeTab&&settingsPolicy.pages[activeTab].disabled" class="bt-settings-readonly">只读</span></h2></div><button class="bt-settings-icon" aria-label="关闭表格设置" :disabled="saving" @click="requestClose"><TableIcon name="close" :size="16" /></button></header>
         <nav class="bt-settings-tabs" role="tablist" aria-label="表格设置分类" @keydown="pageKey"><button v-for="tab in tabs" :key="tab.id" :aria-label="tab.label" :class="{'is-active':activeTab===tab.id}" role="tab" :aria-selected="activeTab===tab.id" :tabindex="activeTab===tab.id?0:-1" @click="activeTab=tab.id">{{tab.label}}<span v-if="tab.id==='sorts'&&sorts.length" class="bt-settings-tab-count">{{sorts.length}}</span></button></nav>
-        <div class="bt-settings-summary" :class="{'is-dirty':dirty}"><span>{{dirty?'修改尚未应用':'当前设置已应用'}}</span><span v-if="activeTab&&settingsPolicy.pages[activeTab].disabled" class="bt-settings-readonly">只读</span><button v-if="dirty" class="bt-settings-text" @click="reviewOpen=true">查看修改</button></div>
         <div v-if="activeTab==='columns'" class="bt-settings-editor">
           <aside class="bt-settings-sidebar">
             <div v-if="batchColumns.length" class="bt-settings-sidebar__caption"><strong>批量样式</strong></div>
@@ -251,7 +246,7 @@ onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getIt
               <div v-for="column in columns" :key="column.id" class="bt-settings-pick" :class="{'is-active':selectedId===column.id}" v-bind="columnReorder.row(column.id)">
                 <input v-if="batchColumns.some(item=>item.id===column.id)" type="checkbox" :disabled="!batchEnabled(column)" :aria-label="'批量样式 '+column.title" :checked="batchIds.includes(column.id)" @change="toggleBatch(column.id,($event.target as HTMLInputElement).checked)">
                 <button v-if="fieldAccess(column,'order').visible" class="bt-settings-icon bt-settings-grip" :disabled="!canMove(column)" :aria-label="'拖动排序 '+column.title" v-bind="columnReorder.handle(column.id)" @keydown="moveKey(column.id,$event)"><TableIcon name="grip" :size="12" /></button>
-                <button class="bt-settings-pick__label" :aria-label="'编辑列 '+column.title" @click="selectColumn(column.id)"><span>{{column.title}}</span><small>{{column.visible===false?'隐藏':column.fixed==='left'?'左侧冻结':column.fixed==='right'?'右侧冻结':'显示'}}</small></button>
+                <button class="bt-settings-pick__label" :aria-label="'编辑列 '+column.title" @click="selectColumn(column.id)"><span>{{column.title}}</span><small :title="column.id===column.field?column.id:column.id+' · '+column.field">{{column.id===column.field?column.id:column.id+' · '+column.field}}</small></button>
               </div>
             </div>
           </aside>
@@ -288,16 +283,14 @@ onMounted(()=>{try{const saved=experienceKey.value?JSON.parse(localStorage.getIt
           <div v-if="!sorts.length" class="bt-settings-empty"><TableIcon name="sort" :size="30"/><p>未设置排序</p><small>添加规则，或点击表头调整排序。</small></div>
         </fieldset>
         <div v-else-if="activeTab==='actions'" class="bt-settings-pane"><ActionSettings :disabled="!canPage('actions')" :model-value="presentation.rowActions" :actions="actions" @update:model-value="setPresentation('rowActions',$event)" /></div>
-        <div v-else-if="activeTab==='appearance'" class="bt-settings-pane"><AppearanceSettings :disabled="!canPage('appearance')" :model-value="presentation.appearance" :page-sizes="pageSizes" @update:model-value="setPresentation('appearance',$event)" /></div>
+        <div v-else-if="activeTab==='appearance'" class="bt-settings-pane"><AppearanceSettings :columns="columns" :disabled="!canPage('appearance')" :model-value="presentation.appearance" :page-sizes="pageSizes" @update:model-value="setPresentation('appearance',$event)" /></div>
         <div v-else-if="activeTab==='toolbar'" class="bt-settings-pane"><ToolbarSettings :disabled="!canPage('toolbar')" :model-value="presentation.toolbar" :tools="tools" @update:model-value="setPresentation('toolbar',$event)" /></div>
         <div v-if="issues.length||allRuleErrors.length" class="bt-settings-validation-summary" role="alert"><span>{{issues[0]?.message??allRuleErrors[0]}}</span><button class="bt-settings-text" @click="revealChange(issues[0]?.columnId)">查看</button></div>
         <div v-if="colorErrors.length" class="bt-settings-validation-summary" role="status"><span>有 {{colorErrors.length}} 项颜色需要修改</span><button class="bt-settings-text" aria-label="定位颜色错误" @click="revealColorError">查看</button></div>
         <div v-if="Object.keys(numericErrors).length" class="bt-settings-validation-summary" role="alert">{{Object.values(numericErrors)[0]}}</div>
         <SettingsPreview v-model:mode="previewMode" v-model:open="previewOpen" v-model:sample-index="sampleIndex" :tab="activeTab" :section="activeSection" :selected="selected" :columns="columns" :rows="sortedSamples" :row="displayedRow" :presentation="presentation" :actions="actions" :tools="tools" :preview-cell="previewCell" />
         <p v-if="error" class="bt-settings-error" role="alert">{{error}}</p>
-        <footer class="bt-settings-drawer__footer"><div><button class="bt-settings-text" :disabled="!canPage(activeTab)" @click="resetPage">恢复当前页</button><button class="bt-settings-text" :disabled="!tabs.some(tab=>canPage(tab.id))" @click="resetAll">恢复全部</button></div><button class="bt-settings-button" :disabled="saving" @click="emit('cancel')">取消</button><button class="bt-settings-button bt-settings-button--primary" :disabled="!dirty||saving||!!widthError||Object.keys(numericErrors).length>0||colorErrors.length>0||issues.length>0||allRuleErrors.length>0" @click="emit('apply')">{{saving?'保存中…':'应用'}}</button></footer>
-        <DialogFrame :open="reviewOpen" title="本次修改" @close="reviewOpen=false"><div class="bt-change-list"><button v-for="(change,id) in changes" :key="id" class="bt-ui-button text" @click="revealChange(String(id))">{{columns.find(column=>column.id===id)?.title??id}}：{{Object.keys(change).map(key=>({title:'名称',visible:'显隐',width:'宽度',fixed:'冻结',order:'顺序',align:'对齐',headerStyle:'表头文字',cellStyle:'单元格文字',mapping:'值映射',numberRule:'数字格式',filter:'列筛选',template:'模板',content:'内容显示'} as Record<string,string>)[key]??key).join('、')}}</button><button v-if="tabs.some(tab=>tab.id==='appearance')&&JSON.stringify(presentation)!==JSON.stringify(basePresentation)" class="bt-ui-button text" @click="reviewOpen=false;openPage('appearance')">表格外观、按钮或工具栏设置</button><button v-if="tabs.some(tab=>tab.id==='sorts')&&sorts.length" class="bt-ui-button text" @click="reviewOpen=false;openPage('sorts')">排序规则</button></div><template #footer><button class="bt-ui-button primary" @click="reviewOpen=false">返回编辑</button></template></DialogFrame>
-        <div v-if="discardConfirmation" class="bt-settings-discard-backdrop"><section ref="discardDialog" class="bt-settings-discard" role="alertdialog" aria-modal="true" aria-label="放弃未应用的修改"><h3>修改尚未应用</h3><p>离开后，本次修改不会保存。</p><footer><button class="bt-settings-button" @click="continueEditing">继续编辑</button><button class="bt-settings-button bt-settings-button--primary" @click="emit('cancel')">放弃修改</button></footer></section></div>
+        <footer class="bt-settings-drawer__footer"><div><button class="bt-settings-text" :disabled="!canPage(activeTab)" @click="resetPage">恢复当前页</button><button class="bt-settings-text" :disabled="!tabs.some(tab=>canPage(tab.id))" @click="resetAll">恢复全部</button></div><button class="bt-settings-button" :disabled="saving" @click="requestClose">取消</button><button class="bt-settings-button bt-settings-button--primary" :disabled="!dirty||saving||!!widthError||Object.keys(numericErrors).length>0||colorErrors.length>0||issues.length>0||allRuleErrors.length>0" @click="emit('apply')">{{saving?'保存中…':'应用'}}</button></footer>
       </section>
     </div>
     </Transition>

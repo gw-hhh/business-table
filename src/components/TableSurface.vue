@@ -51,7 +51,7 @@ defineExpose({narrow,columnLayout})
   <div ref="viewportElement" :id="tableKey?tableKey+'-viewport':undefined" class="bt__viewport" tabindex="0" role="region" :aria-label="(title??'数据列表')+'，可横向滚动'" @keydown="viewportKey" @pointerdown="rangePointer($event,rangeContext,'start')" @pointerover="rangePointer($event,rangeContext,'extend')">
   <vxe-table ref="gridElement" :auto-resize="false" :height="rendering.height" :max-height="rendering.maxHeight" :virtual-y-config="rendering.virtualY" :scrollbar-config="gridScrollbars" :row-class-name="rowClass" :cell-style="cellStyle" :data="rows" :loading="loading||busy" :border="false" :row-config="{isHover:presentation.appearance.hover,keyField:rowKey}">
     <template #loading><div v-if="loading||busy" class="bt__loading" role="status" aria-label="加载中">加载中…</div></template>
-    <vxe-column v-if="selection" width="44" :fixed="narrow?undefined:'left'" class-name="bt__select-cell">
+    <vxe-column v-if="selection" width="44" :fixed="narrow?undefined:'left'" class-name="bt__select-cell" header-class-name="bt__select-cell" align="center" header-align="center">
       <template #header><input type="checkbox" aria-label="选择当前页" :checked="allSelected" :indeterminate="someSelected" @change="event=>selectPage((event.target as HTMLInputElement).checked)"></template>
       <template #default="{row}"><input type="checkbox" :aria-label="'选择 '+rowId(row)" :checked="selected.has(rowId(row))" @change="event=>selectRow(row,(event.target as HTMLInputElement).checked)"></template>
     </vxe-column>

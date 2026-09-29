@@ -1,3 +1,4 @@
+import {openSettingsSections} from './settings-helpers'
 import {test,expect} from './runtime'
 import type {Locator} from '@playwright/test'
 
@@ -66,6 +67,7 @@ test('the color palette stays inside the settings container and releases itself 
   await page.goto('/')
   await page.getByRole('button',{name:'表格设置',exact:true}).click()
   const drawer=page.getByTestId('settings-drawer')
+  await openSettingsSections(page,'表头文字')
   const color=drawer.locator('[data-color-picker="表头文字"]')
   const summary=color.locator('summary'),grid=color.locator('.bt-color-presets__grid')
   await summary.click()

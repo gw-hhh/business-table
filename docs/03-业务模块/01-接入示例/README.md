@@ -8,9 +8,10 @@
 | --- | --- | --- |
 | [RenderingTable.vue](RenderingTable.vue) | 1 万行虚拟窗口和自定义空状态 | runtime/components 子入口；maxHeight 约束、虚拟滚动与恢复命令 |
 | [assets.ts](assets.ts) | 公共行类型、三条物料数据、四个字段 | 状态原值为数字 0/1，显示草稿/已确认 |
+| [SummaryTable.vue](SummaryTable.vue) | 可配置底部汇总 | 外观设置开关与数值列；完整查询/已选范围切换；公开 SummaryResult |
 | [MinimalTable.vue](MinimalTable.vue) | 最小本地表格 | 仅依赖 assets；显示行、分页与格式化金额 |
 | [ConfiguredTable.vue](ConfiguredTable.vue) | 完整配置入口 | 全部设置模块、查询/筛选、查看动作、刷新、四项数据工具；本地保存 PreferenceV3 |
-| [CustomSearch.vue](CustomSearch.vue) | 自定义搜索外观 | 自定义表单复用 Search Context；输入不立即查询，提交后摘要更新 |
+| [CustomSearch.vue](CustomSearch.vue) | 自定义搜索外观 | 自定义表单复用 Search Context；输入不立即查询，提交后摘要更新，查询按钮圆点表示未提交的草稿 |
 | [ComposedTable.vue](ComposedTable.vue) | 独立组件组合 | runtime/components 子入口；外置搜索、隐藏保留草稿、工具、表体和分页共用实例；instanceKey 隔离多个列表 |
 | [ViewsTable.vue](ViewsTable.vue) | 命名视图管理 | 查询后另存视图，切换、重命名、默认、删除；刷新后从本地加载 |
 | [ExportTable.vue](ExportTable.vue) | 导出与模板下载 | 导出当前完整查询；模板固定字段与个人布局分离 |

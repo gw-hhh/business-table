@@ -35,7 +35,10 @@ import type {DataToolsHandle} from './features/data-tools'
 import type {ConditionalFormattingDefinition} from './features/conditional-formatting/model'
 import type {GroupingDefinition,CompareDefinition} from './features/reports/model'
 import type {RangeSelectionDefinition} from './features/range-selection/context'
+import {useNotice} from './ui/useNotice'
 
+const SummaryResult=defineAsyncComponent(()=>import('./features/summary/SummaryResult.vue'))
+const {notice,showNotice}=useNotice()
 const QuerySummary=defineAsyncComponent(()=>import('./components/QuerySummary.vue'))
 const FilterChips=defineAsyncComponent(()=>import('./features/filters/FilterChips.vue'))
 const defaultSearchDefinition={items:[{id:'keyword',label:'关键词',kind:'keyword',defaultValue:''}]}
@@ -136,7 +139,7 @@ function columnSettingsContext(_details:unknown,controls:{close:()=>void;isActiv
   get tableKey(){return props.tableKey},get settingsPolicy(){return runtime.settingsPolicy.value},get columns(){return cloneData(allResolvedColumns.value.map(column=>({...column,visible:column.visible??true,fixed:column.fixed??false})))},get baseColumns(){return sourceColumns.value},get presentation(){return presentation.value},get basePresentation(){return basePresentation.value},get actions(){return configuredActions() as Action<RowData>[]},get tools(){return {page:props.tools?.page??[],table:tableTools.value}},get pageSizeOptions(){return allowedPageSizes.value},
   get previewRows(){return rows.value as RowData[]},get previewCell(){return props.previewCell},get sorts(){return cloneData(sorts.value)},
   setSorts:(next:SortConfig[])=>controls.isActive()&&runtime.settingsPolicy.value.pages.sorts.visible&&!runtime.settingsPolicy.value.pages.sorts.disabled?setQuery({sorts:next}):Promise.resolve(),patch:(id:string,change:UserColumnConfig)=>controls.isActive()?applyPatches(settingsPatches({[id]:change})):Promise.resolve(),apply:(changes:Record<string,UserColumnConfig>)=>controls.isActive()?applyPatches(settingsPatches(changes)):Promise.resolve(),
-  commit:(change:SettingsCommit)=>controls.isActive()?applySettings(change):Promise.reject(new Error('设置已失效，请重新打开。')),close:controls.close,
+  commit:(change:SettingsCommit)=>controls.isActive()?applySettings(change):Promise.reject(new Error('设置已失效，请重新打开。')),close:controls.close,notice:showNotice,
 })}
 function prepareSettings(mode:'quick'|'drawer',columnId?:string,tab:'columns'|'sorts'|'actions'|'appearance'|'toolbar'='columns'){
   Object.assign(settingsRequest,{openMode:mode==='quick'&&!runtime.settingsPolicy.value.pages.columns.visible?'drawer':mode,selectedColumnId:columnId,initialTab:tab})
@@ -190,7 +193,7 @@ defineExpose({preloadFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.
       <FeatureHost :key="tableKey" v-if="gate('columnSettings').enabled" :ref="value=>setHost('columnSettings',value)" defer-close :local="declarations.columnSettings" :remote="remoteFeatures?.columnSettings" default-strategy="on-interaction" :entry-label="settingsEntryLabel" entry-icon="columns" test-id="column-settings" @entry="resetSettingsEntry" :create-context="columnSettingsContext" :loader="()=>import('./components/ColumnSettings.vue')" @diagnostic="report"><template #custom="{context}"><slot name="column-settings" :context="context"/></template></FeatureHost>
       <button v-if="gate('columnSettings').enabled&&gate('columnSettings').mode==='default'&&featureEntryVisible(declarations.columnSettings,remoteFeatures?.columnSettings)" class="bt__settings-trigger" data-testid="table-settings" @pointerenter="hosts.get('columnSettings')?.preload()" @focus="hosts.get('columnSettings')?.preload()" @click="openColumnSettings('drawer')"><TableIcon name="settings"/>表格设置</button>
       <FeatureHost :key="tableKey" v-if="gate('toolbar').enabled" :ref="value=>setHost('toolbar',value)" :local="declarations.toolbar" :remote="remoteFeatures?.toolbar" :create-context="toolbarContext" :loader="()=>import('./components/TableToolbar.vue')" @diagnostic="report"><template #custom="{context}"><slot name="toolbar" :context="context"/></template></FeatureHost>
-      <FeatureHost :key="tableKey" v-if="gate('filters').enabled" :ref="value=>setHost('filters',value)" defer-close :local="declarations.filters" :remote="remoteFeatures?.filters" default-strategy="on-interaction" entry-label="组合筛选" entry-icon="filter" test-id="combined-filter" @entry="resetFilterEntry" :create-context="filtersContext" :loader="()=>import('./features/filters/FilterFeature.vue')" @diagnostic="report"><template #custom="{context}"><slot name="filters" :context="context"/></template></FeatureHost>
+      <FeatureHost :key="tableKey" v-if="gate('filters').enabled" :ref="value=>setHost('filters',value)" defer-close :local="declarations.filters" :remote="remoteFeatures?.filters" :entry-active="hasFilterSummary" default-strategy="on-interaction" entry-label="组合筛选" entry-icon="filter" test-id="combined-filter" @entry="resetFilterEntry" :create-context="filtersContext" :loader="()=>import('./features/filters/FilterFeature.vue')" @diagnostic="report"><template #custom="{context}"><slot name="filters" :context="context"/></template></FeatureHost>
       <slot name="toolbar-after"/>
     </div>
   </header>
@@ -211,6 +214,7 @@ defineExpose({preloadFeature:(name:FeatureName)=>isDataToolName(name)?dataTools.
     <template #columns>    <FeatureHost :key="tableKey" v-if="gate('rowActions').enabled" :ref="value=>setHost('rowActions',value)" :local="declarations.rowActions" :remote="remoteFeatures?.rowActions" :create-context="rowActionsContext" :loader="()=>import('./components/RowActions.vue')" @diagnostic="report"><template #custom="{context}"><slot name="row-actions" :context="context"/></template></FeatureHost>
 </template>
   </TableSurface>
-  <slot name="pagination" :runtime="runtime"><TablePagination :runtime="runtime" :full="fill"><template v-if="slots.summary" #summary="scope"><slot name="summary" v-bind="scope" :rows="rows"/></template></TablePagination></slot>
+  <slot name="pagination" :runtime="runtime"><TablePagination :runtime="runtime" :full="fill"><template #summary="scope"><slot name="summary" v-bind="scope" :rows="rows" :summary="runtime.summary.value"><span>共 {{scope.total}} 条，第 {{scope.page}} / {{runtime.pages.value}} 页 <SummaryResult v-if="runtime.summary.value.status!=='disabled'" :summary="runtime.summary.value"/></span></slot></template></TablePagination></slot>
+  <p v-if="notice" role="status" class="bt-notice">{{notice}}</p>
 </section>
 </template>

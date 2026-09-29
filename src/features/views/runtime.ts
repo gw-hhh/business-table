@@ -5,7 +5,7 @@ import { parseColumnPatch } from '../../config/columns'
 import { readFilter, readFilterGroup } from '../filters/model'
 import { normalizeSearchDefinition, projectSearchValues, readSearchJson, readSearchValues, restoreLegacySearch, serializeSearchValues, type SearchDefinition, type SearchValues } from '../search/model'
 import type { RuntimeRegistry } from '../../runtime/registry'
-import { presentationDelta, resolvePresentation } from '../presentation/model'
+import { parsePresentationDelta, resolvePresentation } from '../presentation/model'
 import {readConditionalRules} from '../conditional-formatting/model'
 
 export interface ViewSnapshot extends Omit<ViewConfig, 'id' | 'name'> {}
@@ -65,7 +65,7 @@ function snapshot(input: unknown): ViewSnapshot {
   if (Number.isInteger(value.pageSize) && Number(value.pageSize) > 0 && Number(value.pageSize) <= 1000) result.pageSize = Number(value.pageSize)
   if (value.presentation) {
     const presentation = resolvePresentation(value.presentation)
-    const delta = presentationDelta(presentation)
+    const delta = parsePresentationDelta(value.presentation)
     if (!presentation.toolbar.followView) delete delta.toolbar
     result.presentation = delta
   }

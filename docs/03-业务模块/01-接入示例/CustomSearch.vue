@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BusinessTable, SearchSummary, type SearchDefinition } from '@company/business-table'
+import { BusinessTable, SearchSummary, SearchPendingIndicator, type SearchDefinition } from '@company/business-table'
 import { columns, rows } from './assets'
 
 const searchDefinition: SearchDefinition = {
@@ -19,7 +19,7 @@ function inputValue(event: Event): string {
         <label>名称
           <input :value="context.values.name ?? ''" @input="context.setValue('name', inputValue($event))">
         </label>
-        <button type="submit">查询</button>
+        <button type="submit" aria-label="查询">查询<SearchPendingIndicator :pending="context.pending" /></button>
         <button type="button" @click="context.reset()">清空</button>
         <SearchSummary :context="context" />
       </form>

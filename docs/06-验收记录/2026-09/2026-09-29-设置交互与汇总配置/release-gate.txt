@@ -1,0 +1,499 @@
+
+> @company/business-table@1.0.0 verify:release
+> npm run audit:docs && npm run audit:portability && npm run audit:sfc && npm run type-check && npm run test && npm run build && npm run test:e2e
+
+
+> @company/business-table@1.0.0 audit:docs
+> node scripts/docs-audit.mjs
+
+DOCS AUDIT OK: 93 篇 docs Markdown，目录、链接、锚点和索引均有效。
+
+> @company/business-table@1.0.0 audit:portability
+> node scripts/portability-audit.mjs
+
+PORTABILITY AUDIT OK
+
+> @company/business-table@1.0.0 audit:sfc
+> node scripts/sfc-syntax-audit.mjs
+
+SFC SYNTAX AUDIT OK: 61 Vue SFCs
+
+> @company/business-table@1.0.0 type-check
+> vue-tsc --noEmit
+
+
+> @company/business-table@1.0.0 test
+> vitest run
+
+
+ RUN  v4.1.11 <workspace>
+
+
+ Test Files  85 passed (85)
+      Tests  664 passed (664)
+   Start at  21:06:30
+   Duration  70.02s (transform 9.06s, setup 0ms, import 47.08s, tests 64.85s, environment 133.55s)
+
+
+> @company/business-table@1.0.0 build
+> npm run build:lib && npm run build:demo
+
+
+> @company/business-table@1.0.0 build:lib
+> npm run type-check && vite build && vite build --mode umd && npm run build:types && npm run audit:package && npm run audit:bundle
+
+
+> @company/business-table@1.0.0 type-check
+> vue-tsc --noEmit
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 368 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/.vite/manifest.json                        15.20 kB │ gzip:   2.08 kB
+dist/business-table.css                        243.84 kB │ gzip:  51.10 kB
+dist/rolldown-runtime-Dy4uBu1J.js                0.24 kB │ gzip:   0.21 kB
+dist/moduleLoader-Cgya8-e0.js                    0.29 kB │ gzip:   0.21 kB
+dist/TableToolbar-Dap1llI-.js                    0.48 kB │ gzip:   0.32 kB
+dist/SearchSummary-5eryu0EB.js                   0.52 kB │ gzip:   0.35 kB
+dist/TableTitle-Demv9bRW.js                      0.53 kB │ gzip:   0.37 kB
+dist/runtime.js                                  0.56 kB │ gzip:   0.33 kB
+dist/settingsTypes-CLXwwK7O.js                   0.56 kB │ gzip:   0.33 kB
+dist/ViewSwitcher-CNohiRRR.js                    0.85 kB │ gzip:   0.54 kB
+dist/components.js                               0.98 kB │ gzip:   0.48 kB
+dist/SummaryResult-Yqp_HqM7.js                   1.00 kB │ gzip:   0.60 kB
+dist/aggregate-_ZUC5ZXR.js                       1.06 kB │ gzip:   0.67 kB
+dist/template-CWQuB-w6.js                        1.14 kB │ gzip:   0.67 kB
+dist/font-families-xvUH535d.js                   1.48 kB │ gzip:   0.64 kB
+dist/value-DXfHNPFG.js                           1.68 kB │ gzip:   0.70 kB
+dist/context-W_UMcAzZ.js                         1.76 kB │ gzip:   0.80 kB
+dist/RowActions-RiopI9pz.js                      1.88 kB │ gzip:   0.83 kB
+dist/useMotion-BNH6VY1J.js                       2.09 kB │ gzip:   1.00 kB
+dist/FilterChips-5XrMUq9E.js                     2.24 kB │ gzip:   1.05 kB
+dist/reports-CiJW2Jxt.js                         2.46 kB │ gzip:   1.22 kB
+dist/RangeSelectionFeature-C-BU05JA.js           2.52 kB │ gzip:   1.29 kB
+dist/QuerySummary-BGUlfnuI.js                    2.57 kB │ gzip:   1.22 kB
+dist/DensityMenu-DrgvNCnk.js                     2.63 kB │ gzip:   1.31 kB
+dist/useOverlay-CCBz67kw.js                      2.66 kB │ gzip:   1.17 kB
+dist/summary-DsFvBsrQ.js                         2.78 kB │ gzip:   1.32 kB
+dist/TemplateDownloadDialog-Dqd6cpCy.js          2.78 kB │ gzip:   1.46 kB
+dist/DialogFrame-C6i5NGVq.js                     2.85 kB │ gzip:   1.33 kB
+dist/TableIcon-DWu76QEZ.js                       2.89 kB │ gzip:   1.47 kB
+dist/AnchoredPopup-CX8nMfeC.js                   3.92 kB │ gzip:   1.74 kB
+dist/context-lyFV3w_e.js                         4.44 kB │ gzip:   1.84 kB
+dist/filter-D2I8RdUr.js                          4.86 kB │ gzip:   1.86 kB
+dist/model-BzEnWsYw.js                           5.09 kB │ gzip:   2.14 kB
+dist/context-DKTwRF57.js                         5.11 kB │ gzip:   2.11 kB
+dist/FontSelect-DcJDTjoM.js                      5.40 kB │ gzip:   2.23 kB
+dist/TableSearch-Bx5GZldl.js                     5.76 kB │ gzip:   2.24 kB
+dist/model-DsIcUACH.js                           6.05 kB │ gzip:   2.44 kB
+dist/model-CL0fhxEE.js                           6.73 kB │ gzip:   2.90 kB
+dist/xlsx-CSfckXKt.js                            6.88 kB │ gzip:   2.58 kB
+dist/CompareFeature-CVqOQ5Ey.js                  7.31 kB │ gzip:   2.87 kB
+dist/ConditionalFormattingFeature-Dqr5zBAO.js    7.61 kB │ gzip:   2.83 kB
+dist/GroupingFeature-D1Gw7n7D.js                 7.90 kB │ gzip:   2.96 kB
+dist/editor-3djJEMsX.js                         10.49 kB │ gzip:   4.12 kB
+dist/ViewsPanel-BiyDJMZj.js                     11.73 kB │ gzip:   4.08 kB
+dist/ActionStrip-Dfe5pexi.js                    12.07 kB │ gzip:   4.33 kB
+dist/ExportDialog-Ba2TUn2Q.js                   15.24 kB │ gzip:   5.17 kB
+dist/FilterFeature-rzzPkRey.js                  16.78 kB │ gzip:   4.80 kB
+dist/useFloatingPosition-1Cdikvoc.js            24.74 kB │ gzip:   8.53 kB
+dist/model-C8oIdKvN.js                          27.53 kB │ gzip:   8.78 kB
+dist/useDragReorder-C-tVbayp.js                 51.66 kB │ gzip:  15.86 kB
+dist/ToolStrip-4I1ugXg9.js                      52.22 kB │ gzip:  15.92 kB
+dist/business-table.js                          52.41 kB │ gzip:  14.37 kB
+dist/runtime-BRogA1YO.js                        79.99 kB │ gzip:  22.93 kB
+dist/schemas-DC4TBWg9.js                       113.39 kB │ gzip:  27.29 kB
+dist/ColumnSettings-j-VuN9GN.js                133.07 kB │ gzip:  33.23 kB
+dist/RichEditor-DtP5bkD2.js                    502.82 kB │ gzip: 140.13 kB
+
+✓ built in 857ms
+vite v8.3.0 building client environment for umd...
+transforming...
+✓ 366 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/business-table.css        243.84 kB │ gzip:  50.01 kB
+dist/business-table.umd.cjs  1,012.07 kB │ gzip: 302.58 kB
+
+✓ built in 1.15s
+
+> @company/business-table@1.0.0 build:types
+> vue-tsc --declaration --emitDeclarationOnly -p tsconfig.build.json && node scripts/finalize-types.mjs
+
+
+> @company/business-table@1.0.0 audit:package
+> node scripts/package-audit.mjs
+
+PACKAGE AUDIT OK: 335 packed files; independent consumer and 11 documentation examples (TypeScript + Vue templates)
+
+> @company/business-table@1.0.0 audit:bundle
+> node scripts/bundle-audit.mjs
+
+BUNDLE AUDIT OK: {"runtime":{"bytes":234876,"gzip":61879},"defaultStatic":{"bytes":389660,"gzip":107223},"editorEntry":"RichEditor-DtP5bkD2.js"}
+
+> @company/business-table@1.0.0 build:demo
+> vite build --config vite.demo.config.ts
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 931 modules transformed.
+rendering chunks...
+computing gzip size...
+demo-dist/index.html                                          3.26 kB │ gzip:   0.83 kB
+demo-dist/assets/iconfont.1789035007778-G0HNy9M3.woff         5.70 kB
+demo-dist/assets/iconfont.1789035007778-DQWiQZ_I.ttf         10.31 kB
+demo-dist/assets/ConfiguredBusinessTable-4JG6XX7i.css         0.03 kB │ gzip:   0.05 kB
+demo-dist/assets/SearchToggle-9IAUsc-m.css                    0.09 kB │ gzip:   0.09 kB
+demo-dist/assets/SearchPendingIndicator-DRJ486mW.css          0.19 kB │ gzip:   0.17 kB
+demo-dist/assets/TemplateDownloadDialog-DZetOohR.css          0.31 kB │ gzip:   0.21 kB
+demo-dist/assets/useTableRuntime-DAp1Vkew.css                 0.33 kB │ gzip:   0.18 kB
+demo-dist/assets/PerformanceExample-Cpn2w1pQ.css              0.49 kB │ gzip:   0.29 kB
+demo-dist/assets/ConfigExample-DWzopnUr.css                   0.53 kB │ gzip:   0.33 kB
+demo-dist/assets/editor-iaLEgkN7.css                          0.64 kB │ gzip:   0.33 kB
+demo-dist/assets/useDragReorder-BnbZENYG.css                  0.76 kB │ gzip:   0.34 kB
+demo-dist/assets/RangeSelectionFeature-DfDZKkH5.css           0.79 kB │ gzip:   0.43 kB
+demo-dist/assets/ActionStrip-DDw4WuxD.css                     0.96 kB │ gzip:   0.41 kB
+demo-dist/assets/CompositionExample-B7ELfEgp.css              1.03 kB │ gzip:   0.41 kB
+demo-dist/assets/AnchoredPopup-CP9CwMns.css                   1.06 kB │ gzip:   0.55 kB
+demo-dist/assets/FilterChips-CWZoM-cv.css                     1.29 kB │ gzip:   0.49 kB
+demo-dist/assets/QuerySummary-BIix8_p2.css                    1.65 kB │ gzip:   0.65 kB
+demo-dist/assets/ColumnHeader-BykZRezA.css                    1.66 kB │ gzip:   0.66 kB
+demo-dist/assets/model-TDtJCweO.css                           1.77 kB │ gzip:   0.67 kB
+demo-dist/assets/FilterFeature-CFE9BmI0.css                   1.88 kB │ gzip:   0.67 kB
+demo-dist/assets/RichEditor-CPux9hj-.css                      1.96 kB │ gzip:   0.75 kB
+demo-dist/assets/ConditionalFormattingFeature-DxhQQht7.css    2.68 kB │ gzip:   0.83 kB
+demo-dist/assets/reports-DcphKK1Y.css                         2.71 kB │ gzip:   0.91 kB
+demo-dist/assets/ToolStrip-DIg9budZ.css                       3.24 kB │ gzip:   1.02 kB
+demo-dist/assets/ViewsPanel-DO5mW49h.css                      3.41 kB │ gzip:   1.12 kB
+demo-dist/assets/ExportDialog-Csg6EOdr.css                    3.69 kB │ gzip:   1.16 kB
+demo-dist/assets/DialogFrame-CucYVcZP.css                     3.74 kB │ gzip:   1.25 kB
+demo-dist/assets/App-BDS7MDS4.css                            16.88 kB │ gzip:   4.18 kB
+demo-dist/assets/ColumnSettings-Dyat19Ar.css                 36.23 kB │ gzip:   6.89 kB
+demo-dist/assets/src-DrHJ91ux.css                           151.38 kB │ gzip:  24.37 kB
+demo-dist/assets/ViewsPanel-s049LkZ1.js                       0.06 kB │ gzip:   0.08 kB
+demo-dist/assets/DensityMenu-BR85pWtS.js                      0.06 kB │ gzip:   0.08 kB
+demo-dist/assets/ExportDialog-Dbw8FTJj.js                     0.06 kB │ gzip:   0.08 kB
+demo-dist/assets/QuerySummary-CcnL4zlL.js                     0.06 kB │ gzip:   0.08 kB
+demo-dist/assets/TemplateDownloadDialog-BV34ylIx.js           0.07 kB │ gzip:   0.09 kB
+demo-dist/assets/_plugin-vue_export-helper-BDNMzG2s.js        0.08 kB │ gzip:   0.09 kB
+demo-dist/assets/model-ioZNRBso.js                            0.10 kB │ gzip:   0.10 kB
+demo-dist/assets/moduleLoader-D5xt38fp.js                     0.18 kB │ gzip:   0.15 kB
+demo-dist/assets/SearchSummary-kl7KQWcW.js                    0.26 kB │ gzip:   0.21 kB
+demo-dist/assets/TableToolbar-DS2gQYbK.js                     0.32 kB │ gzip:   0.24 kB
+demo-dist/assets/TableTitle-Ca267oPR.js                       0.37 kB │ gzip:   0.28 kB
+demo-dist/assets/SearchPendingIndicator-DhHjnnoN.js           0.38 kB │ gzip:   0.33 kB
+demo-dist/assets/deadline-C6fYY9YL.js                         0.52 kB │ gzip:   0.39 kB
+demo-dist/assets/ViewSwitcher--pY0Hwlt.js                     0.60 kB │ gzip:   0.41 kB
+demo-dist/assets/SummaryResult-mQZx8m9p.js                    0.73 kB │ gzip:   0.48 kB
+demo-dist/assets/aggregate-Cf_QHdSo.js                        0.80 kB │ gzip:   0.55 kB
+demo-dist/assets/font-families-CDTeocWF.js                    1.17 kB │ gzip:   0.56 kB
+demo-dist/assets/preload-helper-BZ1Pz5am.js                   1.21 kB │ gzip:   0.69 kB
+demo-dist/assets/value-DaRbJeMm.js                            1.26 kB │ gzip:   0.60 kB
+demo-dist/assets/context-G74LzdTT.js                          1.37 kB │ gzip:   0.68 kB
+demo-dist/assets/RowActions-CQQwjYff.js                       1.38 kB │ gzip:   0.68 kB
+demo-dist/assets/filter-state-BlZpBMv-.js                     1.39 kB │ gzip:   0.72 kB
+demo-dist/assets/document-DQHmvrPr.js                         1.72 kB │ gzip:   0.92 kB
+demo-dist/assets/QuerySummary-Bs5FctbQ.js                     1.84 kB │ gzip:   0.96 kB
+demo-dist/assets/RangeSelectionFeature-DdIzzRa-.js            1.91 kB │ gzip:   1.09 kB
+demo-dist/assets/model-D99eXraF.js                            1.93 kB │ gzip:   1.01 kB
+demo-dist/assets/DensityMenu-DPVH-zcz.js                      1.94 kB │ gzip:   1.06 kB
+demo-dist/assets/SearchToggle-2HJZ7lIc.js                     2.03 kB │ gzip:   0.97 kB
+demo-dist/assets/BusinessTableGrid-BgNe74SH.js                2.06 kB │ gzip:   0.99 kB
+demo-dist/assets/DialogFrame-Bx87GH_a.js                      2.09 kB │ gzip:   1.05 kB
+demo-dist/assets/useOverlay-Ctd7rB1h.js                       2.13 kB │ gzip:   1.03 kB
+demo-dist/assets/reports-dEiPanVb.js                          2.14 kB │ gzip:   1.12 kB
+demo-dist/assets/TableIcon-F4Hclz__.js                        2.38 kB │ gzip:   1.32 kB
+demo-dist/assets/CompositionExample-B6N59txe.js               2.55 kB │ gzip:   1.42 kB
+demo-dist/assets/src-rY2LvHc9.js                              2.56 kB │ gzip:   0.99 kB
+demo-dist/assets/schema-Bg7noxmB.js                           2.58 kB │ gzip:   1.00 kB
+demo-dist/assets/model-D9beVom_.js                            2.62 kB │ gzip:   1.21 kB
+demo-dist/assets/AnchoredPopup-CbO7MotG.js                    2.84 kB │ gzip:   1.41 kB
+demo-dist/assets/TemplateDownloadDialog-Ku0dERfX.js           3.14 kB │ gzip:   1.77 kB
+demo-dist/assets/evaluate-CJLl5Xsp.js                         3.26 kB │ gzip:   1.56 kB
+demo-dist/assets/context-DUukD8zi.js                          3.39 kB │ gzip:   1.59 kB
+demo-dist/assets/FilterChips-BAevegyc.js                      3.67 kB │ gzip:   1.76 kB
+demo-dist/assets/filter-CPaOqgdC.js                           3.81 kB │ gzip:   1.61 kB
+demo-dist/assets/PerformanceExample-BSe1Ek4Q.js               3.83 kB │ gzip:   2.04 kB
+demo-dist/assets/context-DKhiLyYs.js                          3.96 kB │ gzip:   1.86 kB
+demo-dist/assets/settingsTypes-B4_DDrbM.js                    3.99 kB │ gzip:   1.83 kB
+demo-dist/assets/FontSelect-BHjC150w.js                       4.10 kB │ gzip:   1.89 kB
+demo-dist/assets/index-BurFcj-Z.js                            4.27 kB │ gzip:   1.86 kB
+demo-dist/assets/TableSearch-CaKIxLt0.js                      4.28 kB │ gzip:   1.87 kB
+demo-dist/assets/model-B94biDUH.js                            4.63 kB │ gzip:   2.10 kB
+demo-dist/assets/model-BZZ607NA.js                            5.37 kB │ gzip:   2.59 kB
+demo-dist/assets/CompareFeature-DfIBTzXI.js                   5.64 kB │ gzip:   2.48 kB
+demo-dist/assets/ConditionalFormattingFeature-Dn1cSBX0.js     5.68 kB │ gzip:   2.38 kB
+demo-dist/assets/GroupingFeature-BSMg6rpt.js                  5.90 kB │ gzip:   2.54 kB
+demo-dist/assets/model-WwFvaPDA.js                            6.08 kB │ gzip:   2.43 kB
+demo-dist/assets/xlsx-rjFbLJ2p.js                             6.17 kB │ gzip:   2.36 kB
+demo-dist/assets/ConfigExample-DW4FIea6.js                    6.92 kB │ gzip:   3.16 kB
+demo-dist/assets/ColumnHeader-DrIhUJ-C.js                     7.59 kB │ gzip:   3.03 kB
+demo-dist/assets/editor-BOd_slAm.js                           8.22 kB │ gzip:   3.57 kB
+demo-dist/assets/ViewsPanel-Dongg0Y9.js                       8.62 kB │ gzip:   3.50 kB
+demo-dist/assets/ActionStrip-Dr8zJrwP.js                      8.85 kB │ gzip:   3.68 kB
+demo-dist/assets/model-B40EeLpb.js                           10.35 kB │ gzip:   4.24 kB
+demo-dist/assets/ToolStrip-BRR249g4.js                       11.84 kB │ gzip:   4.40 kB
+demo-dist/assets/ExportDialog-Cdbi98Sy.js                    11.88 kB │ gzip:   4.64 kB
+demo-dist/assets/FilterFeature-f_AesHb-.js                   12.45 kB │ gzip:   4.15 kB
+demo-dist/assets/useMotion-CYnno3WF.js                       17.49 kB │ gzip:   7.36 kB
+demo-dist/assets/useFloatingPosition-CsIIx4Sb.js             18.21 kB │ gzip:   7.32 kB
+demo-dist/assets/reactivity.esm-bundler-Bm-AZdJJ.js          20.48 kB │ gzip:   7.84 kB
+demo-dist/assets/useDragReorder-EdC7O9Dq.js                  41.08 kB │ gzip:  14.24 kB
+demo-dist/assets/ConfiguredBusinessTable-CtSvycqQ.js         42.01 kB │ gzip:  12.92 kB
+demo-dist/assets/runtime-core.esm-bundler-IX7-Wuwl.js        49.04 kB │ gzip:  20.10 kB
+demo-dist/assets/App-VEIxUrh0.js                             49.38 kB │ gzip:  17.61 kB
+demo-dist/assets/schemas-BVPwefwD.js                         85.51 kB │ gzip:  24.28 kB
+demo-dist/assets/ColumnSettings-BbiMkHe0.js                 100.60 kB │ gzip:  29.03 kB
+demo-dist/assets/RichEditor-CTfED7Cz.js                     396.13 kB │ gzip: 125.19 kB
+demo-dist/assets/useTableRuntime-CmYxkwq5.js                618.11 kB │ gzip: 192.98 kB
+
+✓ built in 1.04s
+[plugin builtin:vite-reporter]
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+> @company/business-table@1.0.0 test:e2e
+> playwright test
+
+[WebServer] (node:39856) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:24796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 199 tests using 7 workers
+
+(node:14132) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:42344) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:30080) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:17152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:21468) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:37932) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:13116) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok   5 [chromium-dev] › tests\e2e\configuration.spec.ts:4:1 › core-only entry never loads feature modules (5.2s)
+  ok   1 [chromium-dev] › tests\e2e\composition.spec.ts:2:1 › external search, independent paging and toolbar share only their owning runtime (6.0s)
+  ok   7 [chromium-dev] › tests\e2e\floating-ui.spec.ts:13:1 › views follow a moving anchor, stay inside a resized viewport and reopen cleanly (7.9s)
+  ok   6 [chromium-dev] › tests\e2e\interaction-details.spec.ts:3:1 › query draft dot clears only after submit and applied filters highlight the outer tool (12.1s)
+  ok   4 [chromium-dev] › tests\e2e\data-tools.spec.ts:13:1 › grouping matches reference drawer, controls and expanded row geometry (12.9s)
+  ok   8 [chromium-dev] › tests\e2e\configuration.spec.ts:14:1 › the default example enables every available settings page and column section (7.8s)
+  ok   3 [chromium-dev] › tests\e2e\filter-migration.spec.ts:30:1 › combined drawer keeps the reference empty layout and condition card geometry (13.1s)
+  ok   2 [chromium-dev] › tests\e2e\demo.spec.ts:4:1 › demo keeps a stable content height and preserves column controls (13.8s)
+  ok  10 [chromium-dev] › tests\e2e\floating-ui.spec.ts:36:1 › row menu closes on table scroll and regains keyboard focus after reopening near the viewport edge (6.3s)
+  ok  11 [chromium-dev] › tests\e2e\interaction-details.spec.ts:26:1 › selection header and body checkboxes align in wide and narrow layouts (5.8s)
+  ok   9 [chromium-dev] › tests\e2e\legacy-workflows.spec.ts:4:1 › quotation drawer validates, preserves dirty input and persists create, edit and copy (12.4s)
+  ok  15 [chromium-dev] › tests\e2e\narrow-columns.spec.ts:3:1 › narrow tables keep project data readable and restore desktop frozen columns (7.3s)
+  ok  13 [chromium-dev] › tests\e2e\configuration.spec.ts:43:1 › settings are loaded on click and explicitly read-only controls remain visible (8.9s)
+  ok  12 [chromium-dev] › tests\e2e\data-tools.spec.ts:35:1 › row marking applies raw conditions, survives refresh and cancels drafts (10.6s)
+  ok  16 [chromium-dev] › tests\e2e\floating-ui.spec.ts:65:1 › the color palette stays inside the settings container and releases itself on external scroll (9.3s)
+  ok  17 [chromium-dev] › tests\e2e\interaction-details.spec.ts:39:1 › closing changed settings discards without confirmation and shows a temporary notice (6.6s)
+  ok  19 [chromium-dev] › tests\e2e\query.spec.ts:3:1 › slow Provider reports loading and ignores an obsolete response (4.4s)
+  ok  20 [chromium-dev] › tests\e2e\configuration.spec.ts:84:1 › undeclared settings modules have no settings entry or empty placeholder (3.7s)
+  ok  14 [chromium-dev] › tests\e2e\filter-migration.spec.ts:74:1 › quotation data tools match combination AND OR, cancel, summary and complete clearing (13.3s)
+  ok  23 [chromium-dev] › tests\e2e\interaction-details.spec.ts:57:1 › column-only filtering highlights the external data tool (4.8s)
+  ok  25 [chromium-dev] › tests\e2e\configuration.spec.ts:96:1 › remote OFF bypasses settings details and module (3.6s)
+  ok  24 [chromium-dev] › tests\e2e\query.spec.ts:21:1 › a failed refresh keeps rows and can be retried without browser errors (4.3s)
+  ok  18 [chromium-dev] › tests\e2e\legacy-workflows.spec.ts:46:1 › export options and presets generate Excel, CSV and fixed templates (11.9s)
+  ok  21 [chromium-dev] › tests\e2e\data-tools.spec.ts:57:1 › grouping follows the complete query, expands nested details and exports exact totals (8.7s)
+  ok  27 [chromium-dev] › tests\e2e\interaction-details.spec.ts:68:1 › column picker select-all aligns with its row checkboxes (5.7s)
+PARITY_STYLES 1440 {"reference":{"page title":{"font-size":"22px","font-weight":"600","color":"rgb(38, 50, 72)","letter-spacing":"normal","line-height":"30.8px"},"query label":{"font-size":"14px","color":"rgb(82, 97, 119)"},"query input":{"height":"36px","font-size":"14px","color":"rgb(38, 50, 72)","border-color":"rgb(217, 223, 232)","border-radius":"6px","padding-left":"33px"},"page button":{"height":"36px","font-size":"14px","color":"rgb(82, 97, 119)","border-color":"rgb(217, 223, 232)","border-radius":"6px"},"customer subline":{"color":"rgb(100, 116, 139)","line-height":"18px"},"draft tag":{"color":"rgb(82, 97, 119)","background-color":"rgb(240, 242, 246)","border-radius":"4px"},"contract tag":{"color":"rgb(22, 116, 87)","background-color":"rgb(234, 247, 242)","border-radius":"4px"},"footer summary":{"color":"rgb(102, 117, 139)","font-size":"13px"}},"current":{"page title":{"font-size":"22px","font-weight":"600","color":"rgb(38, 50, 72)","letter-spacing":"normal","line-height":"30.8px"},"query label":{"font-size":"14px","color":"rgb(82, 97, 119)"},"query input":{"height":"36px","font-size":"14px","color":"rgb(38, 50, 72)","border-color":"rgb(217, 223, 232)","border-radius":"6px","padding-left":"33px"},"page button":{"height":"36px","font-size":"14px","color":"rgb(82, 97, 119)","border-color":"rgb(217, 223, 232)","border-radius":"6px"},"customer subline":{"color":"rgb(100, 116, 139)","line-height":"18px"},"draft tag":{"color":"rgb(82, 97, 119)","background-color":"rgb(240, 242, 246)","border-radius":"4px"},"contract tag":{"color":"rgb(22, 116, 87)","background-color":"rgb(234, 247, 242)","border-radius":"4px"},"footer summary":{"color":"rgb(102, 117, 139)","font-size":"13px"}}}
+  ok  28 [chromium-dev] › tests\e2e\configuration.spec.ts:106:1 › custom and headless settings share guarded modification without default module (6.3s)
+  ok  22 [chromium-dev] › tests\e2e\reference-refinement.spec.ts:49:3 › reference typography and component colors at 1440px (12.2s)
+  ok  30 [chromium-dev] › tests\e2e\legacy-workflows.spec.ts:88:1 › batch selection replaces title and computes only the selected total (7.9s)
+  ok  33 [chromium-dev] › tests\e2e\configuration.spec.ts:127:1 › narrow layouts keep settings buttons and width sliders usable (5.9s)
+  ok  26 [chromium-dev] › tests\e2e\filter-migration.spec.ts:120:1 › combination plans stay drafts and a view restores all query layers (16.6s)
+  ok  31 [chromium-dev] › tests\e2e\data-tools.spec.ts:84:1 › comparison keeps the query order, limits picks and exports baseline differences (11.9s)
+  ok  32 [chromium-dev] › tests\e2e\search-runtime.spec.ts:5:1 › quotation Search keeps drafts separate and saves ID-based values in a View (9.1s)
+  ok  35 [chromium-dev] › tests\e2e\legacy-workflows.spec.ts:105:1 › query workspace preferences survive reload and slash focuses the hidden search (9.7s)
+PARITY_STYLES 390 {"reference":{"page title":{"font-size":"20px","font-weight":"600","color":"rgb(38, 50, 72)","letter-spacing":"normal","line-height":"28px"},"query label":{"font-size":"13px","color":"rgb(82, 97, 119)"},"query input":{"height":"36px","font-size":"14px","color":"rgb(38, 50, 72)","border-color":"rgb(217, 223, 232)","border-radius":"6px","padding-left":"33px"},"page button":{"height":"36px","font-size":"14px","color":"rgb(82, 97, 119)","border-color":"rgb(217, 223, 232)","border-radius":"6px"},"customer subline":{"color":"rgb(100, 116, 139)","line-height":"18px"},"draft tag":{"color":"rgb(82, 97, 119)","background-color":"rgb(240, 242, 246)","border-radius":"4px"},"contract tag":{"color":"rgb(22, 116, 87)","background-color":"rgb(234, 247, 242)","border-radius":"4px"},"footer summary":{"color":"rgb(102, 117, 139)","font-size":"11px"}},"current":{"page title":{"font-size":"20px","font-weight":"600","color":"rgb(38, 50, 72)","letter-spacing":"normal","line-height":"28px"},"query label":{"font-size":"13px","color":"rgb(82, 97, 119)"},"query input":{"height":"36px","font-size":"14px","color":"rgb(38, 50, 72)","border-color":"rgb(217, 223, 232)","border-radius":"6px","padding-left":"33px"},"page button":{"height":"36px","font-size":"14px","color":"rgb(82, 97, 119)","border-color":"rgb(217, 223, 232)","border-radius":"6px"},"customer subline":{"color":"rgb(100, 116, 139)","line-height":"18px"},"draft tag":{"color":"rgb(82, 97, 119)","background-color":"rgb(240, 242, 246)","border-radius":"4px"},"contract tag":{"color":"rgb(22, 116, 87)","background-color":"rgb(234, 247, 242)","border-radius":"4px"},"footer summary":{"color":"rgb(102, 117, 139)","font-size":"11px"}}}
+  ok  34 [chromium-dev] › tests\e2e\reference-refinement.spec.ts:49:3 › reference typography and component colors at 390px (13.3s)
+  ok  37 [chromium-dev] › tests\e2e\filter-migration.spec.ts:176:1 › column filters remain separate from quotation search and cancel is non-mutating (7.0s)
+  ok  39 [chromium-dev] › tests\e2e\search-runtime.spec.ts:43:1 › invalid date Search does not replace the applied query (5.7s)
+  ok  38 [chromium-dev] › tests\e2e\data-tools.spec.ts:126:1 › range selection supports pointer and keyboard, manual copy and query reset without hijacking links (7.5s)
+  ok  36 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:11:1 › range controls share exact drafts, reject invalid numbers and apply only on confirmation (10.2s)
+  ok  41 [chromium-dev] › tests\e2e\reference-refinement.spec.ts:73:1 › page actions support keyboard entry, arrow navigation, Tab and return focus (8.4s)
+  ok  43 [chromium-dev] › tests\e2e\search-runtime.spec.ts:54:1 › preset Search labels survive View restore while storage retains the actual choice value (9.1s)
+  ok  40 [chromium-dev] › tests\e2e\legacy-workflows.spec.ts:119:1 › a view can update appearance, page size and query expansion without changing any filter (12.3s)
+  ok  42 [chromium-dev] › tests\e2e\filter-migration.spec.ts:201:1 › nested AND OR conditions and saved plans survive a page reload (11.0s)
+  ok  44 [chromium-dev] › tests\e2e\data-tools.spec.ts:157:1 › unconfigured, disabled and enabled data tools follow the declaration in generic demo (9.3s)
+  ok  45 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:56:1 › numeric restore clears only its column or style scope, including unchanged defaults (9.0s)
+  ok  46 [chromium-dev] › tests\e2e\reference-refinement.spec.ts:96:1 › density menu supports keyboard selection and returns focus (6.3s)
+  ok  50 [chromium-dev] › tests\e2e\data-tools.spec.ts:172:1 › conditional rule controls fit narrow screens for value and option conditions (7.2s)
+  ok  49 [chromium-dev] › tests\e2e\filter-migration.spec.ts:238:1 › date range filters include both boundaries (7.8s)
+  ok  48 [chromium-dev] › tests\e2e\table-layout-parity.spec.ts:21:1 › column widths fill both reference desktop sizes and recalculate on container resize (8.8s)
+  ok  47 [chromium-dev] › tests\e2e\summary.spec.ts:13:1 › summary settings apply, persist disabling after reload, and restore the numeric field (10.8s)
+  ok  51 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:80:1 › invalid numeric drafts close immediately and are canceled (8.9s)
+  ok  52 [chromium-dev] › tests\e2e\reference-refinement.spec.ts:118:3 › view popup and drawer remain reachable at 320px (8.1s)
+  ok  54 [chromium-dev] › tests\e2e\filter-migration.spec.ts:247:1 › option search preserves checked values and uses full source counts (7.0s)
+  ok  56 [chromium-dev] › tests\e2e\summary.spec.ts:33:1 › summary follows selected records and restores the query total when selection clears (5.9s)
+  ok  53 [chromium-dev] › tests\e2e\text-style.spec.ts:19:1 › quotation cell font sizes apply to project and status in the preview and live table (10.5s)
+  ok  58 [chromium-dev] › tests\e2e\reference-refinement.spec.ts:118:3 › view popup and drawer remain reachable at 768px (7.0s)
+  ok  57 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:103:1 › compact settings keep tools and action controls inside desktop and mobile panels (10.0s)
+  ok  59 [chromium-dev] › tests\e2e\filter-migration.spec.ts:259:1 › nested Escape restores focus and the drawer fits a narrow viewport (5.4s)
+  ok  55 [chromium-dev] › tests\e2e\table-layout-parity.spec.ts:37:1 › resizing and hiding columns redistribute free space without saving expanded widths (12.0s)
+  ok  64 [chromium-dev] › tests\e2e\filter-migration.spec.ts:277:1 › configured material tables use the same first-party filter without quotation handlers (4.6s)
+  ok  62 [chromium-dev] › tests\e2e\visual-parity.spec.ts:26:1 › quotation page restores the reference layout, density and footer (8.8s)
+  ok  65 [chromium-dev] › tests\e2e\table-layout-parity.spec.ts:72:1 › vertical and horizontal scrolling retain the reference header and both fixed edges (7.0s)
+  ok  63 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:126:1 › font search and palette change the same draft and apply to the live header (8.4s)
+  ok  60 [chromium-dev] › tests\e2e\tiptap-editor.spec.ts:4:1 › rich notes use native text input, formatting, undo and persisted ops (13.5s)
+BROWSER_RENDERING_SAMPLES [{"count":1000,"virtual":false,"paged":false,"readyMs":38553,"renderedRows":1000},{"count":1000,"virtual":true,"paged":false,"readyMs":5449,"renderedRows":16,"endScrollMs":1308},{"count":10000,"virtual":true,"paged":false,"readyMs":2842,"renderedRows":16,"endScrollMs":681},{"count":10000,"virtual":true,"paged":true,"readyMs":5637,"renderedRows":100}]
+  ok  29 [chromium-dev] › tests\e2e\rendering-performance.spec.ts:3:1 › bounded virtual rows preserve multiline data, selection and reach the last record (1.0m)
+  ok  66 [chromium-dev] › tests\e2e\filter-migration.spec.ts:286:1 › disabled filters never import their UI and enabled filters load it only on interaction (5.2s)
+  ok  61 [chromium-dev] › tests\e2e\toolbar-settings.spec.ts:4:1 › registered Demo tools are editable and saved layout controls the real toolbar after reload (11.9s)
+  ok  67 [chromium-dev] › tests\e2e\visual-parity.spec.ts:54:1 › row More is an unclipped menu and Escape restores focus (4.9s)
+  ok  68 [chromium-dev] › tests\e2e\table-layout-parity.spec.ts:104:1 › height-only resizing keeps a keyboard-scrollable viewport with a stationary header (5.3s)
+  ok  69 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:162:1 › invalid color remains editable across columns and cannot be silently applied (7.5s)
+  ok  73 [chromium-dev] › tests\e2e\toolbar-settings.spec.ts:29:1 › Demo explicitly enables column rule editors including mapping, template and trial (7.7s)
+  ok  75 [chromium-dev] › tests\e2e\table-layout-parity.spec.ts:124:1 › overflow within the reserved vertical gutter does not consume an extra horizontal scrollbar row (6.4s)
+  ok  70 [chromium-dev] › tests\e2e\tiptap-editor.spec.ts:42:1 › template fields stay atomic and survive save and reopen (10.9s)
+  ok  74 [chromium-dev] › tests\e2e\visual-parity.spec.ts:75:1 › page More retains the reference tools and closes on outside click (7.7s)
+  ok  76 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:182:1 › nested Escape and alignment keys retain the editor instead of dismissing it (8.5s)
+  ok  72 [chromium-dev] › tests\e2e\filter-migration.spec.ts:299:1 › saving a view restores each filter layer after reload without duplicating query chips (14.1s)
+  ok  78 [chromium-dev] › tests\e2e\tiptap-editor.spec.ts:75:1 › rich editor fits a narrow screen and sanitizes pasted HTML before editing (6.2s)
+  ok  79 [chromium-dev] › tests\e2e\visual-parity.spec.ts:88:1 › view popup restores the saved-view layout and applying a view changes the rows (6.7s)
+  ok  71 [chromium-dev] › tests\e2e\rendering-performance.spec.ts:39:1 › custom empty slot receives effective query reason and recovery commands (18.9s)
+  ok  81 [chromium-dev] › tests\e2e\filter-migration.spec.ts:325:1 › ordinary column filters retain the reference layout and footer alignment (4.3s)
+  ok  80 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:207:1 › quick hidden columns have the legacy strike-through and hidden pins do not catch clicks (5.0s)
+(node:30016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23208) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:39512) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  82 [chromium-dev] › tests\e2e\visual-parity.spec.ts:110:1 › quick columns uses a draft and preserves the paired freeze controls (6.1s)
+  ok  83 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:219:1 › column context stays visible while scrolling settings content (3.9s)
+  ok  77 [chromium-dev] › tests\e2e\toolbar-settings.spec.ts:44:3 › explicit More preferences persist while wrapped tools stay visible at 320px (15.1s)
+(node:25420) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok  84 [chromium-preview] › tests\e2e\configuration.spec.ts:4:1 › core-only entry never loads feature modules (2.8s)
+  ok  85 [chromium-preview] › tests\e2e\composition.spec.ts:2:1 › external search, independent paging and toolbar share only their owning runtime (4.4s)
+  ok  91 [chromium-preview] › tests\e2e\configuration.spec.ts:14:1 › the default example enables every available settings page and column section (4.2s)
+  ok  86 [chromium-dev] › tests\e2e\visual-parity.spec.ts:143:1 › full settings restores the drawer and applies a column draft only on confirmation (10.7s)
+  ok  89 [chromium-preview] › tests\e2e\data-tools.spec.ts:13:1 › grouping matches reference drawer, controls and expanded row geometry (9.4s)
+  ok  93 [chromium-preview] › tests\e2e\configuration.spec.ts:43:1 › settings are loaded on click and explicitly read-only controls remain visible (5.7s)
+  ok  90 [chromium-preview] › tests\e2e\demo.spec.ts:4:1 › demo keeps a stable content height and preserves column controls (9.5s)
+  ok  87 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:234:1 › all column sections collapse without losing drafts and navigation expands its destination (12.7s)
+  ok  92 [chromium-preview] › tests\e2e\filter-migration.spec.ts:30:1 › combined drawer keeps the reference empty layout and condition card geometry (9.2s)
+  ok  96 [chromium-preview] › tests\e2e\configuration.spec.ts:84:1 › undeclared settings modules have no settings entry or empty placeholder (2.3s)
+  ok  88 [chromium-dev] › tests\e2e\toolbar-settings.spec.ts:44:3 › explicit More preferences persist while wrapped tools stay visible at 390px (14.5s)
+  ok 100 [chromium-preview] › tests\e2e\configuration.spec.ts:96:1 › remote OFF bypasses settings details and module (2.4s)
+  ok  97 [chromium-preview] › tests\e2e\floating-ui.spec.ts:13:1 › views follow a moving anchor, stay inside a resized viewport and reopen cleanly (5.6s)
+  ok  98 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:257:1 › quick column drag indicates the insertion edge and does not apply the draft until confirmed (5.0s)
+  ok  94 [chromium-dev] › tests\e2e\visual-parity.spec.ts:174:1 › narrow quotation and settings keep scrolling inside the content (7.0s)
+  ok 101 [chromium-preview] › tests\e2e\configuration.spec.ts:106:1 › custom and headless settings share guarded modification without default module (3.1s)
+  ok  95 [chromium-preview] › tests\e2e\data-tools.spec.ts:35:1 › row marking applies raw conditions, survives refresh and cancels drafts (9.1s)
+(node:13712) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 102 [chromium-preview] › tests\e2e\floating-ui.spec.ts:36:1 › row menu closes on table scroll and regains keyboard focus after reopening near the viewport edge (5.0s)
+  ok  99 [chromium-preview] › tests\e2e\filter-migration.spec.ts:74:1 › quotation data tools match combination AND OR, cancel, summary and complete clearing (10.2s)
+  ok 105 [chromium-preview] › tests\e2e\configuration.spec.ts:127:1 › narrow layouts keep settings buttons and width sliders usable (3.8s)
+  ok 104 [chromium-dev] › tests\e2e\visual-parity.spec.ts:191:1 › header text alignment is applied to the live table as well as the preview (6.7s)
+  ok 103 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:281:1 › toolbar and action settings collapse by level while preserving edited values (8.6s)
+  ok 107 [chromium-preview] › tests\e2e\floating-ui.spec.ts:65:1 › the color palette stays inside the settings container and releases itself on external scroll (4.9s)
+  ok 106 [chromium-preview] › tests\e2e\data-tools.spec.ts:57:1 › grouping follows the complete query, expands nested details and exports exact totals (7.8s)
+  ok 108 [chromium-preview] › tests\e2e\interaction-details.spec.ts:3:1 › query draft dot clears only after submit and applied filters highlight the outer tool (5.9s)
+  ok 111 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:313:3 › 列设置 reorders at the indicated edge and clears canceled drags (6.8s)
+  ok 110 [chromium-preview] › tests\e2e\legacy-workflows.spec.ts:4:1 › quotation drawer validates, preserves dirty input and persists create, edit and copy (10.7s)
+  ok 114 [chromium-preview] › tests\e2e\interaction-details.spec.ts:26:1 › selection header and body checkboxes align in wide and narrow layouts (4.4s)
+  ok 112 [chromium-preview] › tests\e2e\search-runtime.spec.ts:5:1 › quotation Search keeps drafts separate and saves ID-based values in a View (8.7s)
+  ok 109 [chromium-preview] › tests\e2e\filter-migration.spec.ts:120:1 › combination plans stay drafts and a view restores all query layers (13.6s)
+  ok 113 [chromium-preview] › tests\e2e\data-tools.spec.ts:84:1 › comparison keeps the query order, limits picks and exports baseline differences (10.0s)
+  ok 118 [chromium-preview] › tests\e2e\search-runtime.spec.ts:43:1 › invalid date Search does not replace the applied query (3.2s)
+  ok 117 [chromium-preview] › tests\e2e\interaction-details.spec.ts:39:1 › closing changed settings discards without confirmation and shows a temporary notice (5.6s)
+  ok 119 [chromium-preview] › tests\e2e\filter-migration.spec.ts:176:1 › column filters remain separate from quotation search and cancel is non-mutating (4.8s)
+  ok 115 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:313:3 › 操作按钮 reorders at the indicated edge and clears canceled drags (8.9s)
+  ok 116 [chromium-preview] › tests\e2e\legacy-workflows.spec.ts:46:1 › export options and presets generate Excel, CSV and fixed templates (9.8s)
+  ok 120 [chromium-preview] › tests\e2e\data-tools.spec.ts:126:1 › range selection supports pointer and keyboard, manual copy and query reset without hijacking links (5.7s)
+  ok 122 [chromium-preview] › tests\e2e\interaction-details.spec.ts:57:1 › column-only filtering highlights the external data tool (4.6s)
+  ok 121 [chromium-preview] › tests\e2e\search-runtime.spec.ts:54:1 › preset Search labels survive View restore while storage retains the actual choice value (6.7s)
+  ok 123 [chromium-preview] › tests\e2e\filter-migration.spec.ts:201:1 › nested AND OR conditions and saved plans survive a page reload (7.2s)
+  ok 126 [chromium-preview] › tests\e2e\data-tools.spec.ts:157:1 › unconfigured, disabled and enabled data tools follow the declaration in generic demo (5.1s)
+  ok 125 [chromium-preview] › tests\e2e\legacy-workflows.spec.ts:88:1 › batch selection replaces title and computes only the selected total (5.5s)
+  ok 127 [chromium-preview] › tests\e2e\interaction-details.spec.ts:68:1 › column picker select-all aligns with its row checkboxes (4.7s)
+  ok 124 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:313:3 › 工具栏 reorders at the indicated edge and clears canceled drags (7.7s)
+(node:27732) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 129 [chromium-preview] › tests\e2e\filter-migration.spec.ts:238:1 › date range filters include both boundaries (5.3s)
+  ok 130 [chromium-preview] › tests\e2e\data-tools.spec.ts:172:1 › conditional rule controls fit narrow screens for value and option conditions (6.5s)
+  ok 133 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:347:1 › dragging near the scroll edge scrolls the list and Escape leaves order unchanged (6.8s)
+  ok 131 [chromium-preview] › tests\e2e\legacy-workflows.spec.ts:105:1 › query workspace preferences survive reload and slash focuses the hidden search (8.7s)
+  ok 128 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:11:1 › range controls share exact drafts, reject invalid numbers and apply only on confirmation (12.3s)
+  ok 137 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:365:3 › touch controls › touch dragging uses insertion edges and removes its fallback ghost after release (5.4s)
+  ok 132 [chromium-preview] › tests\e2e\summary.spec.ts:13:1 › summary settings apply, persist disabling after reload, and restore the numeric field (12.6s)
+  ok 135 [chromium-preview] › tests\e2e\filter-migration.spec.ts:247:1 › option search preserves checked values and uses full source counts (9.2s)
+  ok 136 [chromium-preview] › tests\e2e\table-layout-parity.spec.ts:21:1 › column widths fill both reference desktop sizes and recalculate on container resize (9.6s)
+  ok 140 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:383:3 › touch controls › supports explicit move controls and nested font dialog without page overflow (9.2s)
+  ok 139 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:56:1 › numeric restore clears only its column or style scope, including unchanged defaults (12.7s)
+  ok 141 [chromium-preview] › tests\e2e\summary.spec.ts:33:1 › summary follows selected records and restores the query total when selection clears (9.1s)
+  ok 138 [chromium-preview] › tests\e2e\legacy-workflows.spec.ts:119:1 › a view can update appearance, page size and query expansion without changing any filter (13.5s)
+  ok 142 [chromium-preview] › tests\e2e\filter-migration.spec.ts:259:1 › nested Escape restores focus and the drawer fits a narrow viewport (8.5s)
+  ok 144 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:404:1 › color palette stays inside the scroll area above the preview boundary (6.0s)
+  ok 148 [chromium-preview] › tests\e2e\filter-migration.spec.ts:277:1 › configured material tables use the same first-party filter without quotation handlers (7.3s)
+  ok 143 [chromium-preview] › tests\e2e\table-layout-parity.spec.ts:37:1 › resizing and hiding columns redistribute free space without saving expanded widths (14.0s)
+  ok 145 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:80:1 › invalid numeric drafts close immediately and are canceled (9.8s)
+  ok 150 [chromium-preview] › tests\e2e\filter-migration.spec.ts:286:1 › disabled filters never import their UI and enabled filters load it only on interaction (5.8s)
+  ok 147 [chromium-preview] › tests\e2e\tiptap-editor.spec.ts:4:1 › rich notes use native text input, formatting, undo and persisted ops (14.1s)
+  ok 146 [chromium-preview] › tests\e2e\text-style.spec.ts:19:1 › quotation cell font sizes apply to project and status in the preview and live table (17.3s)
+  ok 151 [chromium-preview] › tests\e2e\table-layout-parity.spec.ts:72:1 › vertical and horizontal scrolling retain the reference header and both fixed edges (9.8s)
+  ok 149 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:425:1 › number settings use the same display and export interpretation in trial, preview and the saved table (12.2s)
+  ok 152 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:103:1 › compact settings keep tools and action controls inside desktop and mobile panels (12.3s)
+  ok 156 [chromium-preview] › tests\e2e\table-layout-parity.spec.ts:104:1 › height-only resizing keeps a keyboard-scrollable viewport with a stationary header (7.9s)
+  ok 154 [chromium-preview] › tests\e2e\tiptap-editor.spec.ts:42:1 › template fields stay atomic and survive save and reopen (13.3s)
+  ok 153 [chromium-preview] › tests\e2e\filter-migration.spec.ts:299:1 › saving a view restores each filter layer after reload without duplicating query chips (14.2s)
+  ok 157 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:440:1 › mapping edits reach real cells and tool previews do not run business actions (11.3s)
+  ok 155 [chromium-preview] › tests\e2e\toolbar-settings.spec.ts:4:1 › registered Demo tools are editable and saved layout controls the real toolbar after reload (13.6s)
+  ok 158 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:126:1 › font search and palette change the same draft and apply to the live header (10.5s)
+  ok 159 [chromium-preview] › tests\e2e\table-layout-parity.spec.ts:124:1 › overflow within the reserved vertical gutter does not consume an extra horizontal scrollbar row (7.8s)
+  ok 160 [chromium-preview] › tests\e2e\tiptap-editor.spec.ts:75:1 › rich editor fits a narrow screen and sanitizes pasted HTML before editing (7.1s)
+  ok 161 [chromium-preview] › tests\e2e\filter-migration.spec.ts:325:1 › ordinary column filters retain the reference layout and footer alignment (7.5s)
+  ok 162 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:461:1 › intent loads settings and template code without opening or mounting editors (7.3s)
+  ok 163 [chromium-preview] › tests\e2e\toolbar-settings.spec.ts:29:1 › Demo explicitly enables column rule editors including mapping, template and trial (7.0s)
+BROWSER_RENDERING_SAMPLES [{"count":1000,"virtual":false,"paged":false,"readyMs":33061,"renderedRows":1000},{"count":1000,"virtual":true,"paged":false,"readyMs":3879,"renderedRows":16,"endScrollMs":971},{"count":10000,"virtual":true,"paged":false,"readyMs":2921,"renderedRows":16,"endScrollMs":835},{"count":10000,"virtual":true,"paged":true,"readyMs":3122,"renderedRows":100}]
+  ok 134 [chromium-preview] › tests\e2e\rendering-performance.spec.ts:3:1 › bounded virtual rows preserve multiline data, selection and reach the last record (56.0s)
+  ok 164 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:162:1 › invalid color remains editable across columns and cannot be silently applied (6.5s)
+  ok 165 [chromium-preview] › tests\e2e\visual-parity.spec.ts:26:1 › quotation page restores the reference layout, density and footer (5.1s)
+  ok 166 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:499:1 › column metadata and disclosures retain clear hierarchy without range clutter (4.2s)
+  ok 170 [chromium-preview] › tests\e2e\visual-parity.spec.ts:54:1 › row More is an unclipped menu and Escape restores focus (2.8s)
+  ok 169 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:182:1 › nested Escape and alignment keys retain the editor instead of dismissing it (4.4s)
+  ok 172 [chromium-preview] › tests\e2e\visual-parity.spec.ts:75:1 › page More retains the reference tools and closes on outside click (3.1s)
+  ok 171 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:517:1 › latest settings target wins while its first module request is pending (4.3s)
+  ok 173 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:207:1 › quick hidden columns have the legacy strike-through and hidden pins do not catch clicks (2.5s)
+  ok 167 [chromium-preview] › tests\e2e\toolbar-settings.spec.ts:44:3 › explicit More preferences persist while wrapped tools stay visible at 320px (10.3s)
+  ok 174 [chromium-preview] › tests\e2e\visual-parity.spec.ts:88:1 › view popup restores the saved-view layout and applying a view changes the rows (3.4s)
+  ok 168 [chromium-preview] › tests\e2e\rendering-performance.spec.ts:39:1 › custom empty slot receives effective query reason and recovery commands (10.3s)
+  ok 176 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:219:1 › column context stays visible while scrolling settings content (3.3s)
+  ok 178 [chromium-preview] › tests\e2e\visual-parity.spec.ts:110:1 › quick columns uses a draft and preserves the paired freeze controls (4.4s)
+  ok 175 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:537:1 › failed template module preserves settings drafts and gives a working refresh recovery (11.0s)
+  ok 179 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:234:1 › all column sections collapse without losing drafts and navigation expands its destination (8.2s)
+  ok 177 [chromium-preview] › tests\e2e\toolbar-settings.spec.ts:44:3 › explicit More preferences persist while wrapped tools stay visible at 390px (10.4s)
+  ok 180 [chromium-preview] › tests\e2e\visual-parity.spec.ts:143:1 › full settings restores the drawer and applies a column draft only on confirmation (5.6s)
+  ok 182 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:257:1 › quick column drag indicates the insertion edge and does not apply the draft until confirmed (2.3s)
+  ok 183 [chromium-preview] › tests\e2e\visual-parity.spec.ts:174:1 › narrow quotation and settings keep scrolling inside the content (1.8s)
+  ok 181 [chromium-dev] › tests\e2e\settings-refinement.spec.ts:572:1 › settings start collapsed on every page and column, and navigation preserves drafts (6.0s)
+  ok 185 [chromium-preview] › tests\e2e\visual-parity.spec.ts:191:1 › header text alignment is applied to the live table as well as the preview (2.4s)
+  ok 184 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:281:1 › toolbar and action settings collapse by level while preserving edited values (4.6s)
+  ok 186 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:313:3 › 列设置 reorders at the indicated edge and clears canceled drags (2.2s)
+  ok 187 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:313:3 › 操作按钮 reorders at the indicated edge and clears canceled drags (2.0s)
+  ok 188 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:313:3 › 工具栏 reorders at the indicated edge and clears canceled drags (2.1s)
+  ok 189 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:347:1 › dragging near the scroll edge scrolls the list and Escape leaves order unchanged (1.3s)
+  ok 190 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:365:3 › touch controls › touch dragging uses insertion edges and removes its fallback ghost after release (1.1s)
+  ok 191 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:383:3 › touch controls › supports explicit move controls and nested font dialog without page overflow (1.7s)
+  ok 192 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:404:1 › color palette stays inside the scroll area above the preview boundary (1.6s)
+  ok 193 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:425:1 › number settings use the same display and export interpretation in trial, preview and the saved table (2.5s)
+  ok 194 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:440:1 › mapping edits reach real cells and tool previews do not run business actions (2.4s)
+  ok 195 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:461:1 › intent loads settings and template code without opening or mounting editors (1.7s)
+  ok 196 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:499:1 › column metadata and disclosures retain clear hierarchy without range clutter (1.5s)
+  ok 197 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:517:1 › latest settings target wins while its first module request is pending (1.1s)
+  ok 198 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:537:1 › failed template module preserves settings drafts and gives a working refresh recovery (2.9s)
+  ok 199 [chromium-preview] › tests\e2e\settings-refinement.spec.ts:572:1 › settings start collapsed on every page and column, and navigation preserves drafts (2.9s)
+
+  199 passed (4.8m)

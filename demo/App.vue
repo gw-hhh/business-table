@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Ref } from 'vue'
-import { BusinessTable, createLocalStoragePersistence, type Action, type DataSource, type Query, type SearchContext, type ViewConfig, type ViewSnapshot } from '../src'
+import { BusinessTable, SearchPendingIndicator, SummaryResult, createLocalStoragePersistence, type Action, type DataSource, type Query, type SearchContext, type ViewConfig, type ViewSnapshot } from '../src'
 import TableIcon from '../src/components/TableIcon.vue'
 import ToolStrip from '../src/features/toolbar/ToolStrip.vue'
 import { defaultPresentation, type TablePresentation, type ToolDefinition } from '../src/features/presentation/model'
@@ -47,9 +47,6 @@ const selectedRows = ref<Quotation[]>([])
 const density = ref<'compact' | 'default' | 'comfortable'>('default')
 const query = ref<Query>({ page: 1, pageSize: 10, keyword: '', filters: [], sorts: [] }), rowCount = ref(0)
 const filteredRows = computed(() => filterQuotations(quotations.value, query.value))
-const selectedAmount=computed(()=>selectedRows.value.reduce((sum,row)=>sum+row.amount,0))
-const totalAmount = computed(() => filteredRows.value.reduce((sum, row) => sum + row.amount, 0))
-const money = (value: number) => new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
 const table = ref<{ preloadFeature:(name:'columnSettings')=>Promise<void>|undefined; openDataTool:(name:DataToolName)=>Promise<void>; getFeatureContext:(name:'rangeSelection')=>RangeSelectionContext|undefined; openFilters:(columnId?:string)=>Promise<void>; setQuery: (query: Partial<Query>) => Promise<void>; applyView: (view?: ViewConfig, keyword?: string) => Promise<void>; reload: () => Promise<void>; getState: () => { columns: typeof quotationColumns }; openColumnSettings:(mode:'quick'|'drawer',columnId?:string,tab?:'columns'|'sorts'|'actions'|'appearance'|'toolbar')=>Promise<void>; getRuntime: () => { setPresentation:(value:{appearance:{density:'compact'|'default'|'comfortable'}})=>Promise<void>; searchContext: () => SearchContext; presentation: Ref<TablePresentation> }; clearSelection: () => void; selectQuery:()=>Promise<void>; viewSnapshot: () => ViewSnapshot }>()
 const currentSearch = () => table.value?.getRuntime().searchContext()
 const persistence = createLocalStoragePersistence()
@@ -63,6 +60,8 @@ const settingsDefinition: SettingsDefinition = {
   pages: { columns: true, sorts: true, actions: true, appearance: true, toolbar: true },
   columnSections: { basic: true, content: true, number: true, filter: true, mapping: true, template: true, trial: true },
 }
+const presentation = {appearance:{summaryEnabled:true,summaryColumn:'amount'}}
+const hasColumnFilters = computed(() => {const snapshot=table.value?.viewSnapshot();return Boolean(snapshot?.columnFilters?.length || snapshot?.filterGroup?.rules.length)})
 const toolbarLayout = computed(() => table.value?.getRuntime().presentation.value.toolbar ?? defaultPresentation().toolbar)
 const source: DataSource<Quotation> = { async readAll(request) { return filterQuotations(quotations.value, request) }, async query(request) { const result = filterQuotations(quotations.value, request); rowCount.value = result.length; return { rows: result.slice((request.page - 1) * request.pageSize, request.page * request.pageSize), total: result.length } } }
 const customers = computed(() => [...new Set(quotations.value.map(row => row.customer))].sort((a,b)=>a.localeCompare(b,'zh-CN'))), owners = computed(() => [...new Set(quotations.value.map(row => row.owner))].sort((a,b)=>a.localeCompare(b,'zh-CN'))), regions = computed(() => [...new Set([...quotationRegions,...quotations.value.map(row => row.region)])])
@@ -152,8 +151,8 @@ const tools = computed<{ page: ToolDefinition[]; table: ToolDefinition[] }>(() =
     { id: 'sort', label: '排序规则', icon: 'sort', display: 'icon', active: query.value.sorts.length > 0, preload:()=>table.value?.preloadFeature('columnSettings'),handler: () => table.value?.openColumnSettings('drawer',undefined,'sorts') },
     {id:'columns',label:'列设置',icon:'columns',display:'icon',preload:()=>table.value?.preloadFeature('columnSettings'),handler:()=>table.value?.openColumnSettings('quick')},
     {id:'settings',label:'表格设置',icon:'settings',immutable:true,preload:()=>table.value?.preloadFeature('columnSettings'),handler:()=>table.value?.openColumnSettings('drawer')},
-    {id:'data-tools',label:'数据工具',icon:'filter',display:'icon',children:[
-      {id:'combined-filter',label:'组合筛选',icon:'filter',handler:()=>table.value?.openFilters()},
+    {id:'data-tools',label:'数据工具',active:hasColumnFilters.value,icon:'filter',display:'icon',children:[
+      {id:'combined-filter',label:'组合筛选',active:hasColumnFilters.value,icon:'filter',handler:()=>table.value?.openFilters()},
       {id:'conditional-formatting',label:'条件标记',icon:'info',handler:()=>table.value?.openDataTool('conditionalFormatting')},
       {id:'grouping',label:'分组汇总',icon:'density',handler:()=>table.value?.openDataTool('grouping')},
       {id:'compare',label:'记录对比',icon:'columns',handler:()=>table.value?.openDataTool('compare')},
@@ -176,14 +175,14 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
   <a class="q-skip-link" href="#quotation.demo.visual-viewport">跳到报价列表</a>
   <main class="quotation-page">
     <header class="q-page-header">
-      <div><nav class="q-breadcrumb" aria-label="面包屑">销售管理 <span>/</span> 报价管理</nav><div class="q-title-row"><span class="q-page-symbol"><TableIcon name="file" :size="19"/></span><h1>报价管理</h1><span class="q-local-badge">{{repository.temporary.value?'临时模式':'本地演示'}}</span></div></div>
+      <div><div class="q-title-row"><span class="q-page-symbol"><TableIcon name="file" :size="19"/></span><h1>报价管理</h1><span class="q-local-badge">{{repository.temporary.value?'临时模式':'本地演示'}}</span></div></div>
       <div class="q-header-actions">
         <button class="q-user q-quiet" type="button" title="使用说明" @click="helpVisible = true"><span class="q-avatar">林</span><span>林予安</span><TableIcon name="info" :size="14"/></button>
         <ToolStrip overflow="wrap" :tools="tools.page" :layout="toolbarLayout.page" :gap="toolbarLayout.gap" more-label="更多页面操作" button-class="q-btn" icon-button-class="q-icon-btn" menu-class="q-popup q-page-menu" style="--bt-tool-menu-width:250px" />
       </div>
     </header>
 
-    <BusinessTable ref="table" class="q-main-card" title="报价列表" :features="features" query-summary :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :conditional-formatting="quotationConditionalFormatting" :grouping="quotationGrouping" :compare="quotationCompare" :range-selection="quotationRangeSelection" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 10, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @selection-change="selectedRows = $event" @cell-action="event=>event.action==='open'&&showQuotation('view',event.row)">
+    <BusinessTable ref="table" class="q-main-card" title="报价列表" :presentation="presentation" :features="features" query-summary :settings-definition="settingsDefinition" :tools="tools" :search-definition="searchDefinition" :conditional-formatting="quotationConditionalFormatting" :grouping="quotationGrouping" :compare="quotationCompare" :range-selection="quotationRangeSelection" :table-key="tableKey" row-key="id" :columns="quotationColumns" :data-source="source" :persistence="persistence" :actions="actions" :selection="selectionVisible" :fill="true" :density="density" :pagination="{ pageSize: 10, pageSizeOptions: [10, 25, 50, 100] }" @query-change="query = $event" @selection-change="selectedRows = $event" @cell-action="event=>event.action==='open'&&showQuotation('view',event.row)">
       <template #before="{ search: searchContext }">
         <div v-if="repository.externalChanged.value" class="q-storage-notice" role="status">数据已在其他页面更新。<button class="q-link" @click="refresh">刷新列表</button></div>
         <form v-if="searchVisible && searchContext" class="q-search-panel" aria-label="报价查询" @submit.prevent="submitSearch">
@@ -191,7 +190,7 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
             <div class="q-search-field"><label for="quotation-keyword">关键词</label><div class="q-input-icon"><TableIcon name="search"/><input id="quotation-keyword" :value="searchContext.getValue('keyword') ?? ''" type="search" maxlength="100" placeholder="报价编号 / 项目 / 客户" autocomplete="off" @input="changeSearch('keyword', $event)"/></div></div>
             <div class="q-search-field"><label for="quotation-customer">客户</label><select id="quotation-customer" :value="searchContext.getValue('customer') ?? ''" @change="changeSearch('customer', $event)"><option value="">全部客户</option><option v-for="customer in customers" :key="customer">{{ customer }}</option></select></div>
             <div class="q-search-field"><label for="quotation-status">状态</label><select id="quotation-status" :value="searchContext.getValue('status') ?? ''" @change="changeSearch('status', $event)"><option value="">全部状态</option><option v-for="option in searchContext.items.find(item=>item.id==='status')?.options??[]" :key="String(option.value)" :value="option.value">{{ option.label }}</option></select></div>
-            <div class="q-search-actions"><button class="q-btn" type="button" @click="resetSearch">重置</button><button class="q-btn q-primary" type="submit">查询</button><button class="q-btn q-text" type="button" :aria-expanded="advanced" @click="advanced = !advanced">{{ advanced ? '收起' : '展开' }}<TableIcon :name="advanced ? 'chevron-up' : 'chevron-down'" :size="14"/></button></div>
+            <div class="q-search-actions"><button class="q-btn" type="button" @click="resetSearch">重置</button><button class="q-btn q-primary" type="submit" aria-label="查询">查询<SearchPendingIndicator :pending="queryPending"/></button><button class="q-btn q-text" type="button" :aria-expanded="advanced" @click="advanced = !advanced">{{ advanced ? '收起' : '展开' }}<TableIcon :name="advanced ? 'chevron-up' : 'chevron-down'" :size="14"/></button></div>
           </div>
           <div v-if="advanced" class="q-advanced-grid">
             <div class="q-search-field"><label for="quotation-region">大区</label><select id="quotation-region" :value="searchContext.getValue('region') ?? ''" @change="changeSearch('region', $event)"><option value="">全部大区</option><option v-for="region in regions" :key="region">{{ region }}</option></select></div>
@@ -209,7 +208,7 @@ onBeforeUnmount(() => { clearTimeout(toastTimer);repository.dispose() })
         </ToolStrip>
       </template>
 
-      <template #summary="{ total, page, pageSize }"><div class="q-result-summary"><span>共 {{ total }} 条 · 第 {{ total ? (page - 1) * pageSize + 1 : 0 }}–{{ Math.min(page * pageSize, total) }} 条</span><span class="q-summary-divider">·</span><span>{{selectedRows.length?'所选合计':'筛选合计'}}</span><strong>¥ {{ money(selectedRows.length?selectedAmount:totalAmount) }}</strong></div></template>
+      <template #summary="{ total, page, pageSize, summary }"><div class="q-result-summary"><span>共 {{ total }} 条 · 第 {{ total ? (page - 1) * pageSize + 1 : 0 }}–{{ Math.min(page * pageSize, total) }} 条</span><span v-if="summary.status!=='disabled'" class="q-summary-divider">·</span><SummaryResult :summary="summary"/></div></template>
     </BusinessTable>
 
     <footer class="q-page-note"><span>数据仅保存在当前浏览器，不会提交到服务器。</span><span>金额单位：人民币元</span></footer>

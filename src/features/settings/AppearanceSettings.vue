@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { Appearance } from '../presentation/model'
+import {computed} from 'vue'
+import type {ColumnConfig} from '../../types'
+import {isSummaryColumn} from '../summary/model'
 import FontSelect from '../../components/FontSelect.vue'
 import ColorSelect from '../../components/ColorSelect.vue'
 import SettingsSection from './SettingsSection.vue'
 import SettingsRange from './SettingsRange.vue'
-const props = defineProps<{ disabled?:boolean; modelValue: Appearance; pageSizes?: number[] }>()
+const props = defineProps<{ disabled?:boolean; modelValue: Appearance; pageSizes?: number[]; columns?: readonly ColumnConfig[] }>()
+const summaryColumns=computed(()=>(props.columns??[]).filter(isSummaryColumn))
 const emit = defineEmits<{ 'update:modelValue':[value:Appearance] }>()
 function patch(value: Partial<Appearance>) { if(props.disabled)return;emit('update:modelValue', { ...props.modelValue, ...value }) }
 </script>
@@ -25,6 +29,13 @@ function patch(value: Partial<Appearance>) { if(props.disabled)return;emit('upda
         <label class="bt-settings-field bt-settings-field--short"><span>表格边框</span><select aria-label="表格边框" :value="modelValue.border" @change="patch({border:($event.target as HTMLSelectElement).value as Appearance['border']})"><option value="horizontal">仅横线</option><option value="full">完整边框</option><option value="none">无边框</option></select></label>
         <label class="bt-settings-field bt-settings-field--short"><span>每页条数</span><select aria-label="默认每页条数" :value="modelValue.pageSize" @change="patch({pageSize:Number(($event.target as HTMLSelectElement).value)})"><option v-for="size in pageSizes??[10,25,50,100]" :key="size" :value="size">{{size}} 条</option></select></label>
       </div><div class="bt-settings-inline"><label v-for="option in ([{key:'stripe',label:'斑马纹'},{key:'index',label:'显示序号'},{key:'hover',label:'悬停高亮'}] as const)" :key="option.key" class="bt-settings-check"><input type="checkbox" :aria-label="option.label" :checked="modelValue[option.key]" @change="patch({[option.key]:($event.target as HTMLInputElement).checked})">{{option.label}}</label></div>
+    </SettingsSection>
+    <SettingsSection title="底部汇总" :disabled="disabled">
+      <div class="bt-settings-form">
+        <label class="bt-settings-check"><input type="checkbox" aria-label="启用底部汇总" :checked="modelValue.summaryEnabled" :disabled="disabled" @change="patch({summaryEnabled:($event.target as HTMLInputElement).checked})">启用底部汇总</label>
+        <label class="bt-settings-field"><span>汇总列</span><select aria-label="汇总列" :value="modelValue.summaryColumn" :disabled="disabled||!modelValue.summaryEnabled" @change="patch({summaryColumn:($event.target as HTMLSelectElement).value})"><option value="">请选择数值列</option><option v-for="column in summaryColumns" :key="column.id" :value="column.id">{{column.title}}</option></select></label>
+      </div>
+      <p class="bt-settings-note">汇总当前查询的全部记录；选择记录后汇总已选记录。</p>
     </SettingsSection>
   </div>
 </template>

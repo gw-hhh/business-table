@@ -23,6 +23,8 @@ afterEach(()=>{wrappers.splice(0).forEach(wrapper=>wrapper.unmount());document.b
 describe('settings parity interactions',()=>{
   it('defaults to the selected object, uses all columns for appearance, and only offers relevant sample selection',async()=>{
     const {wrapper}=setup();await flushPromises()
+    expect(button(wrapper,'展开预览').attributes('aria-expanded')).toBe('false')
+    await button(wrapper,'展开预览').trigger('click')
     const preview=()=>wrapper.get('[data-testid="settings-preview"]')
     expect(preview().get('header strong').text()).toBe('名称 · 预览')
     expect(preview().findAll('th').map(cell=>cell.text())).toEqual(['名称 ↕'])
@@ -33,6 +35,8 @@ describe('settings parity interactions',()=>{
   })
   it('keeps action and tool previews interactive without invoking business handlers',async()=>{
     const {wrapper,handler}=setup();await button(wrapper,'操作按钮').trigger('click');await flushPromises()
+    expect(button(wrapper,'展开预览').attributes('aria-expanded')).toBe('false')
+    await button(wrapper,'展开预览').trigger('click')
     const preview=()=>wrapper.get('[data-testid="settings-preview"]')
     expect(preview().get('header strong').text()).toBe('操作按钮预览')
     await preview().get('button[aria-label="查看"]').trigger('click');expect(handler).not.toHaveBeenCalled()

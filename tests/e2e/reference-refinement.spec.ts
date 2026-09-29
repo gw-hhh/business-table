@@ -4,7 +4,6 @@ import { test, expect } from './runtime'
 const legacyURL = 'http://127.0.0.1:4173/reference/legacy-v3.1/quotation-manager-v3.1/index.html'
 const comparisons: { name: string; old: string; current: string; properties: string[]; matchText?: string }[] = [
   { name: 'page title', old: '.page-title-row h1', current: '.q-title-row h1', properties: ['font-size', 'font-weight', 'color', 'letter-spacing', 'line-height'] },
-  { name: 'breadcrumb', old: '.breadcrumb', current: '.q-breadcrumb', properties: ['font-size', 'color', 'margin-bottom'] },
   { name: 'query label', old: 'label[for="filter-keyword"]', current: 'label[for="quotation-keyword"]', properties: ['font-size', 'color'] },
   { name: 'query input', old: '#filter-keyword', current: '#quotation-keyword', properties: ['height', 'font-size', 'color', 'border-color', 'border-radius', 'padding-left'] },
   { name: 'page button', old: '#export-button', current: '.q-header-actions button[aria-label="导出"]', properties: ['height', 'font-size', 'color', 'border-color', 'border-radius'] },
